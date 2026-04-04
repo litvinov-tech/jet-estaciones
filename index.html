@@ -135,6 +135,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* TOOLBAR ACTIVE */
 .tbtn.active{background:#005bff;color:white}
+
+/* LANG */
+.lang-btn{padding:3px 7px;border:none;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.45)}
+.lang-btn.active{background:rgba(255,255,255,0.25);color:white}
 </style>
 </head>
 <body>
@@ -159,12 +163,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </div>
 
 <!-- ====== MAIN APP ====== -->
-<div id="app" style="display:none">
+<div id="app" style="visibility:hidden">
   <div id="header">
     <div>
       <div id="logo">JET</div>
     </div>
     <div id="user-chip">
+      <div style="display:flex;gap:3px;margin-right:4px">
+        <button class="lang-btn active" data-lang="es" onclick="switchLang('es')">ES</button>
+        <button class="lang-btn" data-lang="ru" onclick="switchLang('ru')">RU</button>
+        <button class="lang-btn" data-lang="pt" onclick="switchLang('pt')">PT</button>
+      </div>
       <span id="badge">● Online</span>
       <span id="user-name">–</span>
       <button id="logout-btn" onclick="doLogout()" title="Cerrar sesión">⏏</button>
@@ -192,8 +201,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
   <div id="toolbar">
     <button class="tbtn" onclick="goGPS()">📍</button>
-    <button class="tbtn" onclick="openList()">📋 Lista</button>
-    <button class="tbtn" onclick="openTeam()">👥 Equipo</button>
+    <button class="tbtn" id="tb-list" onclick="openList()">📋 Lista</button>
+    <button class="tbtn" id="tb-team" onclick="openTeam()">👥 Equipo</button>
     <button class="tbtn" id="bike-btn" onclick="toggleBikeLayer(this)">🚴 Ciclovías</button>
     <button class="tbtn" onclick="openImport()">📥</button>
     <button class="tbtn" onclick="exportData()">📤</button>
@@ -289,6 +298,176 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db   = firebase.firestore();
 
+// ==================== I18N ====================
+const LANGS = {
+  es: {
+    login:'Iniciar sesión', register:'Registrarse',
+    name_ph:'Tu nombre completo', email_ph:'Correo electrónico', pass_ph:'Contraseña',
+    online:'● Online', offline:'● Offline',
+    tb_list:'📋 Lista', tb_team:'👥 Equipo', tb_bike:'🚴 Ciclovías',
+    fab_gps:'Agregar aquí (GPS)', fab_map:'Elegir en mapa',
+    new_st:'➕ Nueva Estación', edit_st:'✏️ Editar Estación',
+    own_jet:'✅ Propia JET', competitor:'🔴 Competencia',
+    save:'💾 Guardar', update:'💾 Actualizar', saving:'Guardando...',
+    types:['Centro Comercial','Restaurante','Oficina','Residencial','Hotel','Gimnasio','Escuela','Parque','Salud','Otro'],
+    type_ph:'Seleccionar...', stations:'estaciones',
+    saved:'✅ Estación guardada', updated:'✅ Estación actualizada', deleted:'🗑 Eliminada',
+    gps_on:'GPS activo', gps_search:'buscando...', gps_off:'GPS off', gps_no:'sin GPS',
+    team_title:'👥 Equipo — Actividad', list_title:'📋 Estaciones JET',
+    import_title:'📥 Importar Estaciones', in_field:'● en campo',
+    del_confirm:'¿Eliminar esta estación?', logout_confirm:'¿Cerrar sesión?',
+    no_gps_warn:'⚠️ GPS no disponible. Espera o usa "Elegir en mapa"',
+    no_point:'⚠️ Coloca un punto en el mapa', no_name:'⚠️ Escribe un nombre',
+    no_type:'⚠️ Selecciona el tipo', conn_err:'⚠️ Error de conexión',
+    radius_hint:'Radio en metros (50 / 100 / 150 / 200):',
+    radius_tip:'m visible — toca de nuevo para ocultar',
+    bike_on:'🚴 Ciclovías activadas', bike_off:'🚴 Ciclovías ocultadas',
+    no_export:'⚠️ No hay estaciones', export_json:'📤 JSON exportado', export_csv:'📤 CSV exportado',
+    export_q:'exportar',
+    nearby_warn:'⚠️ Ya hay estaciones cerca:',
+    sv_lbl:'Dirección', valid:'✅ Ubicación válida para estación JET',
+    restricted:'⛔ ZONA RESTRINGIDA — no permite estaciones JET.',
+    offline_addr:'📶 Sin conexión — escribe la dirección manualmente',
+    map_banner:'👆 Toca el mapa para colocar el punto',
+    empty_list:'No hay estaciones.\nToca ＋ para agregar la primera.',
+    empty_team:'Aún no hay estaciones registradas.',
+    user_online:'en campo ahora', you:'Yo', stations_count:'estación',
+    imported_ok:'✅ Importadas:', duplicates:'duplicados omitidos',
+    import_err:'❌ Error al leer archivo:',no_records:'⚠️ No se encontraron registros válidos.',
+  },
+  ru: {
+    login:'Войти', register:'Регистрация',
+    name_ph:'Ваше полное имя', email_ph:'Электронная почта', pass_ph:'Пароль',
+    online:'● Онлайн', offline:'● Офлайн',
+    tb_list:'📋 Список', tb_team:'👥 Команда', tb_bike:'🚴 Велодорожки',
+    fab_gps:'Добавить здесь (GPS)', fab_map:'Выбрать на карте',
+    new_st:'➕ Новая парковка', edit_st:'✏️ Редактировать',
+    own_jet:'✅ Наша JET', competitor:'🔴 Конкурент',
+    save:'💾 Сохранить', update:'💾 Обновить', saving:'Сохранение...',
+    types:['Торговый центр','Ресторан','Офис','Жилой район','Отель','Фитнес-зал','Школа','Парк','Здравоохранение','Другое'],
+    type_ph:'Выбрать...', stations:'парковок',
+    saved:'✅ Парковка сохранена', updated:'✅ Парковка обновлена', deleted:'🗑 Удалено',
+    gps_on:'GPS активен', gps_search:'поиск...', gps_off:'GPS выкл', gps_no:'нет GPS',
+    team_title:'👥 Команда — Активность', list_title:'📋 Парковки JET',
+    import_title:'📥 Импорт парковок', in_field:'● в поле',
+    del_confirm:'Удалить эту парковку?', logout_confirm:'Выйти из аккаунта?',
+    no_gps_warn:'⚠️ GPS недоступен. Подождите или выберите на карте',
+    no_point:'⚠️ Укажите точку на карте', no_name:'⚠️ Введите название',
+    no_type:'⚠️ Выберите тип', conn_err:'⚠️ Ошибка подключения',
+    radius_hint:'Радиус в метрах (50 / 100 / 150 / 200):',
+    radius_tip:'м — нажмите снова чтобы скрыть',
+    bike_on:'🚴 Велодорожки включены', bike_off:'🚴 Велодорожки скрыты',
+    no_export:'⚠️ Нет парковок', export_json:'📤 JSON экспортирован', export_csv:'📤 CSV экспортирован',
+    export_q:'экспортировать',
+    nearby_warn:'⚠️ Рядом уже есть парковки:',
+    sv_lbl:'Адрес', valid:'✅ Место подходит для парковки JET',
+    restricted:'⛔ ЗАПРЕЩЁННАЯ ЗОНА — парковки JET запрещены.',
+    offline_addr:'📶 Нет сети — введите адрес вручную',
+    map_banner:'👆 Нажмите на карту чтобы поставить точку',
+    empty_list:'Парковок нет.\nНажмите ＋ чтобы добавить первую.',
+    empty_team:'Парковок ещё нет.',
+    user_online:'в поле сейчас', you:'Я', stations_count:'парковок',
+    imported_ok:'✅ Импортировано:', duplicates:'дублей пропущено',
+    import_err:'❌ Ошибка чтения файла:', no_records:'⚠️ Записей не найдено.',
+  },
+  pt: {
+    login:'Entrar', register:'Cadastrar',
+    name_ph:'Seu nome completo', email_ph:'E-mail', pass_ph:'Senha',
+    online:'● Online', offline:'● Offline',
+    tb_list:'📋 Lista', tb_team:'👥 Equipe', tb_bike:'🚴 Ciclovias',
+    fab_gps:'Adicionar aqui (GPS)', fab_map:'Escolher no mapa',
+    new_st:'➕ Nova Estação', edit_st:'✏️ Editar Estação',
+    own_jet:'✅ Própria JET', competitor:'🔴 Concorrente',
+    save:'💾 Salvar', update:'💾 Atualizar', saving:'Salvando...',
+    types:['Shopping','Restaurante','Escritório','Residencial','Hotel','Academia','Escola','Parque','Saúde','Outro'],
+    type_ph:'Selecionar...', stations:'estações',
+    saved:'✅ Estação salva', updated:'✅ Estação atualizada', deleted:'🗑 Removida',
+    gps_on:'GPS ativo', gps_search:'buscando...', gps_off:'GPS desligado', gps_no:'sem GPS',
+    team_title:'👥 Equipe — Atividade', list_title:'📋 Estações JET',
+    import_title:'📥 Importar Estações', in_field:'● em campo',
+    del_confirm:'Remover esta estação?', logout_confirm:'Sair da conta?',
+    no_gps_warn:'⚠️ GPS indisponível. Aguarde ou use "Escolher no mapa"',
+    no_point:'⚠️ Coloque um ponto no mapa', no_name:'⚠️ Escreva um nome',
+    no_type:'⚠️ Selecione o tipo', conn_err:'⚠️ Erro de conexão',
+    radius_hint:'Raio em metros (50 / 100 / 150 / 200):',
+    radius_tip:'m visível — toque novamente para ocultar',
+    bike_on:'🚴 Ciclovias ativadas', bike_off:'🚴 Ciclovias ocultadas',
+    no_export:'⚠️ Não há estações', export_json:'📤 JSON exportado', export_csv:'📤 CSV exportado',
+    export_q:'exportar',
+    nearby_warn:'⚠️ Já há estações próximas:',
+    sv_lbl:'Endereço', valid:'✅ Local válido para estação JET',
+    restricted:'⛔ ZONA RESTRITA — não permite estações JET.',
+    offline_addr:'📶 Sem conexão — escreva o endereço manualmente',
+    map_banner:'👆 Toque no mapa para colocar o ponto',
+    empty_list:'Sem estações.\nToque ＋ para adicionar a primeira.',
+    empty_team:'Ainda não há estações registradas.',
+    user_online:'em campo agora', you:'Eu', stations_count:'estação',
+    imported_ok:'✅ Importadas:', duplicates:'duplicatas ignoradas',
+    import_err:'❌ Erro ao ler arquivo:', no_records:'⚠️ Nenhum registro válido encontrado.',
+  }
+};
+
+function detectLang(){
+  const l = navigator.language.toLowerCase();
+  if(l.startsWith('ru')) return 'ru';
+  if(l.startsWith('pt')) return 'pt';
+  return 'es';
+}
+let lang = localStorage.getItem('jet_lang') || detectLang();
+function t(k){ return LANGS[lang]?.[k] ?? LANGS.es[k] ?? k; }
+
+function switchLang(l){
+  lang = l;
+  localStorage.setItem('jet_lang', l);
+  applyLang();
+}
+
+function applyLang(){
+  document.querySelectorAll('.lang-btn').forEach(b=>b.classList.toggle('active', b.dataset.lang===lang));
+  // Auth
+  const isReg = authMode==='reg';
+  const tabLogin = document.getElementById('tab-login');
+  const tabReg   = document.getElementById('tab-reg');
+  if(tabLogin) tabLogin.textContent = t('login');
+  if(tabReg)   tabReg.textContent   = t('register');
+  const authBtn = document.getElementById('auth-btn');
+  if(authBtn) authBtn.textContent = isReg ? t('register') : t('login');
+  const an = document.getElementById('auth-name');
+  if(an) an.placeholder = t('name_ph');
+  const ae = document.getElementById('auth-email');
+  if(ae) ae.placeholder = t('email_ph');
+  const ap = document.getElementById('auth-pass');
+  if(ap) ap.placeholder = t('pass_ph');
+  // Toolbar
+  const tbl = document.getElementById('tb-list');  if(tbl) tbl.textContent = t('tb_list');
+  const tbt = document.getElementById('tb-team');  if(tbt) tbt.textContent = t('tb_team');
+  const tbb = document.getElementById('bike-btn'); if(tbb && !tbb.classList.contains('active')) tbb.textContent = t('tb_bike');
+  // FAB labels
+  const fl = document.querySelectorAll('.fab-lbl');
+  if(fl[0]) fl[0].textContent = t('fab_gps');
+  // Own toggle
+  const op = document.getElementById('own-propia'); if(op) op.textContent = t('own_jet');
+  const oc = document.getElementById('own-comp');   if(oc) oc.textContent = t('competitor');
+  // Type select
+  const sel = document.getElementById('f-type');
+  if(sel){
+    const cur = sel.value;
+    sel.innerHTML = `<option value="">${t('type_ph')}</option>` +
+      t('types').map(tp=>`<option>${tp}</option>`).join('');
+    sel.value = cur;
+  }
+  // Counter
+  const cnt = document.getElementById('cnt');
+  const cntEl = document.getElementById('counter');
+  if(cntEl && cnt) cntEl.innerHTML = `📍 <span id="cnt">${cnt.textContent}</span> ${t('stations')}`;
+  // Map banner
+  const mb = document.getElementById('map-mode-banner');
+  if(mb) mb.textContent = t('map_banner');
+  // Modal titles (only if not currently set by openEdit/startAddMap etc)
+  const at = document.getElementById('add-title');
+  if(at && !editingId) at.textContent = t('new_st');
+}
+
 // ==================== CONSTANTS ====================
 const CENTER = [25.652, -100.370];
 const RESTRICTED = [
@@ -327,16 +506,16 @@ auth.onAuthStateChanged(user => {
   if(user){
     currentUser = user;
     document.getElementById('auth-screen').style.display = 'none';
-    document.getElementById('app').style.display = 'flex';
-    document.getElementById('app').style.flexDirection = 'column';
+    document.getElementById('app').style.visibility = 'visible';
     document.getElementById('user-name').textContent = user.displayName || user.email.split('@')[0];
-    setTimeout(() => map.invalidateSize(), 200);
+    map.invalidateSize();
+    applyLang();
     initRealtime();
     startGPSWatch();
   } else {
     currentUser = null;
     document.getElementById('auth-screen').style.display = 'flex';
-    document.getElementById('app').style.display = 'none';
+    document.getElementById('app').style.visibility = 'hidden';
     if(unsubStations) unsubStations();
     if(unsubLocations) unsubLocations();
     clearInterval(locationTimer); locationTimer = null;
@@ -397,7 +576,7 @@ function showAuthErr(msg){
 }
 
 function doLogout(){
-  if(confirm('¿Cerrar sesión?')) auth.signOut();
+  if(confirm(t('logout_confirm'))) auth.signOut();
 }
 
 // ==================== REALTIME ====================
@@ -426,19 +605,19 @@ function initRealtime(){
 
 // ==================== GPS ====================
 function startGPSWatch(){
-  if(!navigator.geolocation){ setGPSStatus('sin GPS','#dc3545'); return; }
-  setGPSStatus('buscando...','#ffc107');
+  if(!navigator.geolocation){ setGPSStatus(t('gps_no'),'#dc3545'); return; }
+  setGPSStatus(t('gps_search'),'#ffc107');
   navigator.geolocation.watchPosition(
     pos => {
       myLat = pos.coords.latitude; myLng = pos.coords.longitude;
       updateMyDot();
-      setGPSStatus('GPS activo','#28a745');
+      setGPSStatus(t('gps_on'),'#28a745');
       if(!locationTimer){
         shareMyLocation();
         locationTimer = setInterval(shareMyLocation, 15000);
       }
     },
-    () => setGPSStatus('GPS off','#dc3545'),
+    () => setGPSStatus(t('gps_off'),'#dc3545'),
     {enableHighAccuracy:true, maximumAge:5000, timeout:15000}
   );
 }
@@ -500,7 +679,7 @@ function goGPS(){
 
 // ==================== ADD FLOW ====================
 function startAddGPS(){
-  if(!myLat){ toast('⚠️  GPS no disponible. Espera o usa "Elegir en mapa"'); return; }
+  if(!myLat){ toast(t('no_gps_warn')); return; }
   addMode = false;
   document.getElementById('add-title').textContent = '📍 Nueva Estación (GPS)';
   document.getElementById('add-overlay').classList.add('on');
@@ -613,11 +792,11 @@ function setCap(btn,val){
 
 // ==================== SAVE ====================
 async function saveStation(){
-  if(!selCoords){ toast('⚠️  Coloca un punto en el mapa'); return; }
+  if(!selCoords){ toast(t('no_point')); return; }
   const name = document.getElementById('f-name').value.trim();
   const type = document.getElementById('f-type').value;
-  if(!name){ toast('⚠️  Escribe un nombre o referencia'); return; }
-  if(!type){ toast('⚠️  Selecciona el tipo'); return; }
+  if(!name){ toast(t('no_name')); return; }
+  if(!type){ toast(t('no_type')); return; }
   const photoEl = document.getElementById('photo-preview');
   const photo   = photoEl.style.display!=='none' ? photoEl.src : '';
   const btn = document.getElementById('save-btn');
@@ -636,11 +815,11 @@ async function saveStation(){
     };
     if(editingId){
       await db.collection('stations').doc(editingId).update(data);
-      toast('✅ Estación actualizada');
+      toast(t('updated'));
     } else {
       data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
       await db.collection('stations').add(data);
-      toast('✅ Estación guardada');
+      toast(t('saved'));
     }
     closeAdd();
   }catch(e){
@@ -718,11 +897,11 @@ function renderAll(){
 }
 
 async function delStation(docId){
-  if(!confirm('¿Eliminar esta estación?')) return;
+  if(!confirm(t('del_confirm'))) return;
   try{
     await db.collection('stations').doc(docId).delete();
     map.closePopup();
-    toast('🗑 Eliminada');
+    toast(t('deleted'));
   }catch(e){ toast('❌ '+e.message); }
 }
 
@@ -969,6 +1148,9 @@ window.addEventListener('offline',()=>{badge.style.background='#dc3545';badge.te
 
 // ==================== SERVICE WORKER ====================
 if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
+
+// Apply language on initial load
+applyLang();
 </script>
 </body>
 </html>
