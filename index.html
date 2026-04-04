@@ -122,6 +122,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .cleg-row{display:flex;align-items:center;gap:6px;margin-bottom:3px;overflow:hidden}
 .cleg-row:last-child{margin-bottom:0}
 .cleg-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+/* OWNERSHIP TOGGLE */
+.own-toggle{display:flex;gap:6px;margin-top:4px}
+.own-btn{flex:1;padding:10px;border:1.5px solid #e0e0e0;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;background:#fafafa;text-align:center}
+.own-btn.sel-propia{border-color:#28a745;background:#e8f5e9;color:#28a745}
+.own-btn.sel-competencia{border-color:#dc3545;background:#fde8e8;color:#dc3545}
+
+/* POPUP ACTIONS */
+.popup-actions{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap}
+.pa-btn{padding:5px 10px;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
+
+/* TOOLBAR ACTIVE */
+.tbtn.active{background:#005bff;color:white}
 </style>
 </head>
 <body>
@@ -178,11 +191,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 
   <div id="toolbar">
-    <button class="tbtn" onclick="goGPS()">📍 Centrar</button>
+    <button class="tbtn" onclick="goGPS()">📍</button>
     <button class="tbtn" onclick="openList()">📋 Lista</button>
     <button class="tbtn" onclick="openTeam()">👥 Equipo</button>
-    <button class="tbtn" onclick="openImport()">📥 Importar</button>
-    <button class="tbtn" onclick="exportData()">📤 Exportar</button>
+    <button class="tbtn" id="bike-btn" onclick="toggleBikeLayer(this)">🚴 Ciclovías</button>
+    <button class="tbtn" onclick="openImport()">📥</button>
+    <button class="tbtn" onclick="exportData()">📤</button>
   </div>
 </div>
 
@@ -193,6 +207,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <h2 id="add-title">➕ Nueva Estación</h2>
     <div id="zone-msg"></div>
     <div id="nearby-msg"></div>
+    <div class="fg">
+      <label>Tipo de estación *</label>
+      <div class="own-toggle">
+        <button class="own-btn sel-propia" id="own-propia" onclick="setOwn(this,'propia')">✅ Propia JET</button>
+        <button class="own-btn" id="own-comp" onclick="setOwn(this,'competencia')">🔴 Competencia</button>
+      </div>
+    </div>
     <div class="fg"><label>Coordenadas</label><input id="f-coords" readonly placeholder="Esperando ubicación..."></div>
     <div class="fg"><label>Dirección</label><input id="f-addr" placeholder="Detectando..."></div>
     <div class="fg">
@@ -284,12 +305,15 @@ let currentUser = null;
 let stations    = [];
 let myLat = null, myLng = null, myMarker = null;
 let tempPin = null, selCoords = null;
-let addMode = false, selCap = '';
+let addMode = false, selCap = '', selOwn = 'propia';
+let editingId = null; // docId when editing
 let unsubStations = null, unsubLocations = null;
 let locationTimer = null;
 let userMarkers   = {};  // uid → L.circleMarker
 let userColorMap  = {};  // uid → color index
 let filterUser    = null; // uid or null = all
+let radiusCircles = {}; // docId → L.circle
+let bikeLayer = null;
 
 // ==================== MAP ====================
 const map = L.map('map',{zoomControl:false}).setView(CENTER,15);
@@ -566,8 +590,16 @@ function resetForm(){
   document.getElementById('f-photo').value='';
   document.getElementById('zone-msg').innerHTML='';
   document.getElementById('nearby-msg').innerHTML='';
-  selCap='';
+  selCap=''; selOwn='propia'; editingId=null;
   document.querySelectorAll('.cap-btn').forEach(b=>b.classList.remove('sel'));
+  setOwn(document.getElementById('own-propia'),'propia');
+  document.getElementById('save-btn').textContent='💾 Guardar Estación';
+}
+
+function setOwn(btn, val){
+  selOwn = val;
+  document.getElementById('own-propia').className = 'own-btn' + (val==='propia'?' sel-propia':'');
+  document.getElementById('own-comp').className   = 'own-btn' + (val==='competencia'?' sel-competencia':'');
 }
 
 function setMsg(type,txt){
@@ -591,26 +623,61 @@ async function saveStation(){
   const btn = document.getElementById('save-btn');
   btn.disabled=true; btn.textContent='Guardando...';
   try{
-    await db.collection('stations').add({
-      name, type,
-      address:   document.getElementById('f-addr').value,
-      notes:     document.getElementById('f-notes').value,
-      capacity:  selCap,
-      lat:       selCoords.lat,
-      lng:       selCoords.lng,
+    const data = {
+      name, type, ownership: selOwn,
+      address:  document.getElementById('f-addr').value,
+      notes:    document.getElementById('f-notes').value,
+      capacity: selCap,
+      lat: selCoords.lat, lng: selCoords.lng,
       photo,
-      userId:    currentUser.uid,
-      userName:  currentUser.displayName || currentUser.email.split('@')[0],
-      date:      new Date().toLocaleDateString('es-MX'),
-      createdAt: firebase.firestore.FieldValue.serverTimestamp()
-    });
+      userId:   currentUser.uid,
+      userName: currentUser.displayName || currentUser.email.split('@')[0],
+      date:     new Date().toLocaleDateString('es-MX'),
+    };
+    if(editingId){
+      await db.collection('stations').doc(editingId).update(data);
+      toast('✅ Estación actualizada');
+    } else {
+      data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
+      await db.collection('stations').add(data);
+      toast('✅ Estación guardada');
+    }
     closeAdd();
-    toast('✅ Estación guardada');
   }catch(e){
-    toast('❌ Error al guardar: '+e.message);
+    toast('❌ Error: '+e.message);
   } finally {
     btn.disabled=false; btn.textContent='💾 Guardar Estación';
   }
+}
+
+function openEdit(docId){
+  const s = stations.find(st=>st._docId===docId);
+  if(!s) return;
+  map.closePopup();
+  editingId = docId;
+  addMode = false;
+  document.getElementById('add-title').textContent = '✏️ Editar Estación';
+  document.getElementById('save-btn').textContent = '💾 Actualizar Estación';
+  document.getElementById('add-overlay').classList.add('on');
+  resetForm();
+  editingId = docId; // resetForm clears it, set again
+  selCoords = {lat:s.lat, lng:s.lng};
+  document.getElementById('f-coords').value = `${s.lat.toFixed(6)}, ${s.lng.toFixed(6)}`;
+  document.getElementById('f-addr').value  = s.address||'';
+  document.getElementById('f-name').value  = s.name||'';
+  document.getElementById('f-notes').value = s.notes||'';
+  document.getElementById('f-type').value  = s.type||'';
+  setOwn(document.getElementById(s.ownership==='competencia'?'own-comp':'own-propia'), s.ownership||'propia');
+  if(s.capacity){
+    document.querySelectorAll('.cap-btn').forEach(b=>{if(b.textContent.replace('–','-')===s.capacity||b.getAttribute('onclick')?.includes(s.capacity)){b.classList.add('sel');}});
+    selCap = s.capacity;
+  }
+  if(s.photo){
+    const p=document.getElementById('photo-preview');
+    p.src=s.photo; p.style.display='block';
+    document.getElementById('photo-btn-txt').textContent='✅ Foto cargada — toca para cambiar';
+  }
+  placePin({lat:s.lat,lng:s.lng});
 }
 
 // ==================== RENDER ====================
@@ -618,19 +685,20 @@ function renderAll(){
   spotsGroup.clearLayers();
   const visible = filterUser ? stations.filter(s=>s.userId===filterUser) : stations;
   visible.forEach((s,i)=>{
-    const color = s.userId===currentUser?.uid ? '#28a745' : (userColorMap[s.userId]||'#28a745');
+    const isComp = s.ownership === 'competencia';
+    const color = isComp ? '#dc3545' : (s.userId===currentUser?.uid ? '#28a745' : (userColorMap[s.userId]||'#28a745'));
+    const shape = isComp
+      ? `<div style="background:${color};color:white;width:28px;height:28px;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;transform:rotate(45deg)"><span style="transform:rotate(-45deg)">${i+1}</span></div>`
+      : `<div style="background:${color};color:white;width:30px;height:30px;border-radius:50%;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${i+1}</div>`;
     const m = L.marker([s.lat,s.lng],{
-      icon:L.divIcon({
-        className:'',
-        html:`<div style="background:${color};color:white;width:30px;height:30px;border-radius:50%;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${i+1}</div>`,
-        iconSize:[30,30],iconAnchor:[15,15]
-      })
+      icon:L.divIcon({className:'',html:shape,iconSize:[30,30],iconAnchor:[15,15]})
     }).addTo(spotsGroup);
     const photoHtml = s.photo ? `<img src="${s.photo}" style="width:100%;border-radius:6px;margin:6px 0;max-height:110px;object-fit:cover">` : '';
     const capHtml   = s.capacity ? `<br><span style="font-size:11px;color:#28a745">🛴 ${s.capacity} scooters</span>` : '';
+    const ownBadge  = isComp ? `<span style="padding:1px 6px;border-radius:10px;font-size:11px;background:#fde8e8;color:#dc3545;margin-left:4px">Competencia</span>` : '';
     m.bindPopup(`
-      <div style="min-width:180px;font-family:system-ui">
-        <b style="font-size:14px">${s.name}</b>
+      <div style="min-width:190px;font-family:system-ui">
+        <b style="font-size:14px">${s.name}</b>${ownBadge}
         <span style="display:inline-block;padding:1px 6px;border-radius:10px;font-size:11px;background:#e8f0ff;color:#005bff;margin-left:4px">${s.type}</span>
         ${capHtml}
         <br><span style="font-size:11px;color:#888">${s.address||'—'}</span>
@@ -638,7 +706,12 @@ function renderAll(){
         <br><span style="font-size:11px;color:#005bff;font-weight:600">👤 ${s.userName||'—'}</span>
         <span style="font-size:11px;color:#aaa"> · ${s.date}</span>
         ${s.notes?`<br><span style="font-size:12px;color:#555">${s.notes}</span>`:''}
-        <br><button onclick="delStation('${s._docId}')" style="margin-top:8px;background:#fde8e8;color:#dc3545;border:none;border-radius:6px;padding:4px 12px;cursor:pointer;font-size:12px;font-weight:600">🗑 Eliminar</button>
+        <div class="popup-actions">
+          <button class="pa-btn" style="background:#e8f0ff;color:#005bff" onclick="openEdit('${s._docId}')">✏️ Editar</button>
+          <button class="pa-btn" style="background:#e8f5e9;color:#28a745" onclick="toggleRadius('${s._docId}',${s.lat},${s.lng})">⭕ Radio</button>
+          <button class="pa-btn" style="background:#f5f5f5;color:#333" onclick="openStreetView(${s.lat},${s.lng})">🌐 StreetView</button>
+          <button class="pa-btn" style="background:#fde8e8;color:#dc3545" onclick="delStation('${s._docId}')">🗑</button>
+        </div>
       </div>
     `);
   });
@@ -843,6 +916,43 @@ function exportData(){
 function esc(v){return (v||'').replace(/"/g,'""');}
 function today(){return new Date().toISOString().slice(0,10);}
 function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();}
+
+// ==================== BIKE LANE LAYER ====================
+function toggleBikeLayer(btn){
+  if(bikeLayer){
+    map.removeLayer(bikeLayer);
+    bikeLayer = null;
+    btn.classList.remove('active');
+    toast('🚴 Ciclovías ocultadas');
+  } else {
+    bikeLayer = L.tileLayer('https://tile.waymarkedtrails.org/cycling/{z}/{x}/{y}.png',{
+      maxZoom:19, opacity:0.7, attribution:'© Waymarked Trails'
+    }).addTo(map);
+    btn.classList.add('active');
+    toast('🚴 Ciclovías activadas');
+  }
+}
+
+// ==================== RADIUS ====================
+function toggleRadius(docId, lat, lng){
+  map.closePopup();
+  if(radiusCircles[docId]){
+    map.removeLayer(radiusCircles[docId]);
+    delete radiusCircles[docId];
+    return;
+  }
+  const r = parseInt(prompt('Radio en metros (50 / 100 / 150 / 200):', '100')) || 100;
+  radiusCircles[docId] = L.circle([lat,lng],{
+    radius: r, color:'#005bff', fillColor:'#005bff',
+    fillOpacity:0.08, weight:2, dashArray:'6,4'
+  }).addTo(map).bindTooltip(`${r}m`, {permanent:true, direction:'center', className:'radius-label'});
+  toast(`⭕ Radio ${r}m visible — toca de nuevo para ocultar`);
+}
+
+// ==================== STREET VIEW ====================
+function openStreetView(lat, lng){
+  window.open(`https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${lat},${lng}`, '_blank');
+}
 
 // ==================== TOAST ====================
 function toast(msg){
