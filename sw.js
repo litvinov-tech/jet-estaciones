@@ -1,24 +1,30 @@
-const CACHE = 'jet-v3';
-const ASSETS = ['./', './index.html', './manifest.json', './firebase-config.js'];
+const CACHE = 'jet-v4';
 
-self.addEventListener('install', e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(ASSETS)));
-  self.skipWaiting();
-});
+self.addEventListener('install', e => { self.skipWaiting(); });
 
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys().then(keys =>
     Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
   ));
+  self.clients.claim();
 });
 
 self.addEventListener('fetch', e => {
   const url = e.request.url;
-  if(url.includes('firestore') || url.includes('firebase') || url.includes('nominatim')){
-    e.respondWith(fetch(e.request).catch(() => new Response('', {status:503})));
+  // Always network-first for HTML and external APIs
+  if(url.includes('.html') || url.includes('firestore') || url.includes('firebase') ||
+     url.includes('nominatim') || url.includes('openstreetmap')){
+    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
     return;
   }
+  // Cache-first for static assets (CSS, JS libraries, icons)
   e.respondWith(
-    caches.match(e.request).then(r => r || fetch(e.request).catch(() => caches.match('./index.html')))
+    caches.match(e.request).then(r => r || fetch(e.request).then(res => {
+      if(res.ok){
+        const clone = res.clone();
+        caches.open(CACHE).then(c => c.put(e.request, clone));
+      }
+      return res;
+    }))
   );
 });
