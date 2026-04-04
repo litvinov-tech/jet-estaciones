@@ -1,4 +1,4 @@
-const CACHE = 'jet-v2';
+const CACHE = 'jet-v3';
 const ASSETS = ['./', './index.html', './manifest.json', './firebase-config.js'];
 
 self.addEventListener('install', e => {
