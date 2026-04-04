@@ -28,10 +28,10 @@
 // ============================================================
 
 const firebaseConfig = {
-  apiKey:            "TU_API_KEY",
-  authDomain:        "TU_PROYECTO.firebaseapp.com",
-  projectId:         "TU_PROYECTO_ID",
-  storageBucket:     "TU_PROYECTO.appspot.com",
-  messagingSenderId: "TU_SENDER_ID",
-  appId:             "TU_APP_ID"
+  apiKey:            "AIzaSyAhx3ZJA5QoMEdUHhOq3JhYsw-AThrjDnE",
+  authDomain:        "jet-estaciones.firebaseapp.com",
+  projectId:         "jet-estaciones",
+  storageBucket:     "jet-estaciones.firebasestorage.app",
+  messagingSenderId: "510750186700",
+  appId:             "1:510750186700:web:c59f489b2a9ebe5ebd3669"
 };
