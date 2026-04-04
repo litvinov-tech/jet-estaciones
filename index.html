@@ -116,6 +116,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .role-admin{background:#e8f0ff;color:#005bff}
 .role-user{background:#f5f5f5;color:#888}
 .role-disabled{background:#fde8e8;color:#dc3545}
+.role-pending{background:#fff3cd;color:#856404}
 .req-row{padding:12px;background:#fafafa;border-radius:10px;margin-bottom:8px}
 .req-station{font-weight:700;font-size:13px;color:#0d0d1a}
 .req-reason{font-size:12px;color:#555;margin:4px 0}
@@ -164,6 +165,18 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 </style>
 </head>
 <body>
+
+<!-- ====== PENDING APPROVAL SCREEN ====== -->
+<div id="pending-screen" style="display:none;position:fixed;inset:0;background:#0d0d1a;z-index:9001;align-items:center;justify-content:center;padding:20px;flex-direction:column;text-align:center">
+  <div style="font-size:40px;margin-bottom:16px">⏳</div>
+  <div style="font-size:24px;font-weight:900;color:#005bff;margin-bottom:8px">JET</div>
+  <div style="color:white;font-size:18px;font-weight:700;margin-bottom:10px">Solicitud enviada</div>
+  <div style="color:rgba(255,255,255,0.6);font-size:14px;max-width:280px;line-height:1.5;margin-bottom:24px">
+    Tu registro está pendiente de aprobación.<br>El administrador revisará tu acceso en breve.
+  </div>
+  <div id="pending-email" style="color:rgba(255,255,255,0.4);font-size:12px;margin-bottom:24px"></div>
+  <button onclick="auth.signOut()" style="background:rgba(255,255,255,0.1);color:white;border:none;border-radius:10px;padding:12px 24px;font-size:14px;cursor:pointer">Cerrar sesión</button>
+</div>
 
 <!-- ====== AUTH SCREEN ====== -->
 <div id="auth-screen">
@@ -303,7 +316,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="tab-bar" id="admin-tabs" style="display:none">
       <button class="tab-btn active" id="ttab-team" onclick="showTeamTab('team')">👥 Equipo</button>
       <button class="tab-btn" id="ttab-req" onclick="showTeamTab('req')">🗑 Solicitudes<span class="req-badge" id="req-badge" style="display:none">0</span></button>
-      <button class="tab-btn" id="ttab-users" onclick="showTeamTab('users')">👤 Usuarios</button>
+      <button class="tab-btn" id="ttab-users" onclick="showTeamTab('users')">👤 Usuarios<span class="req-badge" id="pending-badge" style="display:none">0</span></button>
     </div>
     <div id="tc-team"><div id="team-content"></div></div>
     <div id="tc-req" style="display:none"><div id="req-content"><div class="empty">Sin solicitudes pendientes</div></div></div>
@@ -562,11 +575,18 @@ map.on('click', e => {
 });
 
 // ==================== AUTH ====================
-auth.onAuthStateChanged(user => {
+auth.onAuthStateChanged(async (user) => {
   if(user){
     currentUser = user;
     await loadUserRole();
     if(currentRole === 'disabled') return;
+    if(currentRole === 'pending'){
+      document.getElementById('auth-screen').style.display = 'none';
+      document.getElementById('pending-screen').style.display = 'flex';
+      document.getElementById('pending-email').textContent = user.email;
+      return;
+    }
+    document.getElementById('pending-screen').style.display = 'none';
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('app').style.visibility = 'visible';
     document.getElementById('user-name').textContent = user.displayName || user.email.split('@')[0];
@@ -614,9 +634,16 @@ async function doAuth(){
       if(!name){ showAuthErr('Escribe tu nombre'); return; }
       const cred = await auth.createUserWithEmailAndPassword(email, pass);
       await cred.user.updateProfile({displayName: name});
+      const role = email === ADMIN_EMAIL ? 'admin' : 'pending';
       await db.collection('users').doc(cred.user.uid).set({
-        name, email, role:'user', createdAt: firebase.firestore.FieldValue.serverTimestamp()
+        name, email, role, createdAt: firebase.firestore.FieldValue.serverTimestamp()
       });
+      if(role === 'pending'){
+        await db.collection('pendingNotifications').add({
+          type: 'newUser', name, email, uid: cred.user.uid,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp(), seen: false
+        });
+      }
     }
   } catch(e){
     const msgs = {
@@ -658,7 +685,7 @@ async function loadUserRole(){
         setTimeout(()=>auth.signOut(), 2000);
       }
     } else {
-      currentRole = currentUser.email === ADMIN_EMAIL ? 'admin' : 'user';
+      currentRole = currentUser.email === ADMIN_EMAIL ? 'admin' : 'pending';
       await db.collection('users').doc(currentUser.uid).set({
         name: currentUser.displayName || currentUser.email.split('@')[0],
         email: currentUser.email,
@@ -699,6 +726,13 @@ function initRealtime(){
       .onSnapshot(snap => {
         const cnt = snap.size;
         const badge = document.getElementById('req-badge');
+        if(badge){ badge.textContent=cnt; badge.style.display=cnt?'inline':'none'; }
+      });
+    // Pending users listener
+    db.collection('users').where('role','==','pending')
+      .onSnapshot(snap => {
+        const cnt = snap.size;
+        const badge = document.getElementById('pending-badge');
         if(badge){ badge.textContent=cnt; badge.style.display=cnt?'inline':'none'; }
       });
   }
@@ -1232,16 +1266,18 @@ async function renderUsersTab(){
   if(snap.empty){ el.innerHTML='<div class="empty">Sin usuarios registrados</div>'; return; }
   el.innerHTML = snap.docs.map(doc=>{
     const u = doc.data(); const uid = doc.id;
-    const roleLabel = {'admin':'Admin','user':'Usuario','disabled':'Bloqueado'}[u.role]||'Usuario';
-    const roleClass = {'admin':'role-admin','user':'role-user','disabled':'role-disabled'}[u.role]||'role-user';
+    const roleLabel = {'admin':'Admin','user':'Usuario','disabled':'Bloqueado','pending':'Pendiente'}[u.role]||'Usuario';
+    const roleClass = {'admin':'role-admin','user':'role-user','disabled':'role-disabled','pending':'role-pending'}[u.role]||'role-user';
     const isMe = uid === currentUser.uid;
-    return `<div class="user-row">
+    const isPending = u.role === 'pending';
+    return `<div class="user-row" style="${isPending?'border-left:3px solid #ffc107;background:#fffbf0':''}">
       <div class="user-info">
         <div class="user-nm">${u.name||'—'} ${isMe?'<span style="color:#005bff;font-size:10px">(yo)</span>':''}
           <span class="role-pill ${roleClass}">${roleLabel}</span>
         </div>
         <div class="user-stat">${u.email}</div>
         ${!isMe ? `<div class="role-btns">
+          ${isPending ? `<button class="rbtn" style="background:#28a745;color:white" onclick="setUserRole('${uid}','user')">✅ Aprobar</button>` : ''}
           <button class="rbtn rbtn-admin" onclick="setUserRole('${uid}','admin')">👑 Admin</button>
           <button class="rbtn rbtn-user" onclick="setUserRole('${uid}','user')">👤 Usuario</button>
           <button class="rbtn rbtn-block" onclick="setUserRole('${uid}','disabled')">🚫 Bloquear</button>
