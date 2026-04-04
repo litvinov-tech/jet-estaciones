@@ -736,11 +736,32 @@ function dist(a,b,c,d){
     Math.sqrt(1-(Math.sin(dA/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dB/2)**2)));
 }
 
+// Nominatim amenity/shop/tourism → our type
+function guessType(a){
+  const am = (a.amenity||'').toLowerCase();
+  const sh = (a.shop||'').toLowerCase();
+  const to = (a.tourism||'').toLowerCase();
+  const le = (a.leisure||'').toLowerCase();
+  const bu = (a.building||'').toLowerCase();
+  const of = (a.office||'').toLowerCase();
+  const types = t('types'); // current lang array
+  if(['restaurant','fast_food','food_court','cafe','bar'].includes(am))   return types[1]; // Restaurante
+  if(['hospital','clinic','pharmacy','doctors','dentist'].includes(am))   return types[8]; // Salud
+  if(['school','university','college','kindergarten'].includes(am))       return types[6]; // Escuela
+  if(am==='gym'||le==='fitness_centre'||le==='sports_centre')             return types[5]; // Gimnasio
+  if(['hotel','motel','hostel','guest_house'].includes(am)||to==='hotel') return types[4]; // Hotel
+  if(['park','garden'].includes(le)||am==='park')                         return types[7]; // Parque
+  if(['mall','supermarket','department_store'].includes(sh)||bu==='mall') return types[0]; // Centro Comercial
+  if(of||bu==='office'||am==='office')                                    return types[2]; // Oficina
+  if(['apartments','residential'].includes(bu)||am==='residential')      return types[3]; // Residencial
+  return '';
+}
+
 async function reverseGeo(ll){
   const el = document.getElementById('f-addr');
   el.value='Detectando...'; el.setAttribute('readonly','');
   try{
-    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${ll.lat}&lon=${ll.lng}&format=json`);
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${ll.lat}&lon=${ll.lng}&format=json&namedetails=1`);
     const d = await r.json();
     const a = d.address||{};
     const road   = a.road||a.pedestrian||a.path||'';
@@ -748,17 +769,32 @@ async function reverseGeo(ll){
     const city   = a.city||a.town||a.municipality||'';
     el.value = [road,suburb,city].filter(Boolean).join(', ')||'Dirección no encontrada';
     el.removeAttribute('readonly');
+
+    // Auto-fill name if empty
+    const nameEl = document.getElementById('f-name');
+    if(!nameEl.value.trim()){
+      const placeName = d.name || d.namedetails?.name || a.amenity || a.shop || a.tourism || '';
+      if(placeName) nameEl.value = placeName;
+    }
+
+    // Auto-fill type if not selected
+    const typeEl = document.getElementById('f-type');
+    if(!typeEl.value){
+      const guessed = guessType(a);
+      if(guessed) typeEl.value = guessed;
+    }
+
     const restricted = road && RESTRICTED.some(s=>
       road.toLowerCase().includes(s.toLowerCase())||s.toLowerCase().includes(road.toLowerCase())
     );
     setMsg(restricted ? 'err' : 'ok', restricted
       ? `⛔ ZONA RESTRINGIDA — "${road}" no permite estaciones JET.`
-      : '✅ Ubicación válida para estación JET'
+      : t('valid')
     );
   }catch{
     el.value=''; el.removeAttribute('readonly');
     el.placeholder='Sin conexión — escribe manualmente';
-    setMsg('info','📶 Sin conexión — escribe la dirección manualmente');
+    setMsg('info', t('offline_addr'));
   }
 }
 
