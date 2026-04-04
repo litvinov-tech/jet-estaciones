@@ -189,13 +189,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
     <div id="fab-area">
       <div style="display:flex;align-items:center;gap:8px">
-        <div class="fab-lbl">Agregar aquí (GPS)</div>
+        <div class="fab-lbl" id="fab-lbl-gps">📍 Agregar en mi ubicación</div>
         <button id="fab-gps" onclick="startAddGPS()">＋</button>
       </div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <div style="font-size:11px;color:rgba(255,255,255,0.45)">Elegir en mapa</div>
-        <button id="fab-map" onclick="startAddMap()">🗺</button>
-      </div>
+      <div style="font-size:11px;color:rgba(255,255,255,0.55);text-align:right;margin-top:2px;padding-right:4px" id="fab-hint">o toca el mapa</div>
     </div>
   </div>
 
@@ -508,7 +505,14 @@ const map = L.map('map',{zoomControl:false}).setView(CENTER,15);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxZoom:19}).addTo(map);
 L.control.zoom({position:'bottomleft'}).addTo(map);
 const spotsGroup = L.layerGroup().addTo(map);
-map.on('click', e => { if(addMode) placePin(e.latlng); });
+map.on('click', e => {
+  if(document.querySelector('.overlay.on')) return; // modal open — ignore
+  addMode = true;
+  resetForm();
+  document.getElementById('add-title').textContent = t('new_st');
+  document.getElementById('add-overlay').classList.add('on');
+  placePin(e.latlng);
+});
 
 // ==================== AUTH ====================
 auth.onAuthStateChanged(user => {
@@ -773,15 +777,22 @@ async function reverseGeo(ll){
     // Auto-fill name if empty
     const nameEl = document.getElementById('f-name');
     if(!nameEl.value.trim()){
-      const placeName = d.name || d.namedetails?.name || a.amenity || a.shop || a.tourism || '';
-      if(placeName) nameEl.value = placeName;
+      const placeName = d.name
+        || a.amenity || a.shop || a.tourism || a.leisure
+        || a.building || a.office || '';
+      if(placeName && placeName.length > 2) nameEl.value = placeName;
     }
 
     // Auto-fill type if not selected
     const typeEl = document.getElementById('f-type');
     if(!typeEl.value){
       const guessed = guessType(a);
-      if(guessed) typeEl.value = guessed;
+      // find matching option regardless of language
+      if(guessed){
+        Array.from(typeEl.options).forEach(o => {
+          if(o.text === guessed) typeEl.value = o.value || o.text;
+        });
+      }
     }
 
     const restricted = road && RESTRICTED.some(s=>
