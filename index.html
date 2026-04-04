@@ -306,6 +306,7 @@ auth.onAuthStateChanged(user => {
     document.getElementById('app').style.display = 'flex';
     document.getElementById('app').style.flexDirection = 'column';
     document.getElementById('user-name').textContent = user.displayName || user.email.split('@')[0];
+    setTimeout(() => map.invalidateSize(), 200);
     initRealtime();
     startGPSWatch();
   } else {
