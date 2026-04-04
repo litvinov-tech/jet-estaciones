@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#0d0d1a">
+<link rel="manifest" href="manifest.json">
+<title>JET Estaciones</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#0d0d1a;height:100vh;overflow:hidden}
+
+  #app{height:100vh;display:flex;flex-direction:column}
+
+  /* HEADER */
+  #header{
+    background:#0d0d1a;color:white;
+    padding:10px 16px;
+    display:flex;align-items:center;justify-content:space-between;
+    z-index:1000;flex-shrink:0;
+  }
+  #header-left{display:flex;align-items:center;gap:10px}
+  #logo{font-size:22px;font-weight:900;color:#005bff;letter-spacing:-1px}
+  #header-sub{font-size:11px;opacity:0.5;margin-top:1px}
+  #badge{
+    padding:3px 10px;border-radius:20px;font-size:11px;font-weight:600;
+    background:#28a745;color:white;
+  }
+
+  /* MAP */
+  #map{flex:1;z-index:1}
+
+  /* COUNTER */
+  #counter{
+    position:absolute;top:66px;left:12px;
+    background:white;border-radius:8px;
+    padding:6px 12px;font-size:13px;font-weight:600;
+    z-index:1000;box-shadow:0 2px 8px rgba(0,0,0,0.2);
+    color:#0d0d1a;
+  }
+
+  /* LEGEND */
+  #legend{
+    position:absolute;top:66px;right:12px;
+    background:white;border-radius:8px;
+    padding:8px 10px;font-size:11px;
+    z-index:1000;box-shadow:0 2px 8px rgba(0,0,0,0.2);
+  }
+  .leg{display:flex;align-items:center;gap:6px;margin-bottom:3px}
+  .leg:last-child{margin-bottom:0}
+  .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+
+  /* GPS BTN */
+  #gps-btn{
+    position:absolute;bottom:170px;right:16px;
+    width:42px;height:42px;
+    background:white;border:none;border-radius:8px;
+    font-size:18px;cursor:pointer;z-index:1000;
+    box-shadow:0 2px 8px rgba(0,0,0,0.25);
+    display:flex;align-items:center;justify-content:center;
+  }
+
+  /* FAB */
+  #fab{
+    position:absolute;bottom:100px;right:16px;
+    width:54px;height:54px;
+    background:#005bff;color:white;border:none;
+    border-radius:50%;font-size:30px;cursor:pointer;
+    z-index:1000;box-shadow:0 4px 14px rgba(0,91,255,0.5);
+    display:flex;align-items:center;justify-content:center;
+    font-weight:300;
+  }
+
+  /* TOOLBAR */
+  #toolbar{
+    background:#1a1a2e;padding:10px 12px;
+    display:flex;gap:8px;flex-shrink:0;
+    border-top:1px solid rgba(255,255,255,0.05);
+  }
+  .tbtn{
+    flex:1;padding:10px 6px;border:none;border-radius:8px;
+    font-size:13px;font-weight:600;cursor:pointer;
+    display:flex;align-items:center;justify-content:center;gap:5px;
+  }
+  .tbtn-list{background:#2a2a3e;color:white}
+  .tbtn-export{background:#2a2a3e;color:white}
+
+  /* MODALS */
+  .overlay{
+    display:none;position:fixed;
+    inset:0;background:rgba(0,0,0,0.6);
+    z-index:2000;align-items:flex-end;
+  }
+  .overlay.on{display:flex}
+  .sheet{
+    background:white;border-radius:16px 16px 0 0;
+    padding:20px;width:100%;
+    max-height:85vh;overflow-y:auto;
+    position:relative;
+  }
+  .sheet h2{font-size:17px;font-weight:700;margin-bottom:14px;color:#0d0d1a}
+  .close{
+    position:absolute;top:14px;right:16px;
+    background:none;border:none;font-size:22px;
+    cursor:pointer;color:#999;
+  }
+
+  /* FORM */
+  .fg{margin-bottom:13px}
+  .fg label{display:block;font-size:12px;font-weight:600;color:#555;margin-bottom:4px;text-transform:uppercase;letter-spacing:0.3px}
+  .fg input,.fg select,.fg textarea{
+    width:100%;padding:10px 12px;
+    border:1.5px solid #e0e0e0;border-radius:8px;
+    font-size:15px;background:#fafafa;
+    -webkit-appearance:none;
+  }
+  .fg input:focus,.fg select:focus,.fg textarea:focus{
+    outline:none;border-color:#005bff;background:white;
+  }
+
+  /* ALERTS */
+  .warn{background:#fff3cd;border:1px solid #ffc107;border-radius:8px;padding:10px 13px;margin-bottom:12px;font-size:13px;color:#856404}
+  .err{background:#fde8e8;border:1px solid #dc3545;border-radius:8px;padding:10px 13px;margin-bottom:12px;font-size:13px;color:#721c24}
+  .ok{background:#e8f5e9;border:1px solid #28a745;border-radius:8px;padding:10px 13px;margin-bottom:12px;font-size:13px;color:#155724}
+
+  /* SAVE BTN */
+  #save-btn{
+    width:100%;padding:14px;background:#005bff;
+    color:white;border:none;border-radius:10px;
+    font-size:16px;font-weight:700;cursor:pointer;margin-top:4px;
+  }
+  #save-btn:active{background:#0047cc}
+
+  /* PHOTO */
+  #photo-preview{width:100%;border-radius:8px;margin-top:8px;display:none;max-height:200px;object-fit:cover}
+
+  /* LIST */
+  #spot-list{list-style:none}
+  #spot-list li{
+    padding:13px 0;border-bottom:1px solid #f0f0f0;
+    cursor:pointer;
+  }
+  #spot-list li:last-child{border-bottom:none}
+  #spot-list li:active{background:#f5f5f5}
+  .spot-name{font-weight:600;font-size:14px;color:#0d0d1a}
+  .spot-meta{font-size:12px;color:#888;margin-top:2px}
+  .spot-badge{
+    display:inline-block;padding:2px 8px;
+    border-radius:10px;font-size:11px;font-weight:600;
+    background:#e8f0ff;color:#005bff;margin-left:6px;
+  }
+  .del-btn{
+    float:right;background:#fde8e8;color:#dc3545;
+    border:none;border-radius:6px;padding:4px 10px;
+    font-size:12px;cursor:pointer;margin-top:2px;
+  }
+
+  /* EMPTY */
+  .empty{text-align:center;padding:40px 20px;color:#aaa;font-size:14px}
+
+  /* TOAST */
+  .toast{
+    position:fixed;bottom:120px;left:50%;
+    transform:translateX(-50%);
+    background:#0d0d1a;color:white;
+    padding:10px 20px;border-radius:20px;
+    font-size:14px;z-index:9999;
+    box-shadow:0 4px 12px rgba(0,0,0,0.3);
+    animation:fadeup 0.3s ease;
+  }
+  @keyframes fadeup{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
+  @keyframes pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.15)}}
+</style>
+</head>
+<body>
+
+<div id="app">
+  <div id="header">
+    <div id="header-left">
+      <div>
+        <div id="logo">JET</div>
+        <div id="header-sub">San Pedro Garza García</div>
+      </div>
+    </div>
+    <div id="badge">● Online</div>
+  </div>
+
+  <div style="position:relative;flex:1;display:flex;flex-direction:column">
+    <div id="map"></div>
+
+    <div id="counter">📍 <span id="cnt">0</span> estaciones</div>
+
+    <div id="legend">
+      <div class="leg"><div class="dot" style="background:#dc3545"></div>Restringido</div>
+      <div class="leg"><div class="dot" style="background:#28a745"></div>Estación JET</div>
+    </div>
+
+    <button id="gps-btn" onclick="goGPS()">📍</button>
+    <button id="fab" onclick="startAdd()">+</button>
+  </div>
+
+  <div id="toolbar">
+    <button class="tbtn tbtn-list" onclick="openList()">📋 Lista</button>
+    <button class="tbtn tbtn-export" onclick="exportCSV()">📤 Exportar</button>
+  </div>
+</div>
+
+<!-- ADD MODAL -->
+<div class="overlay" id="add-overlay">
+  <div class="sheet">
+    <button class="close" onclick="closeAdd()">✕</button>
+    <h2>➕ Nueva Estación</h2>
+    <div id="zone-msg"></div>
+    <div class="fg">
+      <label>Coordenadas</label>
+      <input id="f-coords" readonly placeholder="Toca el mapa para colocar el punto">
+    </div>
+    <div class="fg">
+      <label>Dirección</label>
+      <input id="f-addr" readonly placeholder="Se detecta automáticamente...">
+    </div>
+    <div class="fg">
+      <label>Nombre / Referencia *</label>
+      <input id="f-name" placeholder="Ej: Frente al Starbucks, Torre A...">
+    </div>
+    <div class="fg">
+      <label>Tipo de ubicación *</label>
+      <select id="f-type">
+        <option value="">Seleccionar...</option>
+        <option>Centro Comercial</option>
+        <option>Restaurante / Café</option>
+        <option>Corporativo / Oficinas</option>
+        <option>Residencial</option>
+        <option>Hotel</option>
+        <option>Gimnasio / Deporte</option>
+        <option>Escuela / Universidad</option>
+        <option>Parque / Recreación</option>
+        <option>Clínica / Hospital</option>
+        <option>Otro</option>
+      </select>
+    </div>
+    <div class="fg">
+      <label>Foto del lugar</label>
+      <input type="file" accept="image/*" capture="environment" id="f-photo" onchange="previewPic(this)">
+      <img id="photo-preview" src="" alt="preview">
+    </div>
+    <div class="fg">
+      <label>Notas</label>
+      <textarea id="f-notes" rows="2" placeholder="Observaciones..."></textarea>
+    </div>
+    <button id="save-btn" onclick="saveStation()">💾 Guardar Estación</button>
+  </div>
+</div>
+
+<!-- LIST MODAL -->
+<div class="overlay" id="list-overlay">
+  <div class="sheet">
+    <button class="close" onclick="closeOverlay('list-overlay')">✕</button>
+    <h2>📋 Estaciones JET</h2>
+    <ul id="spot-list"></ul>
+  </div>
+</div>
+
+<script>
+// ---- DATOS ----
+const CENTER = [25.652, -100.370];
+const RESTRICTED = [
+  "Alfonso Reyes","Lázaro Cárdenas","Doctor Ignacio Morones Prieto",
+  "Jerónimo Siller","Calzada del Valle","José Vasconcelos","San Pedro",
+  "Humberto Lobo","Eugenio Garza la Güera","Fuentes del Valle",
+  "Lomas del Valle","Manuel Gómez Morín","San Francisco",
+  "Las Sendas","Rogelio Cantú Gómez"
+];
+
+let stations = JSON.parse(localStorage.getItem('jet_stations')||'[]');
+let tempPin = null, selCoords = null, spotsGroup;
+let addMode = false;
+
+// ---- MAPA ----
+const map = L.map('map',{zoomControl:false}).setView(CENTER,15);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
+  attribution:'© OSM',maxZoom:19
+}).addTo(map);
+L.control.zoom({position:'bottomleft'}).addTo(map);
+spotsGroup = L.layerGroup().addTo(map);
+
+renderAll();
+
+map.on('click', e => {
+  if(addMode) placePin(e.latlng);
+});
+
+// ---- ADD FLOW ----
+function startAdd(){
+  addMode = true;
+  document.getElementById('add-overlay').classList.add('on');
+  resetForm();
+  setMsg('warn','👆 Toca el mapa para colocar el punto de la estación');
+}
+
+function placePin(ll){
+  if(tempPin) map.removeLayer(tempPin);
+  selCoords = ll;
+  document.getElementById('f-coords').value = `${ll.lat.toFixed(6)}, ${ll.lng.toFixed(6)}`;
+
+  tempPin = L.marker(ll,{
+    icon:L.divIcon({
+      className:'',
+      html:`<div style="
+        width:22px;height:22px;background:#005bff;
+        border-radius:50%;border:3px solid white;
+        box-shadow:0 2px 8px rgba(0,91,255,0.5);
+        animation:pulse 1s infinite;
+      "></div>`,
+      iconSize:[22,22],iconAnchor:[11,11]
+    }),
+    draggable:true
+  }).addTo(map);
+
+  tempPin.on('dragend', e => placePin(e.target.getLatLng()));
+  reverseGeo(ll);
+}
+
+async function reverseGeo(ll){
+  document.getElementById('f-addr').value = 'Detectando dirección...';
+  try{
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${ll.lat}&lon=${ll.lng}&format=json`);
+    const d = await r.json();
+    const a = d.address||{};
+    const road = a.road||a.pedestrian||a.path||'';
+    const suburb = a.suburb||a.neighbourhood||a.quarter||'';
+    const city = a.city||a.town||a.municipality||'';
+    document.getElementById('f-addr').value = [road,suburb,city].filter(Boolean).join(', ')||'Dirección no encontrada';
+
+    const restricted = road && RESTRICTED.some(s =>
+      road.toLowerCase().includes(s.toLowerCase()) ||
+      s.toLowerCase().includes(road.toLowerCase())
+    );
+    if(restricted){
+      setMsg('err',`⛔ ZONA RESTRINGIDA — "${road}" está en la lista de vialidades donde NO se permiten estaciones JET.`);
+    } else if(road) {
+      setMsg('ok','✅ Ubicación válida para estación JET');
+    }
+  }catch{
+    document.getElementById('f-addr').value = 'Sin conexión — escribe la dirección manualmente';
+    document.getElementById('f-addr').removeAttribute('readonly');
+  }
+}
+
+function closeAdd(){
+  addMode = false;
+  document.getElementById('add-overlay').classList.remove('on');
+  if(tempPin){map.removeLayer(tempPin);tempPin=null;}
+  selCoords=null;
+}
+
+function resetForm(){
+  ['f-coords','f-addr','f-name','f-notes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('f-type').value='';
+  document.getElementById('photo-preview').style.display='none';
+  document.getElementById('f-addr').setAttribute('readonly','');
+  document.getElementById('zone-msg').innerHTML='';
+}
+
+function setMsg(type,txt){
+  document.getElementById('zone-msg').innerHTML=`<div class="${type}">${txt}</div>`;
+}
+
+// ---- SAVE ----
+function saveStation(){
+  if(!selCoords){toast('⚠️  Selecciona una ubicación en el mapa');return;}
+  const name = document.getElementById('f-name').value.trim();
+  const type = document.getElementById('f-type').value;
+  if(!name){toast('⚠️  Escribe un nombre o referencia');return;}
+  if(!type){toast('⚠️  Selecciona el tipo de ubicación');return;}
+
+  const s = {
+    id: Date.now(),
+    name, type,
+    address: document.getElementById('f-addr').value,
+    notes: document.getElementById('f-notes').value,
+    lat: selCoords.lat,
+    lng: selCoords.lng,
+    date: new Date().toLocaleDateString('es-MX'),
+  };
+
+  stations.push(s);
+  localStorage.setItem('jet_stations',JSON.stringify(stations));
+  renderAll();
+  closeAdd();
+  toast('✅ Estación guardada');
+}
+
+// ---- RENDER ----
+function renderAll(){
+  spotsGroup.clearLayers();
+  stations.forEach((s,i)=>{
+    const m = L.marker([s.lat,s.lng],{
+      icon:L.divIcon({
+        className:'',
+        html:`<div style="
+          background:#28a745;color:white;
+          width:30px;height:30px;border-radius:50%;
+          border:2px solid white;
+          box-shadow:0 2px 8px rgba(0,0,0,0.3);
+          display:flex;align-items:center;justify-content:center;
+          font-size:12px;font-weight:700;
+        ">${i+1}</div>`,
+        iconSize:[30,30],iconAnchor:[15,15]
+      })
+    }).addTo(spotsGroup);
+
+    m.bindPopup(`
+      <div style="min-width:160px;font-family:system-ui">
+        <b style="font-size:14px">${s.name}</b><br>
+        <span style="color:#005bff;font-size:12px">${s.type}</span><br>
+        <span style="font-size:11px;color:#666">${s.address}</span><br>
+        <span style="font-size:11px;color:#aaa">${s.date}</span><br>
+        <button onclick="delStation(${s.id})" style="
+          margin-top:8px;background:#fde8e8;color:#dc3545;
+          border:none;border-radius:6px;padding:4px 12px;
+          cursor:pointer;font-size:12px;font-weight:600;
+        ">🗑 Eliminar</button>
+      </div>
+    `);
+  });
+  document.getElementById('cnt').textContent = stations.length;
+}
+
+function delStation(id){
+  if(!confirm('¿Eliminar esta estación?')) return;
+  stations = stations.filter(s=>s.id!==id);
+  localStorage.setItem('jet_stations',JSON.stringify(stations));
+  renderAll();
+  map.closePopup();
+  toast('🗑 Estación eliminada');
+}
+
+// ---- LIST ----
+function openList(){
+  const ul = document.getElementById('spot-list');
+  if(!stations.length){
+    ul.innerHTML='<li class="empty">No hay estaciones guardadas aún.<br>Toca + para agregar la primera.</li>';
+  } else {
+    ul.innerHTML = stations.map((s,i)=>`
+      <li onclick="flyTo(${s.lat},${s.lng})">
+        <button class="del-btn" onclick="event.stopPropagation();delStation(${s.id})">✕</button>
+        <div class="spot-name">${i+1}. ${s.name}<span class="spot-badge">${s.type}</span></div>
+        <div class="spot-meta">${s.address||'—'} · ${s.date}</div>
+      </li>
+    `).join('');
+  }
+  document.getElementById('list-overlay').classList.add('on');
+}
+
+function flyTo(lat,lng){
+  closeOverlay('list-overlay');
+  map.flyTo([lat,lng],18);
+}
+
+function closeOverlay(id){
+  document.getElementById(id).classList.remove('on');
+}
+
+// ---- GPS ----
+function goGPS(){
+  if(!navigator.geolocation){toast('GPS no disponible');return;}
+  navigator.geolocation.getCurrentPosition(
+    p=>map.flyTo([p.coords.latitude,p.coords.longitude],17),
+    ()=>toast('❌ No se pudo obtener ubicación')
+  );
+}
+
+// ---- EXPORT ----
+function exportCSV(){
+  if(!stations.length){toast('⚠️  No hay estaciones para exportar');return;}
+  const head = 'ID,Nombre,Tipo,Dirección,Latitud,Longitud,Fecha,Notas\n';
+  const rows = stations.map(s=>`${s.id},"${s.name}","${s.type}","${s.address}",${s.lat},${s.lng},"${s.date}","${s.notes||''}"`).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([head+rows],{type:'text/csv'}));
+  a.download = `jet_estaciones_${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  toast('📤 CSV exportado');
+}
+
+// ---- PHOTO ----
+function previewPic(input){
+  if(input.files&&input.files[0]){
+    const r=new FileReader();
+    r.onload=e=>{
+      const p=document.getElementById('photo-preview');
+      p.src=e.target.result;p.style.display='block';
+    };
+    r.readAsDataURL(input.files[0]);
+  }
+}
+
+// ---- TOAST ----
+function toast(msg){
+  const t=document.createElement('div');
+  t.className='toast';t.textContent=msg;
+  document.body.appendChild(t);
+  setTimeout(()=>t.remove(),2800);
+}
+
+// ---- ONLINE/OFFLINE ----
+const badge=document.getElementById('badge');
+window.addEventListener('online',()=>{badge.style.background='#28a745';badge.textContent='● Online';});
+window.addEventListener('offline',()=>{badge.style.background='#dc3545';badge.textContent='● Offline';});
+
+// ---- SERVICE WORKER ----
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js');
+}
+</script>
+</body>
+</html>
