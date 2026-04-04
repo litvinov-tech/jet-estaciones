@@ -96,16 +96,38 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .empty{text-align:center;padding:40px 20px;color:#aaa;font-size:14px}
 
 /* TEAM / STATS */
-.user-row{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid #f0f0f0;cursor:pointer}
+.user-row{display:flex;align-items:center;gap:10px;padding:12px 0;border-bottom:1px solid #f0f0f0}
 .user-row:last-child{border-bottom:none}
-.user-dot{width:14px;height:14px;border-radius:50%;flex-shrink:0}
-.user-info{flex:1}
-.user-nm{font-weight:600;font-size:14px;color:#0d0d1a}
-.user-stat{font-size:12px;color:#888}
-.user-cnt{font-size:22px;font-weight:900;color:#005bff;min-width:32px;text-align:center}
+.user-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.user-info{flex:1;min-width:0}
+.user-nm{font-weight:600;font-size:13px;color:#0d0d1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.user-stat{font-size:11px;color:#888}
+.user-cnt{font-size:20px;font-weight:900;color:#005bff;min-width:28px;text-align:center}
 .filter-bar{display:flex;gap:6px;margin-bottom:12px;overflow-x:auto;padding-bottom:4px}
 .filter-btn{padding:6px 12px;border:1.5px solid #e0e0e0;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;background:white;white-space:nowrap}
 .filter-btn.active{border-color:#005bff;background:#005bff;color:white}
+
+/* ADMIN TABS */
+.tab-bar{display:flex;gap:4px;margin-bottom:14px;background:#f5f5f5;border-radius:10px;padding:4px}
+.tab-btn{flex:1;padding:8px 4px;border:none;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;background:transparent;color:#888;position:relative}
+.tab-btn.active{background:white;color:#0d0d1a;box-shadow:0 1px 4px rgba(0,0,0,0.12)}
+.req-badge{position:absolute;top:2px;right:4px;background:#dc3545;color:white;border-radius:10px;font-size:10px;padding:1px 5px;font-weight:700}
+.role-pill{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700;margin-left:4px}
+.role-admin{background:#e8f0ff;color:#005bff}
+.role-user{background:#f5f5f5;color:#888}
+.role-disabled{background:#fde8e8;color:#dc3545}
+.req-row{padding:12px;background:#fafafa;border-radius:10px;margin-bottom:8px}
+.req-station{font-weight:700;font-size:13px;color:#0d0d1a}
+.req-reason{font-size:12px;color:#555;margin:4px 0}
+.req-meta{font-size:11px;color:#aaa}
+.req-actions{display:flex;gap:6px;margin-top:8px}
+.btn-approve{flex:1;padding:8px;background:#28a745;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+.btn-reject{flex:1;padding:8px;background:#e0e0e0;color:#555;border:none;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer}
+.role-btns{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}
+.rbtn{padding:4px 8px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer}
+.rbtn-admin{background:#e8f0ff;color:#005bff}
+.rbtn-user{background:#f5f5f5;color:#555}
+.rbtn-block{background:#fde8e8;color:#dc3545}
 
 /* IMPORT */
 .import-area{border:2px dashed #ccc;border-radius:10px;padding:20px;text-align:center;color:#888;font-size:14px;cursor:pointer}
@@ -277,8 +299,30 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="overlay" id="team-overlay">
   <div class="sheet">
     <button class="close-btn" onclick="closeOverlay('team-overlay')">✕</button>
-    <h2>👥 Equipo — Actividad</h2>
-    <div id="team-content"></div>
+    <h2>👥 Equipo</h2>
+    <div class="tab-bar" id="admin-tabs" style="display:none">
+      <button class="tab-btn active" id="ttab-team" onclick="showTeamTab('team')">👥 Equipo</button>
+      <button class="tab-btn" id="ttab-req" onclick="showTeamTab('req')">🗑 Solicitudes<span class="req-badge" id="req-badge" style="display:none">0</span></button>
+      <button class="tab-btn" id="ttab-users" onclick="showTeamTab('users')">👤 Usuarios</button>
+    </div>
+    <div id="tc-team"><div id="team-content"></div></div>
+    <div id="tc-req" style="display:none"><div id="req-content"><div class="empty">Sin solicitudes pendientes</div></div></div>
+    <div id="tc-users" style="display:none"><div id="users-content"></div></div>
+  </div>
+</div>
+
+<!-- ====== DELETE REQUEST MODAL ====== -->
+<div class="overlay" id="del-req-overlay">
+  <div class="sheet">
+    <button class="close-btn" onclick="closeOverlay('del-req-overlay')">✕</button>
+    <h2>🗑 Solicitar eliminación</h2>
+    <p style="font-size:13px;color:#555;margin-bottom:14px">Estación: <b id="del-req-station"></b></p>
+    <div class="warn">Esta solicitud será revisada por el administrador antes de eliminarse.</div>
+    <div class="fg">
+      <label>Motivo *</label>
+      <textarea id="del-req-reason" rows="3" placeholder="¿Por qué se debe eliminar esta estación?"></textarea>
+    </div>
+    <button onclick="submitDeleteRequest()" style="width:100%;padding:13px;background:#dc3545;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px">📨 Enviar solicitud</button>
   </div>
 </div>
 
@@ -491,14 +535,17 @@ let stations    = [];
 let myLat = null, myLng = null, myMarker = null;
 let tempPin = null, selCoords = null;
 let addMode = false, selCap = '', selOwn = 'propia', selRadius2 = null;
-let editingId = null; // docId when editing
-let unsubStations = null, unsubLocations = null;
+let editingId = null;
+let unsubStations = null, unsubLocations = null, unsubDeleteReqs = null;
 let locationTimer = null;
-let userMarkers   = {};  // uid → L.circleMarker
-let userColorMap  = {};  // uid → color index
-let filterUser    = null; // uid or null = all
-let radiusCircles = {}; // docId → L.circle
+let userMarkers   = {};
+let userColorMap  = {};
+let filterUser    = null;
+let radiusCircles = {};
 let bikeLayer = null;
+let currentRole   = 'user'; // 'admin' | 'user' | 'disabled'
+let delReqDocId   = null;   // station docId pending delete request
+const ADMIN_EMAIL = 'litvinov@jetshr.com.br';
 
 // ==================== MAP ====================
 const map = L.map('map',{zoomControl:false}).setView(CENTER,15);
@@ -518,6 +565,8 @@ map.on('click', e => {
 auth.onAuthStateChanged(user => {
   if(user){
     currentUser = user;
+    await loadUserRole();
+    if(currentRole === 'disabled') return;
     document.getElementById('auth-screen').style.display = 'none';
     document.getElementById('app').style.visibility = 'visible';
     document.getElementById('user-name').textContent = user.displayName || user.email.split('@')[0];
@@ -531,7 +580,9 @@ auth.onAuthStateChanged(user => {
     document.getElementById('app').style.visibility = 'hidden';
     if(unsubStations) unsubStations();
     if(unsubLocations) unsubLocations();
+    if(unsubDeleteReqs) unsubDeleteReqs();
     clearInterval(locationTimer); locationTimer = null;
+    currentRole = 'user';
     Object.values(userMarkers).forEach(m=>map.removeLayer(m));
     userMarkers = {}; userColorMap = {};
     stations = []; renderAll();
@@ -592,6 +643,32 @@ function doLogout(){
   if(confirm(t('logout_confirm'))) auth.signOut();
 }
 
+async function loadUserRole(){
+  try{
+    const doc = await db.collection('users').doc(currentUser.uid).get();
+    if(doc.exists){
+      currentRole = doc.data().role || 'user';
+      // Force admin for owner
+      if(currentUser.email === ADMIN_EMAIL && currentRole !== 'admin'){
+        await db.collection('users').doc(currentUser.uid).update({role:'admin'});
+        currentRole = 'admin';
+      }
+      if(currentRole === 'disabled'){
+        toast('❌ Acceso desactivado. Contacta al administrador.');
+        setTimeout(()=>auth.signOut(), 2000);
+      }
+    } else {
+      currentRole = currentUser.email === ADMIN_EMAIL ? 'admin' : 'user';
+      await db.collection('users').doc(currentUser.uid).set({
+        name: currentUser.displayName || currentUser.email.split('@')[0],
+        email: currentUser.email,
+        role: currentRole,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+  }catch(e){ currentRole = currentUser.email===ADMIN_EMAIL?'admin':'user'; }
+}
+
 // ==================== REALTIME ====================
 function initRealtime(){
   unsubStations = db.collection('stations').orderBy('createdAt','desc')
@@ -614,6 +691,17 @@ function initRealtime(){
     });
     updateColleagueLegend();
   });
+
+  // Delete requests listener (admin only)
+  if(currentRole === 'admin'){
+    unsubDeleteReqs = db.collection('deleteRequests')
+      .where('status','==','pending')
+      .onSnapshot(snap => {
+        const cnt = snap.size;
+        const badge = document.getElementById('req-badge');
+        if(badge){ badge.textContent=cnt; badge.style.display=cnt?'inline':'none'; }
+      });
+  }
 }
 
 // ==================== GPS ====================
@@ -951,8 +1039,11 @@ function renderAll(){
         <div class="popup-actions">
           <button class="pa-btn" style="background:#e8f0ff;color:#005bff" onclick="openEdit('${s._docId}')">✏️ Editar</button>
           <button class="pa-btn" style="background:#e8f5e9;color:#28a745" onclick="toggleRadius('${s._docId}',${s.lat},${s.lng})">⭕ Radio</button>
-          <button class="pa-btn" style="background:#f5f5f5;color:#333" onclick="openStreetView(${s.lat},${s.lng})">🌐 StreetView</button>
-          <button class="pa-btn" style="background:#fde8e8;color:#dc3545" onclick="delStation('${s._docId}')">🗑</button>
+          <button class="pa-btn" style="background:#f5f5f5;color:#333" onclick="openStreetView(${s.lat},${s.lng})">🌐 Street</button>
+          ${currentRole==='admin'
+            ? `<button class="pa-btn" style="background:#fde8e8;color:#dc3545" onclick="delStation('${s._docId}')">🗑</button>`
+            : `<button class="pa-btn" style="background:#fff3cd;color:#856404" onclick="openDeleteRequest('${s._docId}','${s.name.replace(/'/g,"\\'")}')">🗑 Solicitar</button>`
+          }
         </div>
       </div>
     `);
@@ -1022,6 +1113,22 @@ function closeOverlay(id){
 
 // ==================== TEAM ====================
 function openTeam(){
+  document.getElementById('admin-tabs').style.display = currentRole==='admin' ? 'flex' : 'none';
+  showTeamTab('team');
+  document.getElementById('team-overlay').classList.add('on');
+}
+
+function showTeamTab(tab){
+  ['team','req','users'].forEach(t=>{
+    document.getElementById(`tc-${t}`).style.display = t===tab ? 'block' : 'none';
+    document.getElementById(`ttab-${t}`)?.classList.toggle('active', t===tab);
+  });
+  if(tab==='team') renderTeamTab();
+  if(tab==='req')  renderRequestsTab();
+  if(tab==='users') renderUsersTab();
+}
+
+function renderTeamTab(){
   const byUser = {};
   stations.forEach(s=>{
     if(!byUser[s.userId]) byUser[s.userId]={name:s.userName||'?',cnt:0};
@@ -1029,29 +1136,129 @@ function openTeam(){
   });
   const el = document.getElementById('team-content');
   const entries = Object.entries(byUser).sort((a,b)=>b[1].cnt-a[1].cnt);
-  if(!entries.length){
-    el.innerHTML='<div class="empty">Aún no hay estaciones registradas.</div>';
-  } else {
-    el.innerHTML = entries.map(([uid,info])=>{
-      const color = uid===currentUser.uid ? '#005bff' : (userColorMap[uid]||'#888');
-      const online = !!userMarkers[uid];
-      return `<div class="user-row" onclick="zoomToUser('${uid}')">
-        <div class="user-dot" style="background:${color}"></div>
-        <div class="user-info">
-          <div class="user-nm">${info.name}${uid===currentUser.uid?' (yo)':''}${online?' <span style="color:#28a745;font-size:10px">● en campo</span>':''}</div>
-          <div class="user-stat">${info.cnt} estación${info.cnt!==1?'es':''} registradas</div>
+  if(!entries.length){ el.innerHTML='<div class="empty">Aún no hay estaciones.</div>'; return; }
+  el.innerHTML = entries.map(([uid,info])=>{
+    const color = uid===currentUser.uid ? '#005bff' : (userColorMap[uid]||'#888');
+    const online = !!userMarkers[uid];
+    return `<div class="user-row" style="cursor:pointer" onclick="zoomToUser('${uid}')">
+      <div class="user-dot" style="background:${color}"></div>
+      <div class="user-info">
+        <div class="user-nm">${info.name}${uid===currentUser.uid?' (yo)':''}
+          ${online?'<span style="color:#28a745;font-size:10px"> ● en campo</span>':''}
         </div>
-        <div class="user-cnt">${info.cnt}</div>
-      </div>`;
-    }).join('');
-  }
-  document.getElementById('team-overlay').classList.add('on');
+        <div class="user-stat">${info.cnt} estaciones</div>
+      </div>
+      <div class="user-cnt">${info.cnt}</div>
+    </div>`;
+  }).join('');
 }
 
 function zoomToUser(uid){
   const m = userMarkers[uid];
   if(m){ closeOverlay('team-overlay'); map.flyTo(m.getLatLng(),16); }
-  else toast('Este usuario no está activo en el mapa ahora');
+  else toast('Usuario no activo en el mapa ahora');
+}
+
+// ==================== ADMIN: DELETE REQUESTS ====================
+function openDeleteRequest(docId, stationName){
+  map.closePopup();
+  delReqDocId = docId;
+  document.getElementById('del-req-station').textContent = stationName;
+  document.getElementById('del-req-reason').value = '';
+  document.getElementById('del-req-overlay').classList.add('on');
+}
+
+async function submitDeleteRequest(){
+  const reason = document.getElementById('del-req-reason').value.trim();
+  if(!reason){ toast('⚠️ Escribe el motivo'); return; }
+  try{
+    await db.collection('deleteRequests').add({
+      stationId:   delReqDocId,
+      stationName: document.getElementById('del-req-station').textContent,
+      reason,
+      userId:      currentUser.uid,
+      userName:    currentUser.displayName || currentUser.email.split('@')[0],
+      status:      'pending',
+      createdAt:   firebase.firestore.FieldValue.serverTimestamp()
+    });
+    closeOverlay('del-req-overlay');
+    toast('📨 Solicitud enviada al administrador');
+  }catch(e){ toast('❌ '+e.message); }
+}
+
+async function renderRequestsTab(){
+  const el = document.getElementById('req-content');
+  el.innerHTML = '<span class="spinner"></span>';
+  const snap = await db.collection('deleteRequests').where('status','==','pending').orderBy('createdAt','desc').get();
+  if(snap.empty){ el.innerHTML='<div class="empty">Sin solicitudes pendientes ✅</div>'; return; }
+  el.innerHTML = snap.docs.map(doc=>{
+    const r = doc.data();
+    const date = r.createdAt?.toDate().toLocaleDateString('es-MX') || '—';
+    return `<div class="req-row">
+      <div class="req-station">📍 ${r.stationName}</div>
+      <div class="req-reason">💬 "${r.reason}"</div>
+      <div class="req-meta">👤 ${r.userName} · ${date}</div>
+      <div class="req-actions">
+        <button class="btn-approve" onclick="approveDelete('${doc.id}','${r.stationId}')">✅ Aprobar y eliminar</button>
+        <button class="btn-reject" onclick="rejectDelete('${doc.id}')">✕ Rechazar</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function approveDelete(reqId, stationId){
+  if(!confirm('¿Confirmar eliminación de esta estación?')) return;
+  try{
+    await db.collection('stations').doc(stationId).delete();
+    await db.collection('deleteRequests').doc(reqId).update({status:'approved'});
+    toast('✅ Estación eliminada');
+    renderRequestsTab();
+  }catch(e){ toast('❌ '+e.message); }
+}
+
+async function rejectDelete(reqId){
+  try{
+    await db.collection('deleteRequests').doc(reqId).update({status:'rejected'});
+    toast('✕ Solicitud rechazada');
+    renderRequestsTab();
+  }catch(e){ toast('❌ '+e.message); }
+}
+
+// ==================== ADMIN: USER MANAGEMENT ====================
+async function renderUsersTab(){
+  const el = document.getElementById('users-content');
+  el.innerHTML = '<span class="spinner"></span>';
+  const snap = await db.collection('users').orderBy('createdAt','asc').get();
+  if(snap.empty){ el.innerHTML='<div class="empty">Sin usuarios registrados</div>'; return; }
+  el.innerHTML = snap.docs.map(doc=>{
+    const u = doc.data(); const uid = doc.id;
+    const roleLabel = {'admin':'Admin','user':'Usuario','disabled':'Bloqueado'}[u.role]||'Usuario';
+    const roleClass = {'admin':'role-admin','user':'role-user','disabled':'role-disabled'}[u.role]||'role-user';
+    const isMe = uid === currentUser.uid;
+    return `<div class="user-row">
+      <div class="user-info">
+        <div class="user-nm">${u.name||'—'} ${isMe?'<span style="color:#005bff;font-size:10px">(yo)</span>':''}
+          <span class="role-pill ${roleClass}">${roleLabel}</span>
+        </div>
+        <div class="user-stat">${u.email}</div>
+        ${!isMe ? `<div class="role-btns">
+          <button class="rbtn rbtn-admin" onclick="setUserRole('${uid}','admin')">👑 Admin</button>
+          <button class="rbtn rbtn-user" onclick="setUserRole('${uid}','user')">👤 Usuario</button>
+          <button class="rbtn rbtn-block" onclick="setUserRole('${uid}','disabled')">🚫 Bloquear</button>
+        </div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function setUserRole(uid, role){
+  const labels = {admin:'administrador', user:'usuario', disabled:'bloqueado'};
+  if(!confirm(`¿Cambiar este usuario a ${labels[role]}?`)) return;
+  try{
+    await db.collection('users').doc(uid).update({role});
+    toast(`✅ Rol actualizado: ${labels[role]}`);
+    renderUsersTab();
+  }catch(e){ toast('❌ '+e.message); }
 }
 
 // ==================== PHOTO ====================
