@@ -162,6 +162,52 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* LANG */
 .lang-btn{padding:3px 7px;border:none;border-radius:5px;font-size:10px;font-weight:700;cursor:pointer;background:rgba(255,255,255,0.1);color:rgba(255,255,255,0.45)}
 .lang-btn.active{background:rgba(255,255,255,0.25);color:white}
+
+/* ADMIN PANEL */
+#admin-panel-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:3000;align-items:flex-end}
+#admin-panel-overlay.on{display:flex}
+#admin-panel{background:white;border-radius:16px 16px 0 0;width:100%;height:92vh;display:flex;flex-direction:column;overflow:hidden}
+.ap-header{background:#0d0d1a;color:white;padding:14px 16px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;border-radius:16px 16px 0 0}
+.ap-title{font-size:16px;font-weight:800;color:white}
+.ap-close{background:rgba(255,255,255,0.1);border:none;color:white;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer}
+.ap-tabs{display:flex;gap:0;background:#f5f5f5;flex-shrink:0;border-bottom:1px solid #e0e0e0}
+.ap-tab{flex:1;padding:11px 4px;border:none;background:transparent;font-size:11px;font-weight:600;color:#888;cursor:pointer;position:relative;border-bottom:2px solid transparent}
+.ap-tab.active{color:#005bff;border-bottom-color:#005bff;background:white}
+.ap-badge{position:absolute;top:4px;right:4px;background:#dc3545;color:white;border-radius:10px;font-size:9px;padding:1px 4px;font-weight:700;display:none}
+.ap-body{flex:1;overflow-y:auto;padding:14px}
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.stat-card{border-radius:12px;padding:14px 12px;text-align:center}
+.stat-num{font-size:32px;font-weight:900;line-height:1}
+.stat-lbl{font-size:11px;color:#666;margin-top:4px}
+.ap-section{font-weight:700;font-size:13px;color:#0d0d1a;margin:14px 0 8px;display:flex;align-items:center;justify-content:space-between}
+.emp-row{display:flex;align-items:center;gap:10px;padding:10px;background:#fafafa;border-radius:10px;margin-bottom:6px}
+.emp-avatar{width:38px;height:38px;border-radius:50%;background:#e8f0ff;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:#005bff;flex-shrink:0}
+.emp-info{flex:1;min-width:0}
+.emp-name{font-weight:700;font-size:13px;color:#0d0d1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.emp-email{font-size:11px;color:#888;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.emp-meta{font-size:11px;color:#aaa;margin-top:1px}
+.emp-actions{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
+.ea-btn{padding:4px 8px;border:none;border-radius:6px;font-size:11px;font-weight:600;cursor:pointer}
+.req-card{background:#fafafa;border-radius:10px;padding:12px;margin-bottom:8px;border-left:3px solid #ffc107}
+.req-card.del-req{border-left-color:#dc3545}
+.req-card-title{font-weight:700;font-size:13px;color:#0d0d1a}
+.req-card-sub{font-size:12px;color:#555;margin:3px 0}
+.req-card-meta{font-size:11px;color:#aaa}
+.req-card-actions{display:flex;gap:6px;margin-top:8px}
+.act-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid #f5f5f5;cursor:pointer}
+.act-row:last-child{border-bottom:none}
+.act-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;background:#28a745}
+.act-dot.comp{background:#dc3545}
+.act-info{flex:1;min-width:0}
+.act-name{font-size:13px;font-weight:600;color:#0d0d1a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.act-meta{font-size:11px;color:#888}
+.act-who{font-size:11px;color:#005bff;font-weight:600}
+.ratio-bar{height:8px;border-radius:4px;background:#fde8e8;overflow:hidden;margin:6px 0 10px}
+.ratio-fill{height:100%;background:#28a745;border-radius:4px;transition:width 0.5s}
+.city-row{display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid #f5f5f5}
+.city-row:last-child{border-bottom:none}
+.city-bar-wrap{flex:1;height:6px;background:#f0f0f0;border-radius:3px;overflow:hidden}
+.city-bar{height:100%;background:#005bff;border-radius:3px}
 </style>
 </head>
 <body>
@@ -209,6 +255,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <button class="lang-btn" data-lang="ru" onclick="switchLang('ru')">RU</button>
         <button class="lang-btn" data-lang="pt" onclick="switchLang('pt')">PT</button>
       </div>
+      <button id="admin-notify-btn" onclick="openAdminPanel()" style="display:none;position:relative;background:none;border:none;cursor:pointer;padding:2px 4px">
+        <span style="font-size:18px">🔔</span>
+        <span id="admin-notify-count" style="position:absolute;top:-2px;right:-2px;background:#dc3545;color:white;border-radius:10px;font-size:10px;padding:1px 5px;font-weight:700;min-width:16px;text-align:center">0</span>
+      </button>
       <span id="badge">● Online</span>
       <span id="user-name">–</span>
       <button id="logout-btn" onclick="doLogout()" title="Cerrar sesión">⏏</button>
@@ -227,6 +277,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <div class="fab-lbl" id="fab-lbl-gps">📍 Agregar en mi ubicación</div>
         <button id="fab-gps" onclick="startAddGPS()">＋</button>
       </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+        <div class="fab-lbl">Mostrar todas</div>
+        <button id="fab-map" onclick="fitAllMarkers()" title="Mostrar todas las estaciones">🗺</button>
+      </div>
       <div style="font-size:11px;color:rgba(255,255,255,0.55);text-align:right;margin-top:2px;padding-right:4px" id="fab-hint">o toca el mapa</div>
     </div>
   </div>
@@ -236,8 +290,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <button class="tbtn" id="tb-list" onclick="openList()">📋 Lista</button>
     <button class="tbtn" id="tb-team" onclick="openTeam()">👥 Equipo</button>
     <button class="tbtn" id="bike-btn" onclick="toggleBikeLayer(this)">🚴 Ciclovías</button>
-    <button class="tbtn" onclick="openImport()">📥</button>
-    <button class="tbtn" onclick="exportData()">📤</button>
+    <button class="tbtn" id="tb-import" onclick="openImport()">📥 Importar</button>
+    <button class="tbtn" id="tb-export" onclick="exportData()">📤 Exportar</button>
+    <button class="tbtn" id="tb-admin" onclick="openAdminPanel()" style="display:none;position:relative">🛡 Admin<span id="tb-admin-badge" style="position:absolute;top:2px;right:2px;background:#dc3545;color:white;border-radius:8px;font-size:9px;padding:1px 4px;font-weight:700;display:none">0</span></button>
   </div>
 </div>
 
@@ -317,10 +372,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <button class="tab-btn active" id="ttab-team" onclick="showTeamTab('team')">👥 Equipo</button>
       <button class="tab-btn" id="ttab-req" onclick="showTeamTab('req')">🗑 Solicitudes<span class="req-badge" id="req-badge" style="display:none">0</span></button>
       <button class="tab-btn" id="ttab-users" onclick="showTeamTab('users')">👤 Usuarios<span class="req-badge" id="pending-badge" style="display:none">0</span></button>
+      <button class="tab-btn" id="ttab-stats" onclick="showTeamTab('stats')">📊 Stats</button>
     </div>
     <div id="tc-team"><div id="team-content"></div></div>
     <div id="tc-req" style="display:none"><div id="req-content"><div class="empty">Sin solicitudes pendientes</div></div></div>
     <div id="tc-users" style="display:none"><div id="users-content"></div></div>
+    <div id="tc-stats" style="display:none"><div id="stats-content"></div></div>
   </div>
 </div>
 
@@ -336,6 +393,28 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <textarea id="del-req-reason" rows="3" placeholder="¿Por qué se debe eliminar esta estación?"></textarea>
     </div>
     <button onclick="submitDeleteRequest()" style="width:100%;padding:13px;background:#dc3545;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:4px">📨 Enviar solicitud</button>
+  </div>
+</div>
+
+<!-- ====== ADMIN PANEL ====== -->
+<div id="admin-panel-overlay">
+  <div id="admin-panel">
+    <div class="ap-header">
+      <div class="ap-title">🛡 Панель администратора</div>
+      <button class="ap-close" onclick="closeAdminPanel()">✕ Закрыть</button>
+    </div>
+    <div class="ap-tabs">
+      <button class="ap-tab active" id="aptab-dash"    onclick="showApTab('dash')">📊 Отчёт</button>
+      <button class="ap-tab"        id="aptab-emp"     onclick="showApTab('emp')">👥 Сотрудники<span class="ap-badge" id="ap-badge-emp">0</span></button>
+      <button class="ap-tab"        id="aptab-req"     onclick="showApTab('req')">📋 Заявки<span class="ap-badge" id="ap-badge-req">0</span></button>
+      <button class="ap-tab"        id="aptab-act"     onclick="showApTab('act')">⚡ Активность</button>
+    </div>
+    <div class="ap-body">
+      <div id="apc-dash"></div>
+      <div id="apc-emp"  style="display:none"></div>
+      <div id="apc-req"  style="display:none"></div>
+      <div id="apc-act"  style="display:none"></div>
+    </div>
   </div>
 </div>
 
@@ -597,6 +676,7 @@ auth.onAuthStateChanged(async (user) => {
   } else {
     currentUser = null;
     document.getElementById('auth-screen').style.display = 'flex';
+    document.getElementById('pending-screen').style.display = 'none';
     document.getElementById('app').style.visibility = 'hidden';
     if(unsubStations) unsubStations();
     if(unsubLocations) unsubLocations();
@@ -698,12 +778,32 @@ async function loadUserRole(){
 
 // ==================== REALTIME ====================
 function initRealtime(){
-  unsubStations = db.collection('stations').orderBy('createdAt','desc')
-    .onSnapshot(snap => {
+  const stationsQuery = db.collection('stations').orderBy('createdAt','desc');
+  unsubStations = stationsQuery.onSnapshot(snap => {
+      const wasEmpty = stations.length === 0;
       stations = snap.docs.map(d => ({...d.data(), _docId: d.id}));
       renderAll();
       document.getElementById('cnt').textContent = stations.length;
-    }, () => toast('⚠️ Error de conexión'));
+      // Auto-fit map when first stations load
+      if(wasEmpty && stations.length > 0){
+        const bounds = stations.map(s=>[s.lat,s.lng]).filter(p=>p[0]&&p[1]);
+        if(bounds.length === 1) map.setView(bounds[0], 16);
+        else if(bounds.length > 1) map.fitBounds(bounds, {padding:[40,40]});
+      }
+    }, err => {
+      console.error('Stations error:', err);
+      // Fallback: try without ordering
+      db.collection('stations').get().then(snap2 => {
+        stations = snap2.docs.map(d => ({...d.data(), _docId: d.id}));
+        renderAll();
+        document.getElementById('cnt').textContent = stations.length;
+        if(stations.length > 0){
+          const bounds = stations.map(s=>[s.lat,s.lng]).filter(p=>p[0]&&p[1]);
+          if(bounds.length === 1) map.setView(bounds[0], 16);
+          else if(bounds.length > 1) map.fitBounds(bounds, {padding:[40,40]});
+        }
+      }).catch(()=>toast('⚠️ Error de conexión — revisa reglas de Firestore'));
+    });
 
   unsubLocations = db.collection('locations').onSnapshot(snap => {
     snap.docChanges().forEach(ch => {
@@ -719,21 +819,45 @@ function initRealtime(){
     updateColleagueLegend();
   });
 
-  // Delete requests listener (admin only)
+  // Admin-only listeners
   if(currentRole === 'admin'){
+    // Show admin button in toolbar
+    document.getElementById('tb-admin').style.display = 'flex';
+
+    let pendingUsers = 0, pendingDelReqs = 0;
+
+    function updateAdminBadges(){
+      const total = pendingUsers + pendingDelReqs;
+      // Header bell
+      const nb = document.getElementById('admin-notify-btn');
+      const nc = document.getElementById('admin-notify-count');
+      if(nb && nc){ nc.textContent = total; nb.style.display = total>0?'inline-block':'none'; }
+      // Toolbar admin badge
+      const tb = document.getElementById('tb-admin-badge');
+      if(tb){ tb.textContent = total; tb.style.display = total>0?'inline':'none'; }
+      // Panel tabs badges
+      const bEmp = document.getElementById('ap-badge-emp');
+      if(bEmp){ bEmp.textContent = pendingUsers; bEmp.style.display = pendingUsers>0?'inline':'none'; }
+      const bReq = document.getElementById('ap-badge-req');
+      if(bReq){ bReq.textContent = pendingDelReqs; bReq.style.display = pendingDelReqs>0?'inline':'none'; }
+      // Old badges (team overlay)
+      const ob1 = document.getElementById('pending-badge');
+      if(ob1){ ob1.textContent = pendingUsers; ob1.style.display = pendingUsers>0?'inline':'none'; }
+      const ob2 = document.getElementById('req-badge');
+      if(ob2){ ob2.textContent = pendingDelReqs; ob2.style.display = pendingDelReqs>0?'inline':'none'; }
+    }
+
     unsubDeleteReqs = db.collection('deleteRequests')
       .where('status','==','pending')
       .onSnapshot(snap => {
-        const cnt = snap.size;
-        const badge = document.getElementById('req-badge');
-        if(badge){ badge.textContent=cnt; badge.style.display=cnt?'inline':'none'; }
+        pendingDelReqs = snap.size;
+        updateAdminBadges();
       });
-    // Pending users listener
+
     db.collection('users').where('role','==','pending')
       .onSnapshot(snap => {
-        const cnt = snap.size;
-        const badge = document.getElementById('pending-badge');
-        if(badge){ badge.textContent=cnt; badge.style.display=cnt?'inline':'none'; }
+        pendingUsers = snap.size;
+        updateAdminBadges();
       });
   }
 }
@@ -810,6 +934,13 @@ function setGPSStatus(txt,color){
 function goGPS(){
   if(myLat){ map.flyTo([myLat,myLng],17); }
   else toast('GPS no disponible aún...');
+}
+
+function fitAllMarkers(){
+  const pts = stations.map(s=>[s.lat,s.lng]).filter(p=>p[0]&&p[1]);
+  if(!pts.length){ toast('⚠️ Нет парковок / No hay estaciones'); return; }
+  if(pts.length===1) map.setView(pts[0],16);
+  else map.fitBounds(pts, {padding:[40,40]});
 }
 
 // ==================== ADD FLOW ====================
@@ -1145,6 +1276,297 @@ function closeOverlay(id){
   document.getElementById(id).classList.remove('on');
 }
 
+// ==================== ADMIN PANEL ====================
+function openAdminPanel(){
+  document.getElementById('admin-panel-overlay').classList.add('on');
+  showApTab('dash');
+}
+
+function closeAdminPanel(){
+  document.getElementById('admin-panel-overlay').classList.remove('on');
+}
+
+function showApTab(tab){
+  ['dash','emp','req','act'].forEach(t=>{
+    document.getElementById(`apc-${t}`).style.display = t===tab ? 'block' : 'none';
+    document.getElementById(`aptab-${t}`).classList.toggle('active', t===tab);
+  });
+  if(tab==='dash') renderApDash();
+  if(tab==='emp')  renderApEmployees();
+  if(tab==='req')  renderApRequests();
+  if(tab==='act')  renderApActivity();
+}
+
+async function renderApDash(){
+  const el = document.getElementById('apc-dash');
+  el.innerHTML = '<span class="spinner"></span>';
+  try {
+    const usersSnap = await db.collection('users').get();
+    const users = usersSnap.docs.map(d=>({...d.data(), uid: d.id}));
+    const activeUsers  = users.filter(u=>u.role==='user'||u.role==='admin');
+    const pendingUsers = users.filter(u=>u.role==='pending');
+    const delSnap = await db.collection('deleteRequests').where('status','==','pending').get();
+    const pendingDels  = delSnap.size;
+
+    const ownCount  = stations.filter(s=>s.ownership!=='competencia').length;
+    const compCount = stations.filter(s=>s.ownership==='competencia').length;
+    const ownPct    = stations.length ? Math.round(ownCount/stations.length*100) : 0;
+
+    // Cities
+    const cityMap = {};
+    stations.forEach(s=>{
+      const parts = (s.address||'').split(',').map(p=>p.trim()).filter(Boolean);
+      const city = parts[parts.length-1] || '—';
+      cityMap[city] = (cityMap[city]||0)+1;
+    });
+    const cities = Object.entries(cityMap).sort((a,b)=>b[1]-a[1]).slice(0,8);
+    const maxCity = cities[0]?.[1] || 1;
+
+    // Types
+    const typeMap = {};
+    stations.forEach(s=>{ typeMap[s.type||'Otro']=(typeMap[s.type||'Otro']||0)+1; });
+    const topTypes = Object.entries(typeMap).sort((a,b)=>b[1]-a[1]).slice(0,5);
+
+    el.innerHTML = `
+      <div class="stat-grid">
+        <div class="stat-card" style="background:#e8f0ff">
+          <div class="stat-num" style="color:#005bff">${stations.length}</div>
+          <div class="stat-lbl">📍 Всего парковок</div>
+        </div>
+        <div class="stat-card" style="background:#f5f5f5">
+          <div class="stat-num" style="color:#333">${activeUsers.length}</div>
+          <div class="stat-lbl">👤 Сотрудников</div>
+        </div>
+        <div class="stat-card" style="background:${pendingUsers.length?'#fff3cd':'#e8f5e9'}">
+          <div class="stat-num" style="color:${pendingUsers.length?'#856404':'#28a745'}">${pendingUsers.length}</div>
+          <div class="stat-lbl">⏳ Ждут одобрения</div>
+        </div>
+        <div class="stat-card" style="background:${pendingDels?'#fde8e8':'#e8f5e9'}">
+          <div class="stat-num" style="color:${pendingDels?'#dc3545':'#28a745'}">${pendingDels}</div>
+          <div class="stat-lbl">🗑 Заявки на удаление</div>
+        </div>
+      </div>
+
+      <div class="ap-section">✅ Наши JET vs 🔴 Конкуренты</div>
+      <div style="display:flex;justify-content:space-between;font-size:12px;color:#555;margin-bottom:4px">
+        <span>✅ JET: <b style="color:#28a745">${ownCount}</b></span>
+        <span>🔴 Конкур.: <b style="color:#dc3545">${compCount}</b></span>
+        <span><b>${ownPct}%</b> наших</span>
+      </div>
+      <div class="ratio-bar"><div class="ratio-fill" style="width:${ownPct}%"></div></div>
+
+      <div class="ap-section">📍 Парковки по городам</div>
+      ${cities.length ? cities.map(([city,cnt])=>`
+        <div class="city-row">
+          <div style="font-size:12px;color:#333;min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${city}</div>
+          <div class="city-bar-wrap"><div class="city-bar" style="width:${Math.round(cnt/maxCity*100)}%"></div></div>
+          <div style="font-size:12px;font-weight:700;color:#005bff;min-width:28px;text-align:right">${cnt}</div>
+        </div>`).join('') : '<div class="empty">Нет данных</div>'}
+
+      <div class="ap-section">🏢 По типу объекта</div>
+      ${topTypes.map(([type,cnt])=>`
+        <div class="city-row">
+          <div style="font-size:12px;color:#333;flex:1">${type}</div>
+          <div class="city-bar-wrap"><div class="city-bar" style="width:${Math.round(cnt/stations.length*100)}%;background:#9c27b0"></div></div>
+          <div style="font-size:12px;font-weight:700;color:#9c27b0;min-width:28px;text-align:right">${cnt}</div>
+        </div>`).join('')}
+
+      <div class="ap-section">👥 Активность сотрудников</div>
+      ${activeUsers.sort((a,b)=>{
+        const ca = stations.filter(s=>s.userId===a.uid).length;
+        const cb = stations.filter(s=>s.userId===b.uid).length;
+        return cb-ca;
+      }).map(u=>{
+        const cnt = stations.filter(s=>s.userId===u.uid).length;
+        return `<div class="city-row">
+          <div style="font-size:12px;color:#333;flex:1">${u.name||'—'}<span class="role-pill ${u.role==='admin'?'role-admin':'role-user'}" style="margin-left:4px">${u.role==='admin'?'Admin':'User'}</span></div>
+          <div class="city-bar-wrap"><div class="city-bar" style="width:${stations.length?Math.round(cnt/stations.length*100):0}%;background:#28a745"></div></div>
+          <div style="font-size:12px;font-weight:700;color:#28a745;min-width:28px;text-align:right">${cnt}</div>
+        </div>`;
+      }).join('')}
+    `;
+  } catch(e){
+    el.innerHTML = `<div class="err">❌ Ошибка загрузки: ${e.message}</div>`;
+  }
+}
+
+async function renderApEmployees(){
+  const el = document.getElementById('apc-emp');
+  el.innerHTML = '<span class="spinner"></span>';
+  try {
+    const snap = await db.collection('users').orderBy('createdAt','asc').get();
+    const users = snap.docs.map(d=>({...d.data(), uid: d.id}));
+    const pending = users.filter(u=>u.role==='pending');
+    const active  = users.filter(u=>u.role!=='pending');
+
+    const renderUser = (u, isPending) => {
+      const isMe = u.uid === currentUser.uid;
+      const stCnt = stations.filter(s=>s.userId===u.uid).length;
+      const joined = u.createdAt?.toDate().toLocaleDateString('ru-RU') || '—';
+      const initials = (u.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
+      const roleLabel = {admin:'Admin',user:'Сотрудник',disabled:'Заблокирован',pending:'Ожидает'}[u.role]||'—';
+      const roleClass = {admin:'role-admin',user:'role-user',disabled:'role-disabled',pending:'role-pending'}[u.role]||'role-user';
+      return `<div class="emp-row" style="${isPending?'border-left:3px solid #ffc107':''}">
+        <div class="emp-avatar">${initials}</div>
+        <div class="emp-info" style="flex:1;min-width:0">
+          <div class="emp-name">${u.name||'—'} ${isMe?'<span style="color:#888;font-size:10px">(я)</span>':''}
+            <span class="role-pill ${roleClass}">${roleLabel}</span>
+          </div>
+          <div class="emp-email">${u.email}</div>
+          <div class="emp-meta">📍 ${stCnt} парковок · Добавлен: ${joined}</div>
+          ${!isMe ? `<div class="emp-actions">
+            ${isPending ? `<button class="ea-btn" style="background:#28a745;color:white" onclick="apSetRole('${u.uid}','user',this)">✅ Одобрить</button>` : ''}
+            ${u.role!=='admin' ? `<button class="ea-btn rbtn-admin" onclick="apSetRole('${u.uid}','admin',this)">👑 Сделать админом</button>` : ''}
+            ${u.role!=='user' && !isPending ? `<button class="ea-btn rbtn-user" onclick="apSetRole('${u.uid}','user',this)">👤 Сотрудник</button>` : ''}
+            ${u.role!=='disabled' ? `<button class="ea-btn rbtn-block" onclick="apSetRole('${u.uid}','disabled',this)">🚫 Заблокировать</button>` : `<button class="ea-btn" style="background:#28a745;color:white" onclick="apSetRole('${u.uid}','user',this)">✅ Разблокировать</button>`}
+          </div>` : ''}
+        </div>
+        <div style="text-align:center;min-width:40px">
+          <div style="font-size:22px;font-weight:900;color:#005bff">${stCnt}</div>
+          <div style="font-size:9px;color:#aaa">парк.</div>
+        </div>
+      </div>`;
+    };
+
+    el.innerHTML = `
+      <div style="font-size:12px;color:#888;margin-bottom:10px">Всего: <b>${users.length}</b> пользователей · <b>${users.filter(u=>u.role==='admin'||u.role==='user').length}</b> активных</div>
+      ${pending.length ? `
+        <div class="ap-section" style="color:#856404">⏳ Ожидают одобрения (${pending.length})</div>
+        ${pending.map(u=>renderUser(u,true)).join('')}
+        <div class="ap-section">👥 Активные сотрудники</div>
+      ` : '<div class="ap-section">👥 Все сотрудники</div>'}
+      ${active.sort((a,b)=>stations.filter(s=>s.userId===b.uid).length - stations.filter(s=>s.userId===a.uid).length)
+              .map(u=>renderUser(u,false)).join('')}
+    `;
+  } catch(e){
+    el.innerHTML = `<div class="err">❌ ${e.message}</div>`;
+  }
+}
+
+async function apSetRole(uid, role, btn){
+  const labels = {admin:'администратором',user:'сотрудником',disabled:'заблокирован'};
+  if(!confirm(`Изменить пользователя: ${labels[role]}?`)) return;
+  btn.disabled = true; btn.textContent = '...';
+  try {
+    await db.collection('users').doc(uid).update({role});
+    toast(`✅ Роль изменена: ${labels[role]}`);
+    renderApEmployees();
+    renderUsersTab();
+  } catch(e){ toast('❌ '+e.message); btn.disabled=false; }
+}
+
+async function renderApRequests(){
+  const el = document.getElementById('apc-req');
+  el.innerHTML = '<span class="spinner"></span>';
+  try {
+    const [usersSnap, delSnap] = await Promise.all([
+      db.collection('users').where('role','==','pending').orderBy('createdAt','desc').get(),
+      db.collection('deleteRequests').where('status','==','pending').orderBy('createdAt','desc').get()
+    ]);
+
+    let html = '';
+
+    // Registration requests
+    html += `<div class="ap-section" style="color:#856404">⏳ Заявки на регистрацию (${usersSnap.size})</div>`;
+    if(usersSnap.empty){
+      html += '<div style="font-size:13px;color:#aaa;padding:8px 0;margin-bottom:8px">Нет ожидающих заявок ✅</div>';
+    } else {
+      usersSnap.docs.forEach(doc=>{
+        const u = doc.data();
+        const date = u.createdAt?.toDate().toLocaleDateString('ru-RU') || '—';
+        html += `<div class="req-card">
+          <div class="req-card-title">👤 ${u.name||'—'}</div>
+          <div class="req-card-sub">✉️ ${u.email}</div>
+          <div class="req-card-meta">Дата регистрации: ${date}</div>
+          <div class="req-card-actions">
+            <button class="btn-approve" onclick="apSetRole('${doc.id}','user',this)">✅ Одобрить</button>
+            <button class="btn-reject" onclick="apSetRole('${doc.id}','disabled',this)">🚫 Отклонить</button>
+          </div>
+        </div>`;
+      });
+    }
+
+    // Delete requests
+    html += `<div class="ap-section" style="color:#dc3545;margin-top:16px">🗑 Заявки на удаление парковок (${delSnap.size})</div>`;
+    if(delSnap.empty){
+      html += '<div style="font-size:13px;color:#aaa;padding:8px 0">Нет заявок на удаление ✅</div>';
+    } else {
+      delSnap.docs.forEach(doc=>{
+        const r = doc.data();
+        const date = r.createdAt?.toDate().toLocaleDateString('ru-RU') || '—';
+        html += `<div class="req-card del-req">
+          <div class="req-card-title">📍 ${r.stationName}</div>
+          <div class="req-card-sub">💬 «${r.reason}»</div>
+          <div class="req-card-meta">👤 ${r.userName} · ${date}</div>
+          <div class="req-card-actions">
+            <button class="btn-approve" onclick="apApproveDelete('${doc.id}','${r.stationId}',this)">✅ Удалить станцию</button>
+            <button class="btn-reject" onclick="apRejectDelete('${doc.id}',this)">✕ Отклонить</button>
+          </div>
+        </div>`;
+      });
+    }
+
+    el.innerHTML = html;
+  } catch(e){
+    el.innerHTML = `<div class="err">❌ ${e.message}</div>`;
+  }
+}
+
+async function apApproveDelete(reqId, stationId, btn){
+  if(!confirm('Удалить эту парковку?')) return;
+  btn.disabled=true; btn.textContent='...';
+  try {
+    await db.collection('stations').doc(stationId).delete();
+    await db.collection('deleteRequests').doc(reqId).update({status:'approved'});
+    toast('✅ Парковка удалена');
+    renderApRequests();
+  } catch(e){ toast('❌ '+e.message); btn.disabled=false; }
+}
+
+async function apRejectDelete(reqId, btn){
+  btn.disabled=true; btn.textContent='...';
+  try {
+    await db.collection('deleteRequests').doc(reqId).update({status:'rejected'});
+    toast('✕ Заявка отклонена');
+    renderApRequests();
+  } catch(e){ toast('❌ '+e.message); btn.disabled=false; }
+}
+
+function renderApActivity(){
+  const el = document.getElementById('apc-act');
+  if(!stations.length){
+    el.innerHTML='<div class="empty">Нет добавленных парковок</div>';
+    return;
+  }
+  const sorted = [...stations].sort((a,b)=>{
+    const ta = a.createdAt?.toDate?.()?.getTime() || 0;
+    const tb = b.createdAt?.toDate?.()?.getTime() || 0;
+    return tb-ta;
+  });
+  const items = sorted.slice(0,100);
+  el.innerHTML = `
+    <div style="font-size:12px;color:#888;margin-bottom:10px">Последние ${items.length} из ${stations.length} парковок</div>
+    ${items.map((s,i)=>{
+      const isComp = s.ownership==='competencia';
+      const addr = (s.address||'').split(',').map(p=>p.trim());
+      const city = addr[addr.length-1]||'—';
+      const date = s.createdAt?.toDate?.()?.toLocaleDateString('ru-RU') || s.date || '—';
+      return `<div class="act-row" onclick="closeAdminPanel();map.flyTo([${s.lat},${s.lng}],17)">
+        <div class="act-dot${isComp?' comp':''}"></div>
+        <div class="act-info">
+          <div class="act-name">${i+1}. ${s.name} <span style="font-size:10px;color:#888;font-weight:400">${s.type||''}</span></div>
+          <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:1px">
+            <span class="act-who">👤 ${s.userName||'—'}</span>
+            <span class="act-meta">📍 ${city}</span>
+            <span class="act-meta">📅 ${date}</span>
+            ${isComp?'<span style="font-size:10px;color:#dc3545">🔴 конкурент</span>':''}
+          </div>
+        </div>
+      </div>`;
+    }).join('')}
+  `;
+}
+
 // ==================== TEAM ====================
 function openTeam(){
   document.getElementById('admin-tabs').style.display = currentRole==='admin' ? 'flex' : 'none';
@@ -1153,13 +1575,14 @@ function openTeam(){
 }
 
 function showTeamTab(tab){
-  ['team','req','users'].forEach(t=>{
+  ['team','req','users','stats'].forEach(t=>{
     document.getElementById(`tc-${t}`).style.display = t===tab ? 'block' : 'none';
     document.getElementById(`ttab-${t}`)?.classList.toggle('active', t===tab);
   });
-  if(tab==='team') renderTeamTab();
-  if(tab==='req')  renderRequestsTab();
+  if(tab==='team')  renderTeamTab();
+  if(tab==='req')   renderRequestsTab();
   if(tab==='users') renderUsersTab();
+  if(tab==='stats') renderStatsTab();
 }
 
 function renderTeamTab(){
@@ -1295,6 +1718,72 @@ async function setUserRole(uid, role){
     toast(`✅ Rol actualizado: ${labels[role]}`);
     renderUsersTab();
   }catch(e){ toast('❌ '+e.message); }
+}
+
+// ==================== ADMIN: STATS ====================
+function renderStatsTab(){
+  const el = document.getElementById('stats-content');
+  if(!stations.length){
+    el.innerHTML='<div class="empty">Нет парковок / No hay estaciones</div>';
+    return;
+  }
+  // Count by city (extract last part of address)
+  const cityMap = {};
+  stations.forEach(s => {
+    const addr = s.address || '';
+    const parts = addr.split(',').map(p=>p.trim()).filter(Boolean);
+    const city = parts[parts.length-1] || 'Desconocida';
+    cityMap[city] = (cityMap[city]||0) + 1;
+  });
+  const cities = Object.entries(cityMap).sort((a,b)=>b[1]-a[1]);
+
+  // Count by user
+  const userMap = {};
+  stations.forEach(s => {
+    const name = s.userName || '?';
+    userMap[name] = (userMap[name]||0) + 1;
+  });
+  const byUser = Object.entries(userMap).sort((a,b)=>b[1]-a[1]);
+
+  // Count own vs competitor
+  const ownCount  = stations.filter(s=>s.ownership!=='competencia').length;
+  const compCount = stations.filter(s=>s.ownership==='competencia').length;
+
+  el.innerHTML = `
+    <div style="padding:4px 0">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px">
+        <div style="background:#e8f0ff;border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:28px;font-weight:900;color:#005bff">${stations.length}</div>
+          <div style="font-size:11px;color:#555;margin-top:2px">Total парковок</div>
+        </div>
+        <div style="background:#f5f5f5;border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:28px;font-weight:900;color:#333">${cities.length}</div>
+          <div style="font-size:11px;color:#555;margin-top:2px">Городов / Ciudades</div>
+        </div>
+        <div style="background:#e8f5e9;border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:22px;font-weight:900;color:#28a745">${ownCount}</div>
+          <div style="font-size:11px;color:#555;margin-top:2px">✅ Наши JET</div>
+        </div>
+        <div style="background:#fde8e8;border-radius:10px;padding:12px;text-align:center">
+          <div style="font-size:22px;font-weight:900;color:#dc3545">${compCount}</div>
+          <div style="font-size:11px;color:#555;margin-top:2px">🔴 Конкуренты</div>
+        </div>
+      </div>
+
+      <div style="font-weight:700;font-size:13px;color:#0d0d1a;margin-bottom:8px">📍 Парковки по городам</div>
+      ${cities.map(([city,cnt])=>`
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f0f0f0">
+          <div style="flex:1;font-size:13px;color:#333">${city}</div>
+          <div style="background:#005bff;color:white;border-radius:10px;padding:2px 10px;font-size:12px;font-weight:700">${cnt}</div>
+        </div>`).join('')}
+
+      <div style="font-weight:700;font-size:13px;color:#0d0d1a;margin:14px 0 8px">👤 Добавлено сотрудниками</div>
+      ${byUser.map(([name,cnt])=>`
+        <div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid #f0f0f0">
+          <div style="flex:1;font-size:13px;color:#333">${name}</div>
+          <div style="background:#e8f0ff;color:#005bff;border-radius:10px;padding:2px 10px;font-size:12px;font-weight:700">${cnt}</div>
+        </div>`).join('')}
+    </div>`;
 }
 
 // ==================== PHOTO ====================
