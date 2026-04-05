@@ -441,7 +441,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <option value="">Seleccionar...</option>
         <option>Centro Comercial</option><option>Restaurante</option><option>Oficina</option>
         <option>Residencial</option><option>Hotel</option><option>Gimnasio</option>
-        <option>Escuela</option><option>Parque</option><option>Salud</option><option>Otro</option>
+        <option>Escuela</option><option>Parque</option><option>Salud</option><option>Transporte</option><option>Otro</option>
       </select>
     </div>
     <div class="fg">
@@ -2093,6 +2093,23 @@ async function fetchNearbySuggestions(lat, lng){
   }
 }
 
+function setTypeFromAI(aiType){
+  const sel = document.getElementById('f-type');
+  if(!sel || !aiType) return;
+  const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+  const target = norm(aiType);
+  // 1. Exact case-insensitive match
+  for(const o of sel.options){
+    if(norm(o.text) === target){ sel.value = o.value || o.text; return; }
+  }
+  // 2. Partial match
+  for(const o of sel.options){
+    if(o.value && (norm(o.text).includes(target) || target.includes(norm(o.text)))){ sel.value = o.value || o.text; return; }
+  }
+  // 3. Fallback: set to Otro
+  sel.value = 'Otro';
+}
+
 // ==================== AI FUNCTIONS ====================
 async function analyzePhotoWithAI(){
   const preview = document.getElementById('photo-preview');
@@ -2145,19 +2162,7 @@ async function analyzePhotoWithAI(){
       if(!nameEl.value.trim()){ nameEl.value=r.name; nameEl.style.boxShadow='0 0 0 2px #6366f1'; setTimeout(()=>nameEl.style.boxShadow='',2000); }
     }
     // Auto-fill type
-    if(r.type){
-      const sel = document.getElementById('f-type');
-      // Try current-lang match first, then fallback to index match
-      let matched = false;
-      Array.from(sel.options).forEach(o=>{ if(o.text===r.type){ sel.value=o.value||o.text; matched=true; } });
-      if(!matched){
-        // Try matching by index across languages
-        ['es','ru','pt'].forEach(l=>{ if(matched) return;
-          const idx = LANGS[l].types?.indexOf(r.type);
-          if(idx>=0){ const cur=t('types')[idx]; Array.from(sel.options).forEach(o=>{ if(o.text===cur){ sel.value=o.value||o.text; matched=true; } }); }
-        });
-      }
-    }
+    if(r.type){ setTypeFromAI(r.type); }
     // Auto-fill notes (only if empty)
     if(r.notes && !document.getElementById('f-notes').value.trim()) document.getElementById('f-notes').value=r.notes;
 
@@ -2215,10 +2220,7 @@ async function analyzeLocationWithAI(){
     if(r.name && !document.getElementById('f-name').value.trim()){
       document.getElementById('f-name').value = r.name;
     }
-    if(r.type){
-      const sel = document.getElementById('f-type');
-      Array.from(sel.options).forEach(o=>{ if(o.text===r.type) sel.value=o.value||o.text; });
-    }
+    if(r.type){ setTypeFromAI(r.type); }
     if(r.notes && !document.getElementById('f-notes').value.trim()) document.getElementById('f-notes').value=r.notes;
     setRadius2(20);
     const icon = r.valid?'✅':'⚠️';
