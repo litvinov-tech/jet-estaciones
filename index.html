@@ -264,6 +264,26 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .poi-cat-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
 .poi-cat-count{margin-left:auto;font-weight:700;font-size:11px}
 .poi-loading{text-align:center;color:#888;font-size:12px;padding:8px 0}
+
+/* CITY SELECTOR */
+#city-overlay{position:fixed;inset:0;background:rgba(13,13,26,0.92);z-index:9500;display:none;align-items:center;justify-content:center;padding:20px}
+#city-overlay.on{display:flex}
+.city-card{background:white;border-radius:20px;padding:24px 20px;width:100%;max-width:400px;max-height:90vh;overflow-y:auto}
+.city-card h2{font-size:18px;font-weight:700;margin-bottom:16px;color:#0d0d1a}
+.city-step{margin-bottom:14px}
+.city-step label{font-size:12px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.3px;display:block;margin-bottom:5px}
+.city-select{width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:9px;font-size:14px;background:#fafafa;outline:none;-webkit-appearance:none}
+.city-select:focus{border-color:#005bff}
+#city-search{width:100%;padding:10px 12px;border:1.5px solid #e0e0e0;border-radius:9px;font-size:14px;background:#fafafa;outline:none;margin-bottom:6px}
+#city-search:focus{border-color:#005bff}
+.city-list{max-height:200px;overflow-y:auto;border:1.5px solid #e0e0e0;border-radius:9px}
+.city-item{padding:10px 14px;cursor:pointer;font-size:14px;border-bottom:1px solid #f0f0f0}
+.city-item:last-child{border-bottom:none}
+.city-item:hover{background:#f0f6ff}
+.city-item.sel{background:#e8f0ff;color:#005bff;font-weight:700}
+.city-confirm-btn{width:100%;padding:13px;background:#005bff;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-top:14px}
+.city-confirm-btn:disabled{opacity:0.5;cursor:not-allowed}
+#tb-city{max-width:140px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 </style>
 </head>
 <body>
@@ -367,6 +387,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <button class="tbtn" id="tb-list" onclick="openList()">📋 Lista</button>
     <button class="tbtn" id="tb-team" onclick="openTeam()">👥 Equipo</button>
     <button class="tbtn" id="bike-btn" onclick="toggleBikeLayer(this)">🚴 Ciclovías</button>
+    <button class="tbtn" id="tb-city" onclick="openCitySelector(false)" style="background:#005bff20;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🌎 Ciudad</button>
     <button class="tbtn" id="tb-suggest" onclick="toggleSuggestions()">🎯 Sugerencias</button>
     <button class="tbtn" id="tb-import" onclick="openImport()">📥 Importar</button>
     <button class="tbtn" id="tb-export" onclick="exportData()">📤 Exportar</button>
@@ -429,6 +450,33 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
     <div class="fg"><label>Notas</label><textarea id="f-notes" rows="2" placeholder="Observaciones..."></textarea></div>
     <button id="save-btn" onclick="saveStation()">💾 Guardar Estación</button>
+  </div>
+</div>
+
+<!-- ====== CITY SELECTOR ====== -->
+<div id="city-overlay">
+  <div class="city-card">
+    <h2 id="city-card-title">🌎 Seleccionar Ciudad</h2>
+    <div class="city-step">
+      <label id="city-lbl-country">País</label>
+      <select class="city-select" id="city-country" onchange="citySelectCountry(this.value)">
+        <option value="">—</option>
+        <option value="MX">🇲🇽 México</option>
+        <option value="BR">🇧🇷 Brasil</option>
+        <option value="CL">🇨🇱 Chile</option>
+        <option value="AR">🇦🇷 Argentina</option>
+      </select>
+    </div>
+    <div class="city-step" id="city-state-step" style="display:none">
+      <label id="city-lbl-state">Estado / Región</label>
+      <select class="city-select" id="city-state" onchange="citySelectState(this.value)"></select>
+    </div>
+    <div class="city-step" id="city-city-step" style="display:none">
+      <label id="city-lbl-city">Ciudad</label>
+      <input type="text" class="city-select" id="city-search" placeholder="Buscar ciudad..." oninput="cityFilter(this.value)">
+      <div class="city-list" id="city-list"></div>
+    </div>
+    <button class="city-confirm-btn" id="city-confirm-btn" disabled onclick="cityConfirm()">✓ Confirmar</button>
   </div>
 </div>
 
@@ -794,7 +842,121 @@ let hiddenCats        = new Set();
 let lastSuggestData   = {};   // {cat:[elements...]} — last loaded data for legend re-render
 let currentRole   = 'user'; // 'admin' | 'user' | 'disabled'
 let delReqDocId   = null;   // station docId pending delete request
+let currentCountry = localStorage.getItem('jet_country') || null;
+let currentState   = localStorage.getItem('jet_state')   || null;
+let currentCity    = localStorage.getItem('jet_city')     || null;
+let selCityTemp    = null;
 const ADMIN_EMAIL = 'litvinov@jetshr.com.br';
+
+// ==================== GEO DATA ====================
+const GEO_DATA = {
+  MX:{name:{es:'México',ru:'Мексика',pt:'México'},states:{
+    AGS:{n:'Aguascalientes',c:['Aguascalientes','Calvillo','Jesús María','Pabellón de Arteaga','Rincón de Romos']},
+    BC:{n:'Baja California',c:['Tijuana','Mexicali','Ensenada','Tecate','Rosarito']},
+    BCS:{n:'Baja California Sur',c:['La Paz','Los Cabos','Comondú','Loreto','Mulegé']},
+    CAM:{n:'Campeche',c:['Campeche','Ciudad del Carmen','Champotón','Calkiní','Escárcega']},
+    CHS:{n:'Chiapas',c:['Tuxtla Gutiérrez','San Cristóbal de las Casas','Tapachula','Comitán','Palenque']},
+    CHI:{n:'Chihuahua',c:['Chihuahua','Ciudad Juárez','Delicias','Cuauhtémoc','Hidalgo del Parral']},
+    CMX:{n:'Ciudad de México',c:['Álvaro Obregón','Azcapotzalco','Benito Juárez','Coyoacán','Cuauhtémoc','Gustavo A. Madero','Iztapalapa','Miguel Hidalgo','Tlalpan','Venustiano Carranza','Xochimilco']},
+    COA:{n:'Coahuila',c:['Saltillo','Torreón','Monclova','Piedras Negras','Acuña']},
+    COL:{n:'Colima',c:['Colima','Manzanillo','Tecomán','Villa de Álvarez','Armería']},
+    DGO:{n:'Durango',c:['Durango','Gómez Palacio','Lerdo','Guadalupe Victoria','Pueblo Nuevo']},
+    GTO:{n:'Guanajuato',c:['León','Guanajuato','Irapuato','Celaya','Salamanca','San Miguel de Allende']},
+    GRO:{n:'Guerrero',c:['Acapulco','Chilpancingo','Zihuatanejo','Iguala','Taxco']},
+    HGO:{n:'Hidalgo',c:['Pachuca','Tula de Allende','Tulancingo','Actopan','Tizayuca']},
+    JAL:{n:'Jalisco',c:['Guadalajara','Zapopan','Tlaquepaque','Tonalá','Puerto Vallarta','Lagos de Moreno']},
+    MEX:{n:'Estado de México',c:['Toluca','Ecatepec','Naucalpan','Tlalnepantla','Nezahualcóyotl','Chimalhuacán','Texcoco']},
+    MIC:{n:'Michoacán',c:['Morelia','Uruapan','Zamora','Lázaro Cárdenas','Apatzingán']},
+    MOR:{n:'Morelos',c:['Cuernavaca','Jiutepec','Cuautla','Temixco','Emiliano Zapata']},
+    NAY:{n:'Nayarit',c:['Tepic','Bahía de Banderas','Compostela','Tuxpan','Ixtlán del Río']},
+    NLE:{n:'Nuevo León',c:['Monterrey','San Nicolás de los Garza','Guadalupe','Apodaca','San Pedro Garza García','Santa Catarina','Escobedo','Juárez','Cadereyta']},
+    OAX:{n:'Oaxaca',c:['Oaxaca','Salina Cruz','Juchitán','Huatulco','Tuxtepec']},
+    PUE:{n:'Puebla',c:['Puebla','Tehuacán','San Andrés Cholula','San Martín Texmelucan','Atlixco']},
+    QRO:{n:'Querétaro',c:['Querétaro','San Juan del Río','El Marqués','Corregidora','Pedro Escobedo']},
+    ROO:{n:'Quintana Roo',c:['Cancún','Playa del Carmen','Chetumal','Cozumel','Tulum','Isla Mujeres']},
+    SLP:{n:'San Luis Potosí',c:['San Luis Potosí','Ciudad Valles','Matehuala','Rioverde','Soledad de Graciano']},
+    SIN:{n:'Sinaloa',c:['Culiacán','Mazatlán','Los Mochis','Guasave','Navolato']},
+    SON:{n:'Sonora',c:['Hermosillo','Cajeme','Nogales','San Luis Río Colorado','Navojoa']},
+    TAB:{n:'Tabasco',c:['Villahermosa','Cárdenas','Comalcalco','Nacajuca','Huimanguillo']},
+    TAM:{n:'Tamaulipas',c:['Reynosa','Matamoros','Nuevo Laredo','Tampico','Victoria']},
+    TLX:{n:'Tlaxcala',c:['Tlaxcala','Apizaco','Chiautempan','Huamantla','Xaltocan']},
+    VER:{n:'Veracruz',c:['Veracruz','Xalapa','Coatzacoalcos','Boca del Río','Poza Rica','Minatitlán']},
+    YUC:{n:'Yucatán',c:['Mérida','Valladolid','Progreso','Tizimín','Kanasín']},
+    ZAC:{n:'Zacatecas',c:['Zacatecas','Fresnillo','Guadalupe','Jerez','Calera']}
+  }},
+  BR:{name:{es:'Brasil',ru:'Бразилия',pt:'Brasil'},states:{
+    AC:{n:'Acre',c:['Rio Branco','Cruzeiro do Sul','Sena Madureira','Tarauacá','Feijó']},
+    AL:{n:'Alagoas',c:['Maceió','Arapiraca','Palmeira dos Índios','Rio Largo','Penedo']},
+    AP:{n:'Amapá',c:['Macapá','Santana','Laranjal do Jari','Oiapoque','Mazagão']},
+    AM:{n:'Amazonas',c:['Manaus','Parintins','Itacoatiara','Manacapuru','Coari']},
+    BA:{n:'Bahia',c:['Salvador','Feira de Santana','Vitória da Conquista','Camaçari','Itabuna','Juazeiro','Lauro de Freitas']},
+    CE:{n:'Ceará',c:['Fortaleza','Caucaia','Juazeiro do Norte','Maracanaú','Sobral','Crato']},
+    DF:{n:'Distrito Federal',c:['Brasília','Ceilândia','Taguatinga','Samambaia','Planaltina']},
+    ES:{n:'Espírito Santo',c:['Vitória','Serra','Vila Velha','Cariacica','Cachoeiro de Itapemirim']},
+    GO:{n:'Goiás',c:['Goiânia','Aparecida de Goiânia','Anápolis','Rio Verde','Luziânia']},
+    MA:{n:'Maranhão',c:['São Luís','Imperatriz','Timon','Caxias','Codó']},
+    MT:{n:'Mato Grosso',c:['Cuiabá','Várzea Grande','Sinop','Rondonópolis','Tangará da Serra']},
+    MS:{n:'Mato Grosso do Sul',c:['Campo Grande','Dourados','Três Lagoas','Corumbá','Grande Dourados']},
+    MG:{n:'Minas Gerais',c:['Belo Horizonte','Uberlândia','Contagem','Juiz de Fora','Betim','Montes Claros','Ribeirão das Neves']},
+    PA:{n:'Pará',c:['Belém','Ananindeua','Santarém','Marabá','Castanhal']},
+    PB:{n:'Paraíba',c:['João Pessoa','Campina Grande','Santa Rita','Patos','Bayeux']},
+    PR:{n:'Paraná',c:['Curitiba','Londrina','Maringá','Ponta Grossa','Cascavel','Foz do Iguaçu']},
+    PE:{n:'Pernambuco',c:['Recife','Caruaru','Petrolina','Olinda','Paulista','Jaboatão']},
+    PI:{n:'Piauí',c:['Teresina','Parnaíba','Picos','Piripiri','Floriano']},
+    RJ:{n:'Rio de Janeiro',c:['Rio de Janeiro','São Gonçalo','Duque de Caxias','Nova Iguaçu','Niterói','Belford Roxo','Campos']},
+    RN:{n:'Rio Grande do Norte',c:['Natal','Mossoró','Parnamirim','São Gonçalo do Amarante','Caicó']},
+    RS:{n:'Rio Grande do Sul',c:['Porto Alegre','Caxias do Sul','Pelotas','Canoas','Santa Maria','Gravataí','Novo Hamburgo']},
+    RO:{n:'Rondônia',c:['Porto Velho','Ji-Paraná','Ariquemes','Vilhena','Cacoal']},
+    RR:{n:'Roraima',c:['Boa Vista','Caracaraí','Rorainópolis','Alto Alegre','Mucajaí']},
+    SC:{n:'Santa Catarina',c:['Florianópolis','Joinville','Blumenau','São José','Chapecó','Criciúma']},
+    SP:{n:'São Paulo',c:['São Paulo','Guarulhos','Campinas','São Bernardo do Campo','Santo André','Ribeirão Preto','Osasco','Sorocaba','Mauá','São José dos Campos']},
+    SE:{n:'Sergipe',c:['Aracaju','Nossa Senhora do Socorro','Lagarto','Itabaiana','São Cristóvão']},
+    TO:{n:'Tocantins',c:['Palmas','Araguaína','Gurupi','Porto Nacional','Paraíso do Tocantins']}
+  }},
+  CL:{name:{es:'Chile',ru:'Чили',pt:'Chile'},states:{
+    AP:{n:'Arica y Parinacota',c:['Arica','Putre','Camarones','General Lagos']},
+    TA:{n:'Tarapacá',c:['Iquique','Alto Hospicio','Pozo Almonte','Camiña','Colchane']},
+    AN:{n:'Antofagasta',c:['Antofagasta','Calama','Tocopilla','Mejillones','Taltal']},
+    AT:{n:'Atacama',c:['Copiapó','Vallenar','Chañaral','Diego de Almagro','Tierra Amarilla']},
+    CO:{n:'Coquimbo',c:['La Serena','Coquimbo','Ovalle','Illapel','Vicuña']},
+    VA:{n:'Valparaíso',c:['Valparaíso','Viña del Mar','San Antonio','Quillota','Los Andes','La Calera']},
+    RM:{n:'Región Metropolitana',c:['Santiago','Providencia','Las Condes','Maipú','Pudahuel','La Florida','Ñuñoa','Peñalolén','Lo Barnechea','Vitacura','Puente Alto']},
+    LI:{n:"O'Higgins",c:['Rancagua','San Fernando','Pichilemu','Graneros','Rengo']},
+    ML:{n:'Maule',c:['Talca','Curicó','Linares','Constitución','Cauquenes']},
+    NB:{n:'Ñuble',c:['Chillán','Bulnes','San Carlos','Quirihue','Yungay']},
+    BI:{n:'Biobío',c:['Concepción','Talcahuano','Hualpén','Los Ángeles','Coronel','Chiguayante']},
+    AR:{n:'Araucanía',c:['Temuco','Villarrica','Angol','Pucón','Victoria']},
+    LR:{n:'Los Ríos',c:['Valdivia','La Unión','Futrono','Río Bueno','Máfil']},
+    LL:{n:'Los Lagos',c:['Puerto Montt','Osorno','Castro','Ancud','Puerto Varas']},
+    AI:{n:'Aysén',c:['Coyhaique','Puerto Aysén','Chile Chico','Cochrane','Villa O\'Higgins']},
+    MA:{n:'Magallanes',c:['Punta Arenas','Puerto Natales','Puerto Williams','Porvenir','Timaukel']}
+  }},
+  AR:{name:{es:'Argentina',ru:'Аргентина',pt:'Argentina'},states:{
+    BA:{n:'Buenos Aires',c:['Buenos Aires','La Plata','Mar del Plata','Bahía Blanca','Quilmes','Lanús','General Pueyrredón','Almirante Brown','Lomas de Zamora','Merlo']},
+    CA:{n:'Catamarca',c:['San Fernando del Valle de Catamarca','Santa Rosa','Recreo','Tinogasta','Andalgalá']},
+    CH:{n:'Chaco',c:['Resistencia','Barranqueras','Presidencia Roque Sáenz Peña','Villa Ángela','Charata']},
+    CT:{n:'Chubut',c:['Rawson','Comodoro Rivadavia','Trelew','Puerto Madryn','Esquel']},
+    CB:{n:'Córdoba',c:['Córdoba','Villa Carlos Paz','Río Cuarto','San Francisco','Alta Gracia','Villa María']},
+    CR:{n:'Corrientes',c:['Corrientes','Goya','Mercedes','Curuzú Cuatiá','Paso de los Libres']},
+    ER:{n:'Entre Ríos',c:['Paraná','Concordia','Gualeguaychú','Concepción del Uruguay','Colón']},
+    FO:{n:'Formosa',c:['Formosa','Clorinda','Pirané','El Colorado','General Mosconi']},
+    JY:{n:'Jujuy',c:['San Salvador de Jujuy','San Pedro de Jujuy','Palpalá','Libertador General San Martín','Humahuaca']},
+    LP:{n:'La Pampa',c:['Santa Rosa','General Pico','Toay','Victorica','Eduardo Castex']},
+    LR:{n:'La Rioja',c:['La Rioja','Chilecito','Aimogasta','Chamical','Vinchina']},
+    MZ:{n:'Mendoza',c:['Mendoza','San Rafael','Godoy Cruz','Guaymallén','Luján de Cuyo','Las Heras']},
+    MI:{n:'Misiones',c:['Posadas','Oberá','Eldorado','Puerto Iguazú','Apóstoles']},
+    NQ:{n:'Neuquén',c:['Neuquén','Plottier','Cipolletti','Zapala','San Martín de los Andes']},
+    RN:{n:'Río Negro',c:['Viedma','General Roca','San Carlos de Bariloche','Allen','Cipolletti']},
+    SA:{n:'Salta',c:['Salta','Orán','Tartagal','San Ramón de la Nueva Orán','Rosario de la Frontera']},
+    SJ:{n:'San Juan',c:['San Juan','Rivadavia','Chimbas','Rawson','Caucete']},
+    SL:{n:'San Luis',c:['San Luis','Villa Mercedes','Merlo','Potrero de los Funes','La Toma']},
+    SC:{n:'Santa Cruz',c:['Río Gallegos','Caleta Olivia','El Calafate','Puerto Madryn','Las Heras']},
+    SF:{n:'Santa Fe',c:['Rosario','Santa Fe','Rafaela','Venado Tuerto','Villa Gobernador Gálvez','Santo Tomé']},
+    SE:{n:'Santiago del Estero',c:['Santiago del Estero','La Banda','Termas de Río Hondo','Añatuya','Frías']},
+    TF:{n:'Tierra del Fuego',c:['Ushuaia','Río Grande','Tolhuin']},
+    TU:{n:'Tucumán',c:['San Miguel de Tucumán','Tafí Viejo','Banda del Río Salí','Yerba Buena','Concepción']}
+  }}
+};
 
 // ==================== MAP ====================
 const renderer = L.canvas({ padding: 0.5 });
@@ -868,6 +1030,138 @@ map.on('moveend', () => {
   clearTimeout(suggestDebounce);
   suggestDebounce = setTimeout(loadSuggestions, 900);
 });
+
+// ==================== CITY SELECTOR ====================
+function openCitySelector(required){
+  const ov = document.getElementById('city-overlay');
+  ov.classList.add('on');
+  // Restore previous selection
+  if(currentCountry){
+    document.getElementById('city-country').value = currentCountry;
+    citySelectCountry(currentCountry, true);
+    if(currentState){
+      document.getElementById('city-state').value = currentState;
+      citySelectState(currentState, true);
+      selCityTemp = currentCity;
+      // Mark selected city
+      setTimeout(()=>{
+        document.querySelectorAll('.city-item').forEach(el=>{
+          if(el.dataset.city === currentCity) el.classList.add('sel');
+        });
+        updateCityConfirmBtn();
+      }, 50);
+    }
+  }
+  applyCityLang();
+}
+
+function closeCitySelector(){
+  document.getElementById('city-overlay').classList.remove('on');
+}
+
+function citySelectCountry(code, silent){
+  if(!code){
+    document.getElementById('city-state-step').style.display='none';
+    document.getElementById('city-city-step').style.display='none';
+    return;
+  }
+  const data = GEO_DATA[code];
+  if(!data) return;
+  const stateEl = document.getElementById('city-state');
+  stateEl.innerHTML = `<option value="">—</option>` +
+    Object.entries(data.states).sort((a,b)=>a[1].n.localeCompare(b[1].n))
+      .map(([k,v])=>`<option value="${k}">${v.n}</option>`).join('');
+  document.getElementById('city-state-step').style.display = 'block';
+  document.getElementById('city-city-step').style.display = 'none';
+  document.getElementById('city-confirm-btn').disabled = true;
+  selCityTemp = null;
+  if(!silent) document.getElementById('city-state').value = '';
+}
+
+function citySelectState(stateCode, silent){
+  if(!stateCode){
+    document.getElementById('city-city-step').style.display = 'none';
+    return;
+  }
+  const countryCode = document.getElementById('city-country').value;
+  const stateData = GEO_DATA[countryCode]?.states[stateCode];
+  if(!stateData) return;
+
+  const cities = stateData.c;
+  document.getElementById('city-search').value = '';
+  renderCityList(cities);
+  document.getElementById('city-city-step').style.display = 'block';
+  if(!silent) selCityTemp = null;
+  updateCityConfirmBtn();
+}
+
+function renderCityList(cities){
+  const el = document.getElementById('city-list');
+  el.innerHTML = cities.map(c =>
+    `<div class="city-item${c===selCityTemp?' sel':''}" data-city="${c}" onclick="cityPickItem(this,'${c.replace(/'/g,"\\'")}')">
+      ${c}
+    </div>`
+  ).join('');
+}
+
+function cityFilter(q){
+  const countryCode = document.getElementById('city-country').value;
+  const stateCode   = document.getElementById('city-state').value;
+  const stateData   = GEO_DATA[countryCode]?.states[stateCode];
+  if(!stateData) return;
+  const filtered = q.trim()
+    ? stateData.c.filter(c => c.toLowerCase().includes(q.toLowerCase()))
+    : stateData.c;
+  renderCityList(filtered);
+}
+
+function cityPickItem(el, city){
+  document.querySelectorAll('.city-item').forEach(i => i.classList.remove('sel'));
+  el.classList.add('sel');
+  selCityTemp = city;
+  updateCityConfirmBtn();
+}
+
+function updateCityConfirmBtn(){
+  document.getElementById('city-confirm-btn').disabled = !selCityTemp;
+}
+
+function cityConfirm(){
+  if(!selCityTemp) return;
+  currentCountry = document.getElementById('city-country').value;
+  currentState   = document.getElementById('city-state').value;
+  currentCity    = selCityTemp;
+  localStorage.setItem('jet_country', currentCountry);
+  localStorage.setItem('jet_state',   currentState);
+  localStorage.setItem('jet_city',    currentCity);
+  closeCitySelector();
+  updateCityBtn();
+  // Re-filter stations
+  renderAll();
+  const openList = document.getElementById('list-overlay');
+  if(openList?.classList.contains('on')) reloadList();
+  toast('📍 ' + currentCity);
+}
+
+function updateCityBtn(){
+  const btn = document.getElementById('tb-city');
+  if(btn) btn.textContent = currentCity ? '📍 ' + currentCity : '🌎 Ciudad';
+}
+
+function applyCityLang(){
+  const l = {
+    es:{title:'🌎 Seleccionar Ciudad',country:'País',state:'Estado / Región',city:'Ciudad',search:'Buscar ciudad...'},
+    ru:{title:'🌎 Выбор города',country:'Страна',state:'Регион / Штат',city:'Город',search:'Поиск города...'},
+    pt:{title:'🌎 Selecionar Cidade',country:'País',state:'Estado / Região',city:'Cidade',search:'Buscar cidade...'},
+  }[lang] || {};
+  const el = (id, txt) => { const e=document.getElementById(id); if(e&&txt) e.textContent=txt; };
+  el('city-card-title', l.title);
+  el('city-lbl-country', l.country);
+  el('city-lbl-state', l.state);
+  el('city-lbl-city', l.city);
+  const srch = document.getElementById('city-search');
+  if(srch && l.search) srch.placeholder = l.search;
+}
 
 // ==================== SUGGESTIONS (POI via Overpass API) ====================
 
@@ -1093,6 +1387,8 @@ auth.onAuthStateChanged(async (user) => {
     document.getElementById('user-name').textContent = user.displayName || user.email.split('@')[0];
     map.invalidateSize();
     applyLang();
+    updateCityBtn();
+    if(!currentCity) setTimeout(()=>openCitySelector(true), 500);
     initRealtime();
     startGPSWatch();
     if(window._showPWABanner) window._showPWABanner();
@@ -1686,6 +1982,9 @@ async function saveStation(){
       userId:   currentUser.uid,
       userName: currentUser.displayName || currentUser.email.split('@')[0],
       date:     new Date().toLocaleDateString('es-MX'),
+      country:  currentCountry || null,
+      state:    currentState   || null,
+      city:     currentCity    || null,
     };
     if(editingId){
       await db.collection('stations').doc(editingId).update(data);
@@ -1738,7 +2037,8 @@ function openEdit(docId){
 // ==================== RENDER ====================
 function renderAll(){
   spotsGroup.clearLayers();
-  const visible = filterUser ? stations.filter(s=>s.userId===filterUser) : stations;
+  const byCity = currentCity ? stations.filter(s => !s.city || s.city === currentCity) : stations;
+  const visible = filterUser ? byCity.filter(s=>s.userId===filterUser) : byCity;
   visible.forEach((s,i)=>{
     const isComp = s.ownership === 'competencia';
     const color = isComp ? '#dc3545' : (s.userId===currentUser?.uid ? '#28a745' : (userColorMap[s.userId]||'#28a745'));
@@ -1793,7 +2093,7 @@ function openList(){
   selectedDocIds.clear();
   const users = [...new Set(stations.map(s=>s.userId))];
   const filtersEl = document.getElementById('list-filters');
-  filtersEl.innerHTML = `<button class="filter-btn${!filterUser?' active':''}" onclick="setFilter(null)">Todos (${stations.length})</button>`
+  filtersEl.innerHTML = `<button class="filter-btn${!filterUser?' active':''}" onclick="setFilter(null)">Todos (${(currentCity ? stations.filter(s=>!s.city||s.city===currentCity) : stations).length})</button>`
     + users.map(uid => {
         const name = stations.find(s=>s.userId===uid)?.userName||'?';
         const cnt  = stations.filter(s=>s.userId===uid).length;
@@ -2587,41 +2887,48 @@ async function exportExcel(){
 }
 
 // --- Map image + radius overlay for PDF ---
-// Returns HTML: OSM static map image with SVG radius circle and marker on top
+const LEAFLET_HEAD = `<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>`;
+
+const LEAFLET_MAP_INIT = `<script>
+(function(){
+  function initLMaps(){
+    document.querySelectorAll('.lmap').forEach(function(el){
+      var lat=parseFloat(el.dataset.lat), lng=parseFloat(el.dataset.lng);
+      var r=parseFloat(el.dataset.r)||20, col=el.dataset.col||'#005bff';
+      var m=L.map(el.id,{center:[lat,lng],zoom:17,dragging:false,zoomControl:false,
+        scrollWheelZoom:false,doubleClickZoom:false,keyboard:false,
+        touchZoom:false,boxZoom:false,attributionControl:false});
+      var tl=L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19}).addTo(m);
+      L.circle([lat,lng],{radius:r,color:col,fillColor:col,fillOpacity:0.18,weight:2.5,dashArray:'10,5'}).addTo(m);
+      var icon=L.divIcon({className:'',
+        html:'<div style="background:'+col+';border-radius:50% 50% 50% 0;width:30px;height:30px;border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,.4);transform:rotate(-45deg);display:flex;align-items:center;justify-content:center"><span style="transform:rotate(45deg);font-size:15px">🛴<\/span><\/div>',
+        iconSize:[30,30],iconAnchor:[15,30]});
+      L.marker([lat,lng],{icon:icon}).addTo(m);
+      tl.on('load',function(){
+        var pb=document.getElementById('print-btn');
+        if(pb&&pb.disabled){pb.disabled=false;pb.textContent=pb.dataset.label;}
+      });
+    });
+    setTimeout(function(){
+      var pb=document.getElementById('print-btn');
+      if(pb&&pb.disabled){pb.disabled=false;pb.textContent=pb.dataset.label;}
+    },4000);
+  }
+  if(typeof L!=='undefined') initLMaps();
+  else document.addEventListener('DOMContentLoaded',initLMaps);
+})();
+<\/script>`;
+
 function mapWithOverlay(s, w, h){
-  const zoom = 17;
-  const lat  = s.lat  || 0;
-  const lng  = s.lng  || 0;
-  const r    = s.radius || 20;
-  const col  = s.ownership==='competencia' ? '#dc3545' : '#005bff';
-  // metres per pixel at this latitude/zoom
-  const mpp  = 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, zoom);
-  const rpx  = Math.max(4, Math.min(r / mpp, Math.min(w, h) * 0.46));
-  const cx   = w / 2, cy = h / 2;
-  const mapUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=${zoom}&size=${w}x${h}`;
-  return `<div style="position:relative;width:${w}px;height:${h}px;overflow:hidden;border-radius:6px">
-  <img src="${mapUrl}" width="${w}" height="${h}" style="display:block;width:${w}px;height:${h}px;object-fit:cover"
-       onerror="this.style.background='#eef2ff';this.src=''">
-  <svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;top:0;left:0;pointer-events:none" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
-    <!-- radius filled zone -->
-    <circle cx="${cx}" cy="${cy}" r="${rpx}" fill="${col}" fill-opacity="0.18" stroke="${col}" stroke-width="2.5" stroke-dasharray="10 5"/>
-    <!-- radius dimension line -->
-    <line x1="${cx}" y1="${cy}" x2="${cx+rpx}" y2="${cy}" stroke="${col}" stroke-width="1.5" stroke-dasharray="4 3"/>
-    <!-- radius label with white halo -->
-    <text x="${cx+rpx/2}" y="${cy-8}" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold"
-          stroke="white" stroke-width="3" stroke-linejoin="round" paint-order="stroke" fill="${col}">${r}m</text>
-    <!-- shadow under pin -->
-    <ellipse cx="${cx}" cy="${cy+4}" rx="9" ry="4" fill="rgba(0,0,0,0.25)"/>
-    <!-- pin body -->
-    <path d="M${cx},${cy-26} a11,11 0 1,1 0.01,0 Z" fill="${col}" stroke="white" stroke-width="2"/>
-    <!-- scooter icon in pin -->
-    <text x="${cx}" y="${cy-12}" text-anchor="middle" font-size="11">🛴</text>
-    <!-- coords bottom center -->
-    <text x="${cx}" y="${h-5}" text-anchor="middle" font-family="Arial" font-size="8" fill="white"
-          stroke="rgba(0,0,0,0.6)" stroke-width="3" paint-order="stroke">${lat.toFixed(5)}, ${lng.toFixed(5)}</text>
-  </svg>
-</div>`;
+  const lat = s.lat || 0;
+  const lng = s.lng || 0;
+  const r   = s.radius || 20;
+  const col = s.ownership === 'competencia' ? '#dc3545' : '#005bff';
+  const uid = 'lm' + (++mapOverlayCounter);
+  return `<div class="lmap" id="${uid}" data-lat="${lat}" data-lng="${lng}" data-r="${r}" data-col="${col}" style="width:${w}px;height:${h}px;background:#e8edf8;border-radius:6px"></div>`;
 }
+let mapOverlayCounter = 0;
 
 // --- SVG Croqui generator ---
 function makeCroqui(s){
@@ -2704,9 +3011,9 @@ function exportCroquiMulti(list){
   if(!list.length) return;
 
   const T = {
-    es:{title:'CROQUIS DE IMPLEMENTACIÓN DE ESTACIÓN',name:'Nombre',addr:'Dirección',coords:'Coordenadas',type:'Tipo de Lugar',cap:'Capacidad',radius:'Radio de Operación',own:'Tipo',by:'Registrado por',date:'Fecha',notes:'Notas',scheme:'Esquema',mapview:'Ubicación',print:'🖨️ Imprimir / Guardar PDF',propia:'JET Propia',competencia:'Competencia',generated:'Generado el'},
-    ru:{title:'КРОКИ — СХЕМА ПАРКОВКИ',name:'Название',addr:'Адрес',coords:'Координаты',type:'Тип объекта',cap:'Вместимость',radius:'Радиус',own:'Тип',by:'Добавил',date:'Дата',notes:'Примечания',scheme:'Схема',mapview:'Карта',print:'🖨️ Распечатать / Сохранить PDF',propia:'Наша JET',competencia:'Конкурент',generated:'Сформирован'},
-    pt:{title:'CROQUI DE IMPLEMENTAÇÃO DA ESTAÇÃO',name:'Nome',addr:'Endereço',coords:'Coordenadas',type:'Tipo de Local',cap:'Capacidade',radius:'Raio',own:'Tipo',by:'Registrado por',date:'Data',notes:'Notas',scheme:'Esquema',mapview:'Localização',print:'🖨️ Imprimir / Salvar PDF',propia:'JET Própria',competencia:'Concorrente',generated:'Gerado em'},
+    es:{title:'CROQUIS DE IMPLEMENTACIÓN DE ESTACIÓN',name:'Nombre',addr:'Dirección',coords:'Coordenadas',type:'Tipo de Lugar',cap:'Capacidad',radius:'Radio de Operación',own:'Tipo',by:'Registrado por',date:'Fecha',notes:'Notas',scheme:'Esquema',mapview:'Ubicación',print:'🖨️ Imprimir / Guardar PDF',propia:'JET Propia',competencia:'Competencia',generated:'Generado el',photo:'Foto'},
+    ru:{title:'КРОКИ — СХЕМА ПАРКОВКИ',name:'Название',addr:'Адрес',coords:'Координаты',type:'Тип объекта',cap:'Вместимость',radius:'Радиус',own:'Тип',by:'Добавил',date:'Дата',notes:'Примечания',scheme:'Схема',mapview:'Карта',print:'🖨️ Распечатать / Сохранить PDF',propia:'Наша JET',competencia:'Конкурент',generated:'Сформирован',photo:'Фото'},
+    pt:{title:'CROQUI DE IMPLEMENTAÇÃO DA ESTAÇÃO',name:'Nome',addr:'Endereço',coords:'Coordenadas',type:'Tipo de Local',cap:'Capacidade',radius:'Raio',own:'Tipo',by:'Registrado por',date:'Data',notes:'Notas',scheme:'Esquema',mapview:'Localização',print:'🖨️ Imprimir / Salvar PDF',propia:'JET Própria',competencia:'Concorrente',generated:'Gerado em',photo:'Foto'},
   }[lang]||{};
 
   const dateStr = new Date().toLocaleDateString(lang==='ru'?'ru-RU':lang==='pt'?'pt-BR':'es-MX',{year:'numeric',month:'long',day:'numeric'});
@@ -2737,7 +3044,7 @@ function exportCroquiMulti(list){
   </div>
   <div class="sb-grid">
     <div class="sb-col">
-      <div class="box-lbl">📷 Foto</div>
+      <div class="box-lbl">📷 ${T.photo}</div>
       <div style="border-radius:6px;overflow:hidden;border:1px solid #e8edf8">${photoBlock}</div>
     </div>
     <div class="sb-col">
@@ -2780,9 +3087,12 @@ function exportCroquiMulti(list){
   ${pair.map(s=>stationBlock(s)).join('<div class="divider"></div>')}
 </div>`).join('');
 
+  mapOverlayCounter = 0;
   const html = `<!DOCTYPE html><html lang="${lang}"><head><meta charset="UTF-8">
 <title>JET Croquis ${dateStr}</title>
+${LEAFLET_HEAD}
 <style>
+.leaflet-tile-pane{opacity:1!important}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:Arial,Helvetica,sans-serif;background:#f5f5f5;color:#1a1a2e;font-size:11px}
 .page{width:210mm;min-height:297mm;background:white;padding:10mm 12mm;margin:0 auto 12px}
@@ -2802,10 +3112,11 @@ body{font-family:Arial,Helvetica,sans-serif;background:#f5f5f5;color:#1a1a2e;fon
 .info-tbl tr:nth-child(even) td{background:#f8f9ff}
 .divider{border-top:1px dashed #d0d8f0;margin:10px 0}
 .print-btn{display:block;margin:12px auto;padding:10px 28px;background:#005bff;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
-@media print{.print-btn{display:none}body{background:white}html{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+@media print{.print-btn{display:none}.leaflet-tile-pane{opacity:1!important}body{background:white}html{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 </style></head><body>
-<button class="print-btn" onclick="window.print()">${T.print}</button>
+<button class="print-btn" id="print-btn" data-label="${T.print}" disabled onclick="window.print()">⏳ Cargando mapas...</button>
 ${pagesHtml}
+${LEAFLET_MAP_INIT}
 </body></html>`;
 
   const win = window.open('','_blank');
@@ -2820,9 +3131,9 @@ function exportCroqui(docId){
   map.closePopup();
 
   const T = {
-    es:{title:'CROQUIS DE IMPLEMENTACIÓN DE ESTACIÓN',name:'Nombre',addr:'Dirección',coords:'Coordenadas',type:'Tipo de Lugar',cap:'Capacidad',radius:'Radio de Operación',own:'Tipo de Estación',by:'Registrado por',date:'Fecha',notes:'Notas',scheme:'Esquema de Zona',mapview:'Ubicación en Mapa',print:'🖨️ Imprimir / Guardar PDF',propia:'Estación JET Propia',competencia:'Competencia',generated:'Generado el'},
-    ru:{title:'КРОКИ — СХЕМА ПАРКОВКИ',name:'Название',addr:'Адрес',coords:'Координаты',type:'Тип объекта',cap:'Вместимость',radius:'Рабочий радиус',own:'Тип парковки',by:'Добавил',date:'Дата',notes:'Примечания',scheme:'Схема зоны',mapview:'Расположение на карте',print:'🖨️ Распечатать / Сохранить PDF',propia:'Наша JET',competencia:'Конкурент',generated:'Сформирован'},
-    pt:{title:'CROQUI DE IMPLEMENTAÇÃO DA ESTAÇÃO',name:'Nome',addr:'Endereço',coords:'Coordenadas',type:'Tipo de Local',cap:'Capacidade',radius:'Raio de Operação',own:'Tipo de Estação',by:'Registrado por',date:'Data',notes:'Notas',scheme:'Esquema de Zona',mapview:'Localização no Mapa',print:'🖨️ Imprimir / Salvar PDF',propia:'Estação JET Própria',competencia:'Concorrente',generated:'Gerado em'},
+    es:{title:'CROQUIS DE IMPLEMENTACIÓN DE ESTACIÓN',name:'Nombre',addr:'Dirección',coords:'Coordenadas',type:'Tipo de Lugar',cap:'Capacidad',radius:'Radio de Operación',own:'Tipo de Estación',by:'Registrado por',date:'Fecha',notes:'Notas',scheme:'Esquema de Zona',mapview:'Ubicación en Mapa',print:'🖨️ Imprimir / Guardar PDF',propia:'Estación JET Propia',competencia:'Competencia',generated:'Generado el',photo:'Foto'},
+    ru:{title:'КРОКИ — СХЕМА ПАРКОВКИ',name:'Название',addr:'Адрес',coords:'Координаты',type:'Тип объекта',cap:'Вместимость',radius:'Рабочий радиус',own:'Тип парковки',by:'Добавил',date:'Дата',notes:'Примечания',scheme:'Схема зоны',mapview:'Расположение на карте',print:'🖨️ Распечатать / Сохранить PDF',propia:'Наша JET',competencia:'Конкурент',generated:'Сформирован',photo:'Фото'},
+    pt:{title:'CROQUI DE IMPLEMENTAÇÃO DA ESTAÇÃO',name:'Nome',addr:'Endereço',coords:'Coordenadas',type:'Tipo de Local',cap:'Capacidade',radius:'Raio de Operação',own:'Tipo de Estação',by:'Registrado por',date:'Data',notes:'Notas',scheme:'Esquema de Zona',mapview:'Localização no Mapa',print:'🖨️ Imprimir / Salvar PDF',propia:'Estação JET Própria',competencia:'Concorrente',generated:'Gerado em',photo:'Foto'},
   }[lang] || {};
 
   // Extract municipality from address (last comma-separated part)
@@ -2839,9 +3150,12 @@ function exportCroqui(docId){
 
   const notesRow = s.notes ? `<tr><td>${T.notes}</td><td style="font-style:italic;color:#555">${s.notes}</td></tr>` : '';
 
+  mapOverlayCounter = 0;
   const html = `<!DOCTYPE html><html lang="${lang}"><head><meta charset="UTF-8">
 <title>Croqui — ${s.name}</title>
+${LEAFLET_HEAD}
 <style>
+.leaflet-tile-pane{opacity:1!important}
 *{box-sizing:border-box;margin:0;padding:0}
 body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#1a1a2e;font-size:12px}
 .page{width:210mm;min-height:297mm;padding:12mm 14mm;margin:0 auto}
@@ -2867,10 +3181,10 @@ tr:nth-child(even) td{background:#f8f9ff}
 .footer{border-top:1px solid #e0e0e0;padding-top:8px;margin-top:8px;font-size:9px;color:#aaa;text-align:center}
 /* Print */
 .print-btn{display:block;margin:0 auto 14px;padding:10px 28px;background:#005bff;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
-@media print{.print-btn{display:none}html{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+@media print{.print-btn{display:none}.leaflet-tile-pane{opacity:1!important}html{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 </style></head><body>
 <div class="page">
-<button class="print-btn" onclick="window.print()">${T.print}</button>
+<button class="print-btn" id="print-btn" data-label="${T.print}" disabled onclick="window.print()">⏳ Cargando mapa...</button>
 
 <div class="hdr">
   <div>
@@ -2886,7 +3200,7 @@ tr:nth-child(even) td{background:#f8f9ff}
 
 <div class="grid">
   <div class="box">
-    <div class="box-title">📷 Foto</div>
+    <div class="box-title">📷 ${T.photo}</div>
     <div class="box-body" style="padding:0">${photoBlock}</div>
   </div>
   <div class="box">
@@ -2922,6 +3236,7 @@ tr:nth-child(even) td{background:#f8f9ff}
 
 <div class="footer">JET Estaciones · ${s.lat?.toFixed(6)}, ${s.lng?.toFixed(6)} · ${dateStr}</div>
 </div>
+${LEAFLET_MAP_INIT}
 </body></html>`;
 
   const win = window.open('','_blank');
@@ -2937,9 +3252,9 @@ function exportPDF(){
     pt:{propia:'Própria JET',competencia:'Concorrente'}
   }[lang]||{};
   const T = {
-    es:{title:'Reporte de Estaciones JET',date:'Fecha',total:'Total',jet:'Propias JET',comp:'Competencia',cities:'Ciudades',addr:'Dirección',coords:'Coordenadas',cap:'Capacidad',radius:'Radio',by:'Registrado por',notes:'Notas',croqui:'Croquis',printBtn:'🖨️ Imprimir / Guardar PDF',generated:'Generado el'},
-    ru:{title:'Отчёт о парковках JET',date:'Дата',total:'Всего',jet:'Наши JET',comp:'Конкуренты',cities:'Городов',addr:'Адрес',coords:'Координаты',cap:'Вместимость',radius:'Радиус',by:'Добавил',notes:'Примечания',croqui:'Кроки (схема)',printBtn:'🖨️ Распечатать / Сохранить PDF',generated:'Сформирован'},
-    pt:{title:'Relatório de Estações JET',date:'Data',total:'Total',jet:'Próprias JET',comp:'Concorrentes',cities:'Cidades',addr:'Endereço',coords:'Coordenadas',cap:'Capacidade',radius:'Raio',by:'Registrado por',notes:'Notas',croqui:'Croqui',printBtn:'🖨️ Imprimir / Salvar PDF',generated:'Gerado em'}
+    es:{title:'Reporte de Estaciones JET',date:'Fecha',total:'Total',jet:'Propias JET',comp:'Competencia',cities:'Ciudades',addr:'Dirección',coords:'Coordenadas',cap:'Capacidad',radius:'Radio',by:'Registrado por',notes:'Notas',croqui:'Croquis',printBtn:'🖨️ Imprimir / Guardar PDF',generated:'Generado el',photo:'Foto'},
+    ru:{title:'Отчёт о парковках JET',date:'Дата',total:'Всего',jet:'Наши JET',comp:'Конкуренты',cities:'Городов',addr:'Адрес',coords:'Координаты',cap:'Вместимость',radius:'Радиус',by:'Добавил',notes:'Примечания',croqui:'Кроки (схема)',printBtn:'🖨️ Распечатать / Сохранить PDF',generated:'Сформирован',photo:'Фото'},
+    pt:{title:'Relatório de Estações JET',date:'Data',total:'Total',jet:'Próprias JET',comp:'Concorrentes',cities:'Cidades',addr:'Endereço',coords:'Coordenadas',cap:'Capacidade',radius:'Raio',by:'Registrado por',notes:'Notas',croqui:'Croqui',printBtn:'🖨️ Imprimir / Salvar PDF',generated:'Gerado em',photo:'Foto'}
   }[lang]||{};
 
   const ownCount  = stations.filter(s=>s.ownership!=='competencia').length;
