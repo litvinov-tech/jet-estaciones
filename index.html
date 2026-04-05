@@ -410,13 +410,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
     </div>
     <div class="fg">
-      <label id="lbl-radius">Radio de estacionamiento</label>
-      <div class="cap-grid">
-        <button class="cap-btn" onclick="setRadius2(this,50)">50 m</button>
-        <button class="cap-btn" onclick="setRadius2(this,100)">100 m</button>
-        <button class="cap-btn" onclick="setRadius2(this,150)">150 m</button>
-        <button class="cap-btn" onclick="setRadius2(this,200)">200 m</button>
-      </div>
+      <label id="lbl-radius">Radio de estacionamiento: <strong id="radius-val">20 m</strong></label>
+      <input type="range" id="f-radius" min="1" max="100" value="20"
+             style="width:100%;accent-color:#005bff;margin-top:6px"
+             oninput="selRadius2=+this.value;document.getElementById('radius-val').textContent=this.value+' m'">
     </div>
     <div class="fg"><label>Notas</label><textarea id="f-notes" rows="2" placeholder="Observaciones..."></textarea></div>
     <button id="save-btn" onclick="saveStation()">💾 Guardar Estación</button>
@@ -740,7 +737,7 @@ let currentUser = null;
 let stations    = [];
 let myLat = null, myLng = null, myMarker = null;
 let tempPin = null, selCoords = null;
-let addMode = false, selCap = '', selOwn = 'propia', selRadius2 = null;
+let addMode = false, selCap = '', selOwn = 'propia', selRadius2 = 20;
 let editingId = null;
 let unsubStations = null, unsubLocations = null, unsubDeleteReqs = null;
 let locationTimer = null;
@@ -1377,7 +1374,9 @@ function resetForm(){
   document.getElementById('f-photo').value='';
   document.getElementById('zone-msg').innerHTML='';
   document.getElementById('nearby-msg').innerHTML='';
-  selCap=''; selOwn='propia'; editingId=null; selRadius2=null;
+  selCap=''; selOwn='propia'; editingId=null; selRadius2=20;
+  const rSlider=document.getElementById('f-radius');
+  if(rSlider){rSlider.value=20;document.getElementById('radius-val').textContent='20 m';}
   document.querySelectorAll('.cap-btn').forEach(b=>b.classList.remove('sel'));
   setOwn(document.getElementById('own-propia'),'propia');
   document.getElementById('save-btn').textContent='💾 Guardar Estación';
@@ -1398,10 +1397,12 @@ function setCap(btn,val){
   btn.classList.add('sel'); selCap=val;
 }
 
-function setRadius2(btn,val){
-  btn.closest('.cap-grid').querySelectorAll('.cap-btn').forEach(b=>b.classList.remove('sel'));
-  btn.classList.add('sel');
+function setRadius2(val){
   selRadius2 = val;
+  const sl=document.getElementById('f-radius');
+  const lbl=document.getElementById('radius-val');
+  if(sl){sl.value=val;}
+  if(lbl){lbl.textContent=val+' m';}
 }
 
 // ==================== SAVE ====================
@@ -1467,6 +1468,7 @@ function openEdit(docId){
     document.querySelectorAll('.cap-btn').forEach(b=>{if(b.textContent.replace('–','-')===s.capacity||b.getAttribute('onclick')?.includes(s.capacity)){b.classList.add('sel');}});
     selCap = s.capacity;
   }
+  if(s.radius){ setRadius2(s.radius); } else { setRadius2(20); }
   if(s.photo){
     const p=document.getElementById('photo-preview');
     p.src=s.photo; p.style.display='block';
@@ -2326,10 +2328,47 @@ async function exportExcel(){
   }
 }
 
+// --- Map image + radius overlay for PDF ---
+// Returns HTML: OSM static map image with SVG radius circle and marker on top
+function mapWithOverlay(s, w, h){
+  const zoom = 17;
+  const lat  = s.lat  || 0;
+  const lng  = s.lng  || 0;
+  const r    = s.radius || 20;
+  const col  = s.ownership==='competencia' ? '#dc3545' : '#005bff';
+  // metres per pixel at this latitude/zoom
+  const mpp  = 156543.03392 * Math.cos(lat * Math.PI / 180) / Math.pow(2, zoom);
+  const rpx  = Math.max(4, Math.min(r / mpp, Math.min(w, h) * 0.46));
+  const cx   = w / 2, cy = h / 2;
+  const mapUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${lat},${lng}&zoom=${zoom}&size=${w}x${h}`;
+  return `<div style="position:relative;width:${w}px;height:${h}px;overflow:hidden;border-radius:6px">
+  <img src="${mapUrl}" width="${w}" height="${h}" style="display:block;width:${w}px;height:${h}px;object-fit:cover"
+       onerror="this.style.background='#eef2ff';this.src=''">
+  <svg xmlns="http://www.w3.org/2000/svg" style="position:absolute;top:0;left:0;pointer-events:none" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
+    <!-- radius filled zone -->
+    <circle cx="${cx}" cy="${cy}" r="${rpx}" fill="${col}" fill-opacity="0.18" stroke="${col}" stroke-width="2.5" stroke-dasharray="10 5"/>
+    <!-- radius dimension line -->
+    <line x1="${cx}" y1="${cy}" x2="${cx+rpx}" y2="${cy}" stroke="${col}" stroke-width="1.5" stroke-dasharray="4 3"/>
+    <!-- radius label with white halo -->
+    <text x="${cx+rpx/2}" y="${cy-8}" text-anchor="middle" font-family="Arial" font-size="12" font-weight="bold"
+          stroke="white" stroke-width="3" stroke-linejoin="round" paint-order="stroke" fill="${col}">${r}m</text>
+    <!-- shadow under pin -->
+    <ellipse cx="${cx}" cy="${cy+4}" rx="9" ry="4" fill="rgba(0,0,0,0.25)"/>
+    <!-- pin body -->
+    <path d="M${cx},${cy-26} a11,11 0 1,1 0.01,0 Z" fill="${col}" stroke="white" stroke-width="2"/>
+    <!-- scooter icon in pin -->
+    <text x="${cx}" y="${cy-12}" text-anchor="middle" font-size="11">🛴</text>
+    <!-- coords bottom center -->
+    <text x="${cx}" y="${h-5}" text-anchor="middle" font-family="Arial" font-size="8" fill="white"
+          stroke="rgba(0,0,0,0.6)" stroke-width="3" paint-order="stroke">${lat.toFixed(5)}, ${lng.toFixed(5)}</text>
+  </svg>
+</div>`;
+}
+
 // --- SVG Croqui generator ---
 function makeCroqui(s){
   const W=240, H=200, cx=W/2, cy=H/2;
-  const r = s.radius || 100;
+  const r = s.radius || 20;
   // Scale: fit radius into ~75px max
   const scale = Math.min(75, 10000/r);
   const rpx   = Math.max(20, Math.min(r*scale, 88));
@@ -2420,7 +2459,6 @@ function exportCroquiMulti(list){
     const ownLabel = isComp ? T.competencia : T.propia;
     const addrParts = (s.address||'').split(',');
     const municipio = addrParts.length>1 ? addrParts[addrParts.length-1].trim() : '';
-    const mapUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${s.lat},${s.lng}&zoom=17&size=320x160&markers=${s.lat},${s.lng},red-pushpin`;
     const photoBlock = s.photo
       ? `<img src="${s.photo}" style="width:100%;height:160px;object-fit:cover;display:block">`
       : `<div style="width:100%;height:160px;background:#f0f3fa;display:flex;align-items:center;justify-content:center;font-size:36px;color:#ccc">📷</div>`;
@@ -2446,13 +2484,7 @@ function exportCroquiMulti(list){
     </div>
     <div class="sb-col">
       <div class="box-lbl">🗺 ${T.mapview}</div>
-      <div style="border-radius:6px;overflow:hidden;border:1px solid #e8edf8">
-        <img src="${mapUrl}" style="width:100%;height:160px;object-fit:cover;display:block"
-             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-        <div style="display:none;width:100%;height:160px;align-items:center;justify-content:center;color:#aaa;font-size:12px;background:#f7f9ff">
-          ${(s.lat||0).toFixed(5)}, ${(s.lng||0).toFixed(5)}
-        </div>
-      </div>
+      <div style="border-radius:6px;overflow:hidden;border:1px solid #e8edf8">${mapWithOverlay(s,320,160)}</div>
     </div>
     <div class="sb-col">
       <div class="box-lbl">📋 ${T.name}</div>
@@ -2543,10 +2575,6 @@ function exportCroqui(docId){
   const ownLabel = isComp ? T.competencia : T.propia;
   const dateStr = new Date().toLocaleDateString(lang==='ru'?'ru-RU':lang==='pt'?'pt-BR':'es-MX',{year:'numeric',month:'long',day:'numeric'});
 
-  // Static map URL (OpenStreetMap)
-  const zoom = 17;
-  const mapUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${s.lat},${s.lng}&zoom=${zoom}&size=380x220&markers=${s.lat},${s.lng},red-pushpin`;
-
   const photoBlock = s.photo
     ? `<img src="${s.photo}" alt="foto" style="width:100%;height:220px;object-fit:cover;border-radius:6px;display:block">`
     : `<div style="width:100%;height:220px;background:#f0f3fa;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:48px;color:#ccc">📷</div>`;
@@ -2605,13 +2633,7 @@ tr:nth-child(even) td{background:#f8f9ff}
   </div>
   <div class="box">
     <div class="box-title">🗺 ${T.mapview}</div>
-    <div class="box-body" style="padding:0">
-      <img src="${mapUrl}" alt="mapa" style="width:100%;height:220px;object-fit:cover;display:block"
-           onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
-      <div style="display:none;width:100%;height:220px;align-items:center;justify-content:center;color:#aaa;font-size:13px;background:#f7f9ff">
-        🗺 ${s.lat?.toFixed(5)}, ${s.lng?.toFixed(5)}
-      </div>
-    </div>
+    <div class="box-body" style="padding:0">${mapWithOverlay(s,380,220)}</div>
   </div>
 </div>
 
