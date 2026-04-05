@@ -1694,9 +1694,11 @@ async function renderApRequests(){
   el.innerHTML = '<span class="spinner"></span>';
   try {
     const [usersSnap, delSnap] = await Promise.all([
-      db.collection('users').where('role','==','pending').orderBy('createdAt','desc').get(),
-      db.collection('deleteRequests').where('status','==','pending').orderBy('createdAt','desc').get()
+      db.collection('users').where('role','==','pending').get(),
+      db.collection('deleteRequests').where('status','==','pending').get()
     ]);
+    usersSnap.docs.sort((a,b)=>(b.data().createdAt?.seconds||0)-(a.data().createdAt?.seconds||0));
+    delSnap.docs.sort((a,b)=>(b.data().createdAt?.seconds||0)-(a.data().createdAt?.seconds||0));
 
     let html = '';
 
@@ -1880,7 +1882,8 @@ async function submitDeleteRequest(){
 async function renderRequestsTab(){
   const el = document.getElementById('req-content');
   el.innerHTML = '<span class="spinner"></span>';
-  const snap = await db.collection('deleteRequests').where('status','==','pending').orderBy('createdAt','desc').get();
+  const snap = await db.collection('deleteRequests').where('status','==','pending').get();
+  snap.docs.sort((a,b)=>(b.data().createdAt?.seconds||0)-(a.data().createdAt?.seconds||0));
   if(snap.empty){ el.innerHTML='<div class="empty">Sin solicitudes pendientes ✅</div>'; return; }
   el.innerHTML = snap.docs.map(doc=>{
     const r = doc.data();
