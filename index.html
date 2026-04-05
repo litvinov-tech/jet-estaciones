@@ -3251,21 +3251,17 @@ function driveDirectUrl(url) {
   return url;
 }
 
-// Helper: fetch Drive photo as base64 (via CORS proxy workaround)
+// Helper: fetch Drive photo via server proxy (avoids CORS)
 async function fetchDrivePhoto(url) {
-  const direct = driveDirectUrl(url);
-  if (!direct || direct === url) return url; // not a drive link, keep as-is
+  if (!url || !url.includes('drive.google.com')) return url;
   try {
-    const resp = await fetch(direct, { mode: 'cors' });
-    if (!resp.ok) return direct; // keep URL if can't fetch
-    const blob = await resp.blob();
-    return await new Promise(res => {
-      const r = new FileReader();
-      r.onload = e => res(e.target.result);
-      r.readAsDataURL(blob);
-    });
+    const proxyUrl = `http://163.176.250.160:8765/proxy-photo?url=${encodeURIComponent(url)}`;
+    const resp = await fetch(proxyUrl);
+    if (!resp.ok) return url;
+    const d = await resp.json();
+    return d.data || url;
   } catch {
-    return direct; // keep URL as fallback
+    return url; // keep URL as fallback
   }
 }
 
