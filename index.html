@@ -8,6 +8,7 @@
 <title>JET Estaciones</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
@@ -607,7 +608,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div class="import-area" onclick="document.getElementById('f-import').click()">
       📂 Toca para seleccionar archivo<br><small style="color:#aaa">CSV · TSV · JSON</small>
     </div>
-    <input type="file" id="f-import" accept="text/*,.csv,.tsv,.json" onchange="handleImport(this)">
+    <input type="file" id="f-import" accept=".csv,.tsv,.json,.xlsx,.xls,text/*" onchange="handleImport(this)">
 
     <div style="margin:12px 0;text-align:center;color:#bbb;font-size:12px">— o pega el contenido aquí —</div>
     <textarea id="import-paste" rows="5" placeholder="Pega aquí el contenido del CSV..."
@@ -3254,11 +3255,26 @@ function handleImport(input){
   const res=document.getElementById('import-result');
   res.innerHTML='<span class="spinner"></span> Procesando...';
   const reader=new FileReader();
-  reader.onload=async e=>{
-    const rawText = e.target.result.replace(/^\uFEFF/,'');
-    processImportText(rawText, file.name, res);
-  };
-  reader.readAsText(file,'utf-8');
+  // xlsx/xls — read as binary, parse with SheetJS
+  if(file.name.match(/\.xlsx?$/i)){
+    reader.onload=async e=>{
+      try{
+        const wb = XLSX.read(e.target.result, {type:'binary'});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        const tsv = XLSX.utils.sheet_to_csv(ws, {FS:'\t'});
+        processImportText(tsv, 'file.tsv', res);
+      }catch(err){
+        res.innerHTML=`<div class="err">❌ Error leyendo Excel: ${err.message}</div>`;
+      }
+    };
+    reader.readAsBinaryString(file);
+  } else {
+    reader.onload=async e=>{
+      const rawText = e.target.result.replace(/^\uFEFF/,'');
+      processImportText(rawText, file.name, res);
+    };
+    reader.readAsText(file,'utf-8');
+  }
 }
 
 async function processImportText(rawText, fileName, res){
