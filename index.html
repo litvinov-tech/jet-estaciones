@@ -130,6 +130,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .rbtn-admin{background:#e8f0ff;color:#005bff}
 .rbtn-user{background:#f5f5f5;color:#555}
 .rbtn-block{background:#fde8e8;color:#dc3545}
+.rbtn-delete{background:#dc3545;color:white}
 
 /* IMPORT */
 .import-area{border:2px dashed #ccc;border-radius:10px;padding:20px;text-align:center;color:#888;font-size:14px;cursor:pointer}
@@ -678,53 +679,66 @@ let delReqDocId   = null;   // station docId pending delete request
 const ADMIN_EMAIL = 'litvinov@jetshr.com.br';
 
 // ==================== MAP ====================
-const map = L.map('map',{zoomControl:false}).setView(CENTER,15);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxZoom:19}).addTo(map);
+const renderer = L.canvas({ padding: 0.5 });
+const map = L.map('map',{zoomControl:false, preferCanvas:true}).setView(CENTER,15);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxZoom:19,keepBuffer:2}).addTo(map);
 L.control.zoom({position:'bottomleft'}).addTo(map);
 const spotsGroup = L.layerGroup().addTo(map);
 
 // ==================== RESTRICTED STREETS (KML) ====================
+function parseKmlCoords(ls){
+  // Works regardless of whether ls is a DOM Element or has a namespace
+  const coordEl = ls.getElementsByTagName('coordinates')[0];
+  const raw = coordEl ? coordEl.textContent.trim() : '';
+  return raw.split(/\s+/).reduce((acc, c) => {
+    const p = c.split(',');
+    const lat = parseFloat(p[1]), lng = parseFloat(p[0]);
+    if(!isNaN(lat) && !isNaN(lng)) acc.push([lat, lng]);
+    return acc;
+  }, []);
+}
+
 async function loadRestrictedStreets(){
   try {
-    const res  = await fetch(encodeURI('./VIALIDADES RESTRINGIDAS.kml'));
+    const res  = await fetch('./VIALIDADES%20RESTRINGIDAS.kml');
+    if(!res.ok) throw new Error(`HTTP ${res.status}`);
     const text = await res.text();
-    const kml  = new DOMParser().parseFromString(text, 'application/xml');
+    const kml  = new DOMParser().parseFromString(text, 'text/xml');
     const group = L.layerGroup().addTo(map);
 
-    kml.querySelectorAll('Placemark').forEach(pm => {
-      const nameEl    = pm.querySelector('SimpleData[name="NOMVIAL"]');
-      const streetName = nameEl ? nameEl.textContent.trim() : '⛔ Zona restringida';
+    Array.from(kml.getElementsByTagName('Placemark')).forEach(pm => {
+      // Find street name from SimpleData[@name="NOMVIAL"]
+      let streetName = '⛔ Zona restringida';
+      Array.from(pm.getElementsByTagName('SimpleData')).forEach(sd => {
+        if(sd.getAttribute('name') === 'NOMVIAL') streetName = sd.textContent.trim();
+      });
 
-      pm.querySelectorAll('LineString').forEach(ls => {
-        const raw = (ls.querySelector('coordinates')?.textContent || '').trim();
-        const coords = raw.split(/\s+/).reduce((acc, c) => {
-          const p = c.split(',');
-          const lat = parseFloat(p[1]), lng = parseFloat(p[0]);
-          if(!isNaN(lat) && !isNaN(lng)) acc.push([lat, lng]);
-          return acc;
-        }, []);
+      Array.from(pm.getElementsByTagName('LineString')).forEach(ls => {
+        const coords = parseKmlCoords(ls);
         if(coords.length < 2) return;
 
-        // Glow halo
+        // Glow halo (canvas-rendered, no interaction)
         L.polyline(coords, {
-          color:'#dc3545', weight:14, opacity:0.18, interactive:false
+          renderer, color:'#dc3545', weight:14, opacity:0.18, interactive:false
         }).addTo(group);
 
         // Main thick dashed line
         L.polyline(coords, {
-          color:'#dc3545', weight:5, opacity:0.9,
-          dashArray:'12 6', lineCap:'round', lineJoin:'round'
+          renderer, color:'#dc3545', weight:5, opacity:0.85,
+          dashArray:'10 6', lineCap:'round', lineJoin:'round'
         }).addTo(group)
           .bindTooltip(`⛔ ${streetName}`, {
             sticky:true, className:'restricted-tip', direction:'top'
           });
       });
     });
+    console.log('Restricted streets loaded ✓');
   } catch(e){
     console.warn('Restricted streets KML not loaded:', e.message);
   }
 }
-loadRestrictedStreets();
+// Defer KML load slightly so the map tiles render first
+setTimeout(loadRestrictedStreets, 800);
 
 map.on('click', e => {
   if(document.querySelector('.overlay.on') || document.getElementById('admin-panel-overlay').classList.contains('on')) return;
@@ -1627,7 +1641,8 @@ async function renderApEmployees(){
             ${isPending ? `<button class="ea-btn" style="background:#28a745;color:white" onclick="apSetRole('${u.uid}','user',this)">✅ Одобрить</button>` : ''}
             ${u.role!=='admin' ? `<button class="ea-btn rbtn-admin" onclick="apSetRole('${u.uid}','admin',this)">👑 Сделать админом</button>` : ''}
             ${u.role!=='user' && !isPending ? `<button class="ea-btn rbtn-user" onclick="apSetRole('${u.uid}','user',this)">👤 Сотрудник</button>` : ''}
-            ${u.role!=='disabled' ? `<button class="ea-btn rbtn-block" onclick="apSetRole('${u.uid}','disabled',this)">🚫 Заблокировать</button>` : `<button class="ea-btn" style="background:#28a745;color:white" onclick="apSetRole('${u.uid}','user',this)">✅ Разблокировать</button>`}
+            ${u.role!=='disabled' ? `<button class="ea-btn rbtn-block" onclick="apSetRole('${u.uid}','disabled',this)">🚫 Заблокировать</button>` : `<button class="ea-btn" style="background:#28a745;color:white" onclick="apSetRole('${u.uid}','user',this)">✅ Восстановить доступ</button>`}
+            <button class="ea-btn rbtn-delete" onclick="apDeleteUser('${u.uid}','${(u.name||'').replace(/'/g,"\\'")}')">🗑 Удалить</button>
           </div>` : ''}
         </div>
         <div style="text-align:center;min-width:40px">
@@ -1662,6 +1677,16 @@ async function apSetRole(uid, role, btn){
     renderApEmployees();
     renderUsersTab();
   } catch(e){ toast('❌ '+e.message); btn.disabled=false; }
+}
+
+async function apDeleteUser(uid, name){
+  if(!confirm(`Удалить пользователя «${name}»?\n\nЕго парковки останутся в базе. Это действие нельзя отменить.`)) return;
+  try {
+    await db.collection('users').doc(uid).delete();
+    toast(`🗑 Пользователь «${name}» удалён`);
+    renderApEmployees();
+    renderUsersTab();
+  } catch(e){ toast('❌ '+e.message); }
 }
 
 async function renderApRequests(){
@@ -2155,88 +2180,174 @@ async function exportExcel(){
   }
 }
 
+// --- SVG Croqui generator ---
+function makeCroqui(s){
+  const W=240, H=200, cx=W/2, cy=H/2;
+  const r = s.radius || 100;
+  // Scale: fit radius into ~75px max
+  const scale = Math.min(75, 10000/r);
+  const rpx   = Math.max(20, Math.min(r*scale, 88));
+  const isComp = s.ownership==='competencia';
+  const col    = isComp ? '#dc3545' : '#005bff';
+  const capNum = s.capacity ? s.capacity.replace(/[^0-9\-+]/g,'') : '?';
+
+  // Scale bar: pick a nice round distance
+  const barM  = r >= 100 ? 50 : 25;
+  const barPx = barM * scale;
+
+  return `<svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="${W}" height="${H}" rx="8" fill="#f7f9ff" stroke="#d0d8f0" stroke-width="1"/>
+
+  <!-- Grid lines (crosshair) -->
+  <line x1="${cx}" y1="8" x2="${cx}" y2="${H-8}" stroke="#d8e4ff" stroke-width="0.8" stroke-dasharray="4 3"/>
+  <line x1="8" y1="${cy}" x2="${W-8}" y2="${cy}" stroke="#d8e4ff" stroke-width="0.8" stroke-dasharray="4 3"/>
+
+  <!-- Outer reference ring (2× radius, light) -->
+  <circle cx="${cx}" cy="${cy}" r="${Math.min(rpx*1.6, 95)}" fill="none" stroke="#c8d8f8" stroke-width="0.8" stroke-dasharray="3 4"/>
+
+  <!-- Operational zone (radius) -->
+  <circle cx="${cx}" cy="${cy}" r="${rpx}" fill="${col}18" stroke="${col}" stroke-width="1.8" stroke-dasharray="7 4"/>
+
+  <!-- Radius dimension line + label -->
+  <line x1="${cx}" y1="${cy}" x2="${cx+rpx}" y2="${cy}" stroke="${col}" stroke-width="1" stroke-dasharray="3 2"/>
+  <line x1="${cx+rpx-3}" y1="${cy-4}" x2="${cx+rpx}" y2="${cy}" stroke="${col}" stroke-width="1.2"/>
+  <line x1="${cx+rpx-3}" y1="${cy+4}" x2="${cx+rpx}" y2="${cy}" stroke="${col}" stroke-width="1.2"/>
+  <text x="${cx + rpx/2}" y="${cy-5}" text-anchor="middle" fill="${col}" font-size="9" font-family="Arial" font-weight="bold">${r}m</text>
+
+  <!-- Pin marker (drop shape) -->
+  <ellipse cx="${cx}" cy="${cy+2}" rx="8" ry="3" fill="rgba(0,0,0,0.15)"/>
+  <path d="M${cx},${cy-22} a10,10 0 1,1 0.01,0 Z" fill="${col}" stroke="white" stroke-width="1.5"/>
+  <circle cx="${cx}" cy="${cy-16}" r="4" fill="white" opacity="0.9"/>
+
+  <!-- Capacity badge (bottom-left of zone) -->
+  <rect x="${cx-rpx-2}" y="${cy+rpx*0.55}" rx="5" ry="5" width="54" height="18" fill="${col}" opacity="0.9"/>
+  <text x="${cx-rpx+25}" y="${cy+rpx*0.55+12}" text-anchor="middle" fill="white" font-size="10" font-family="Arial" font-weight="bold">&#x1F6F4; ${capNum}</text>
+
+  <!-- Compass rose (top-right corner) -->
+  <g transform="translate(${W-28},24)">
+    <circle cx="0" cy="0" r="12" fill="white" stroke="#d0d8f0" stroke-width="1"/>
+    <!-- N arrow (filled) -->
+    <polygon points="0,-10 -4,0 4,0" fill="${col}"/>
+    <!-- S arrow (outline) -->
+    <polygon points="0,10 -4,0 4,0" fill="none" stroke="#aaa" stroke-width="1"/>
+    <text x="0" y="-13" text-anchor="middle" fill="${col}" font-size="8" font-family="Arial" font-weight="bold">N</text>
+    <text x="0" y="21" text-anchor="middle" fill="#999" font-size="7" font-family="Arial">S</text>
+    <text x="-17" y="3"  text-anchor="middle" fill="#999" font-size="7" font-family="Arial">O</text>
+    <text x="17"  y="3"  text-anchor="middle" fill="#999" font-size="7" font-family="Arial">E</text>
+  </g>
+
+  <!-- Scale bar (bottom) -->
+  <g transform="translate(${cx-barPx/2},${H-16})">
+    <line x1="0" y1="0" x2="${barPx}" y2="0" stroke="#666" stroke-width="1.5"/>
+    <line x1="0" y1="-3" x2="0" y2="3" stroke="#666" stroke-width="1.5"/>
+    <line x1="${barPx}" y1="-3" x2="${barPx}" y2="3" stroke="#666" stroke-width="1.5"/>
+    <text x="${barPx/2}" y="-4" text-anchor="middle" fill="#666" font-size="8" font-family="Arial">${barM}m</text>
+  </g>
+
+  <!-- Coordinates (very bottom) -->
+  <text x="${cx}" y="${H-3}" text-anchor="middle" fill="#b0b8cc" font-size="7.5" font-family="Arial">${(s.lat||0).toFixed(5)}, ${(s.lng||0).toFixed(5)}</text>
+</svg>`;
+}
+
 // --- PDF (HTML Report, opens in new tab → Ctrl+P → Save as PDF) ---
 function exportPDF(){
-  const L = LANGS[lang]||LANGS.es;
   const own = {
-    es:{propia:'✅ Propia JET',competencia:'🔴 Competencia'},
-    ru:{propia:'✅ Наша JET',competencia:'🔴 Конкурент'},
-    pt:{propia:'✅ Própria JET',competencia:'🔴 Concorrente'}
+    es:{propia:'JET Propia',competencia:'Competencia'},
+    ru:{propia:'Наша JET',competencia:'Конкурент'},
+    pt:{propia:'Própria JET',competencia:'Concorrente'}
   }[lang]||{};
-  const titles = {
-    es:{title:'Reporte de Estaciones JET',date:'Fecha',total:'Total estaciones',jet:'Propias JET',comp:'Competencia',cities:'Ciudades',name:'Estación',type:'Tipo',addr:'Dirección',coords:'Coordenadas',cap:'Capacidad',radius:'Radio',by:'Registrado por',notes:'Notas',noPhoto:'Sin foto',printBtn:'🖨️ Imprimir / Guardar PDF'},
-    ru:{title:'Отчёт о парковках JET',date:'Дата',total:'Всего парковок',jet:'Наши JET',comp:'Конкуренты',cities:'Городов',name:'Парковка',type:'Тип',addr:'Адрес',coords:'Координаты',cap:'Вместимость',radius:'Радиус',by:'Добавил',notes:'Примечания',noPhoto:'Фото нет',printBtn:'🖨️ Распечатать / Сохранить PDF'},
-    pt:{title:'Relatório de Estações JET',date:'Data',total:'Total estações',jet:'Próprias JET',comp:'Concorrentes',cities:'Cidades',name:'Estação',type:'Tipo',addr:'Endereço',coords:'Coordenadas',cap:'Capacidade',radius:'Raio',by:'Registrado por',notes:'Notas',noPhoto:'Sem foto',printBtn:'🖨️ Imprimir / Salvar PDF'}
+  const T = {
+    es:{title:'Reporte de Estaciones JET',date:'Fecha',total:'Total',jet:'Propias JET',comp:'Competencia',cities:'Ciudades',addr:'Dirección',coords:'Coordenadas',cap:'Capacidad',radius:'Radio',by:'Registrado por',notes:'Notas',croqui:'Croquis',printBtn:'🖨️ Imprimir / Guardar PDF',generated:'Generado el'},
+    ru:{title:'Отчёт о парковках JET',date:'Дата',total:'Всего',jet:'Наши JET',comp:'Конкуренты',cities:'Городов',addr:'Адрес',coords:'Координаты',cap:'Вместимость',radius:'Радиус',by:'Добавил',notes:'Примечания',croqui:'Кроки (схема)',printBtn:'🖨️ Распечатать / Сохранить PDF',generated:'Сформирован'},
+    pt:{title:'Relatório de Estações JET',date:'Data',total:'Total',jet:'Próprias JET',comp:'Concorrentes',cities:'Cidades',addr:'Endereço',coords:'Coordenadas',cap:'Capacidade',radius:'Raio',by:'Registrado por',notes:'Notas',croqui:'Croqui',printBtn:'🖨️ Imprimir / Salvar PDF',generated:'Gerado em'}
   }[lang]||{};
 
   const ownCount  = stations.filter(s=>s.ownership!=='competencia').length;
   const compCount = stations.filter(s=>s.ownership==='competencia').length;
   const citySet   = new Set(stations.map(s=>(s.address||'').split(',').pop().trim()).filter(Boolean));
+  const dateStr   = new Date().toLocaleDateString(lang==='ru'?'ru-RU':lang==='pt'?'pt-BR':'es-MX',{year:'numeric',month:'long',day:'numeric'});
 
   const stationsHtml = stations.map((s,i)=>`
-    <div class="sc">
-      ${s.photo
-        ? `<img class="sp" src="${s.photo}" alt="">`
-        : `<div class="sp-empty">📍</div>`}
-      <div class="si">
-        <div class="sn">${i+1}. ${s.name}
-          <span class="st ${s.ownership==='competencia'?'stc':''}">${s.type}</span>
-          <span class="st ${s.ownership==='competencia'?'stc':''}">${(own[s.ownership])||s.ownership||''}</span>
-        </div>
-        <div class="sm"><b>${titles.addr}:</b> ${s.address||'—'}</div>
-        <div class="sm"><b>${titles.coords}:</b> ${(s.lat||0).toFixed(6)}, ${(s.lng||0).toFixed(6)}</div>
-        <div class="sm" style="display:flex;gap:16px">
-          <span><b>${titles.cap}:</b> ${s.capacity||'—'}</span>
-          <span><b>${titles.radius}:</b> ${s.radius ? s.radius+'m' : '—'}</span>
-          <span><b>${titles.by}:</b> ${s.userName||'—'}</span>
-          <span><b>${titles.date}:</b> ${s.date||'—'}</span>
-        </div>
-        ${s.notes ? `<div class="sm" style="color:#555;font-style:italic">"${s.notes}"</div>` : ''}
-      </div>
-    </div>`).join('');
+<div class="sc">
+  <div class="sc-left">
+    ${s.photo ? `<img class="sp" src="${s.photo}" alt="">` : `<div class="sp-empty">📷</div>`}
+    <div class="croqui-wrap">
+      <div class="croqui-lbl">${T.croqui}</div>
+      ${makeCroqui(s)}
+    </div>
+  </div>
+  <div class="si">
+    <div class="sn">${i+1}. ${s.name}
+      <span class="st ${s.ownership==='competencia'?'stc':''}">${s.type}</span>
+      <span class="st ${s.ownership==='competencia'?'stc':''}" style="font-size:10px">${own[s.ownership]||s.ownership||''}</span>
+    </div>
+    <table class="info-table">
+      <tr><td>${T.addr}</td><td>${s.address||'—'}</td></tr>
+      <tr><td>${T.coords}</td><td>${(s.lat||0).toFixed(6)}, ${(s.lng||0).toFixed(6)}</td></tr>
+      <tr><td>${T.cap}</td><td>${s.capacity||'—'}</td></tr>
+      <tr><td>${T.radius}</td><td>${s.radius ? s.radius+' m' : '—'}</td></tr>
+      <tr><td>${T.by}</td><td>${s.userName||'—'}</td></tr>
+      <tr><td>${T.date}</td><td>${s.date||'—'}</td></tr>
+      ${s.notes ? `<tr><td>${T.notes}</td><td style="font-style:italic;color:#555">${s.notes}</td></tr>` : ''}
+    </table>
+  </div>
+</div>`).join('');
 
-  const html = `<!DOCTYPE html><html lang="${lang}"><head><meta charset="UTF-8">
+  const html=`<!DOCTYPE html><html lang="${lang}"><head><meta charset="UTF-8">
 <title>JET Report ${today()}</title>
 <style>
-  *{box-sizing:border-box;margin:0;padding:0}
-  body{font-family:Arial,Helvetica,sans-serif;padding:20px;color:#222;max-width:900px;margin:0 auto}
-  .hdr{text-align:center;border-bottom:3px solid #005bff;padding-bottom:14px;margin-bottom:20px}
-  .logo{font-size:40px;font-weight:900;color:#005bff;letter-spacing:-2px}
-  .htitle{font-size:20px;font-weight:700;margin:6px 0 4px}
-  .hdate{font-size:13px;color:#888}
-  .sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
-  .scard{border:1px solid #e0e0e0;border-radius:8px;padding:12px;text-align:center}
-  .snum{font-size:30px;font-weight:900;color:#005bff}
-  .slbl{font-size:11px;color:#888;margin-top:4px}
-  .sc{page-break-inside:avoid;border:1px solid #e0e0e0;border-radius:8px;padding:12px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start}
-  .sp{width:110px;height:85px;object-fit:cover;border-radius:6px;flex-shrink:0}
-  .sp-empty{width:110px;height:85px;background:#f5f5f5;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:28px;color:#ccc}
-  .si{flex:1;min-width:0}
-  .sn{font-size:14px;font-weight:700;margin-bottom:5px}
-  .st{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;background:#e8f0ff;color:#005bff;margin-left:4px;font-weight:600}
-  .stc{background:#fde8e8;color:#dc3545}
-  .sm{font-size:12px;color:#555;margin-top:3px}
-  .print-btn{display:block;margin:0 auto 20px;padding:12px 30px;background:#005bff;color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer}
-  @media print{.print-btn{display:none}.sc{page-break-inside:avoid}}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,Helvetica,sans-serif;padding:18px 22px;color:#222;max-width:960px;margin:0 auto;font-size:13px}
+.hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #005bff;padding-bottom:12px;margin-bottom:18px}
+.hdr-left .logo{font-size:36px;font-weight:900;color:#005bff;letter-spacing:-2px;line-height:1}
+.hdr-left .htitle{font-size:17px;font-weight:700;margin-top:2px}
+.hdr-right{text-align:right;font-size:11px;color:#888}
+.sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:18px}
+.scard{border:1px solid #e0e0e0;border-radius:8px;padding:10px;text-align:center}
+.snum{font-size:26px;font-weight:900;color:#005bff;line-height:1}
+.slbl{font-size:10px;color:#888;margin-top:3px}
+.sc{page-break-inside:avoid;border:1px solid #d8e0f0;border-radius:8px;padding:12px;margin-bottom:12px;display:flex;gap:14px}
+.sc-left{display:flex;flex-direction:column;gap:8px;flex-shrink:0}
+.sp{width:180px;height:130px;object-fit:cover;border-radius:6px;display:block}
+.sp-empty{width:180px;height:130px;background:#f0f3fa;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:32px;color:#ccc}
+.croqui-wrap{text-align:center}
+.croqui-lbl{font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:3px}
+.si{flex:1;min-width:0}
+.sn{font-size:14px;font-weight:700;margin-bottom:8px;line-height:1.3}
+.st{display:inline-block;padding:2px 7px;border-radius:8px;font-size:10px;background:#e8f0ff;color:#005bff;margin-left:4px;font-weight:700}
+.stc{background:#fde8e8;color:#dc3545}
+.info-table{width:100%;border-collapse:collapse}
+.info-table td{padding:3px 6px;vertical-align:top;font-size:12px}
+.info-table td:first-child{font-weight:700;color:#444;width:110px;white-space:nowrap}
+.info-table td:last-child{color:#333}
+.info-table tr:nth-child(even) td{background:#f8f9ff}
+.print-btn{display:block;margin:0 auto 18px;padding:11px 28px;background:#005bff;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:0.3px}
+@media print{.print-btn{display:none}body{padding:10px}html{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
 </style></head><body>
-<button class="print-btn" onclick="window.print()">${titles.printBtn}</button>
+<button class="print-btn" onclick="window.print()">${T.printBtn}</button>
 <div class="hdr">
-  <div class="logo">JET</div>
-  <div class="htitle">${titles.title}</div>
-  <div class="hdate">${titles.date}: ${new Date().toLocaleDateString(lang==='ru'?'ru-RU':lang==='pt'?'pt-BR':'es-MX', {year:'numeric',month:'long',day:'numeric'})}</div>
+  <div class="hdr-left">
+    <div class="logo">JET</div>
+    <div class="htitle">${T.title}</div>
+  </div>
+  <div class="hdr-right">
+    ${T.generated}: ${dateStr}<br>
+    ${T.total}: <b>${stations.length}</b>
+  </div>
 </div>
 <div class="sgrid">
-  <div class="scard"><div class="snum">${stations.length}</div><div class="slbl">${titles.total}</div></div>
-  <div class="scard"><div class="snum" style="color:#28a745">${ownCount}</div><div class="slbl">${titles.jet}</div></div>
-  <div class="scard"><div class="snum" style="color:#dc3545">${compCount}</div><div class="slbl">${titles.comp}</div></div>
-  <div class="scard"><div class="snum">${citySet.size}</div><div class="slbl">${titles.cities}</div></div>
+  <div class="scard"><div class="snum">${stations.length}</div><div class="slbl">${T.total}</div></div>
+  <div class="scard"><div class="snum" style="color:#28a745">${ownCount}</div><div class="slbl">${T.jet}</div></div>
+  <div class="scard"><div class="snum" style="color:#dc3545">${compCount}</div><div class="slbl">${T.comp}</div></div>
+  <div class="scard"><div class="snum">${citySet.size}</div><div class="slbl">${T.cities}</div></div>
 </div>
 ${stationsHtml}
 </body></html>`;
 
-  const win = window.open('','_blank');
-  if(win){ win.document.write(html); win.document.close(); }
-  else toast('⚠️ Разрешите всплывающие окна для этого сайта');
+  const win=window.open('','_blank');
+  if(win){win.document.write(html);win.document.close();}
+  else toast('⚠️ Разрешите всплывающие окна в браузере');
   closeOverlay('export-overlay');
 }
 
