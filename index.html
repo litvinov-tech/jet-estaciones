@@ -460,7 +460,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
              oninput="selRadius2=+this.value;document.getElementById('radius-val').textContent=this.value+' m'">
     </div>
     <div class="fg">
-      <label>📐 <span data-i18n="lbl_dimensions">Dimensiones del lugar</span></label>
+      <label><span data-i18n="lbl_dimensions">📐 Dimensiones del lugar</span></label>
       <div style="display:flex;gap:8px;align-items:center;margin-top:4px">
         <div style="flex:1">
           <div style="font-size:11px;color:#888;margin-bottom:2px" data-i18n="lbl_width">Ancho (fijo)</div>
@@ -708,9 +708,9 @@ async function loadConfig(){
     console.log('[AI] Config loaded');
   } catch(e){ console.warn('[AI] Config not available:', e.message); }
 }
-// Try to load on startup (non-blocking)
+// Load config and regulations on startup
+const _configReady = loadConfig();
 loadRegulations();
-loadConfig();
 
 // ==================== I18N ====================
 const LANGS = {
@@ -2102,6 +2102,9 @@ async function analyzePhotoWithAI(){
   btn.disabled=true; btn.textContent=t('ai_analyzing');
   resultEl.style.display='none';
 
+  // Ensure config is loaded
+  if(!ANTHROPIC_KEY) await _configReady;
+
   try {
     const imgSrc  = preview.src;
     const base64  = imgSrc.split(',')[1];
@@ -2183,6 +2186,7 @@ async function analyzeLocationWithAI(){
   if(!address || address === 'Detectando...'){ toast('⚠️ ' + (lang==='ru'?'Сначала выберите точку на карте':lang==='pt'?'Primeiro selecione um ponto no mapa':'Primero selecciona un punto en el mapa')); return; }
   const btn = document.getElementById('ai-location-btn');
   btn.disabled=true; btn.textContent=t('ai_location_analyzing');
+  if(!GROQ_KEY && !ANTHROPIC_KEY) await _configReady;
   const resultEl = document.getElementById('ai-result');
   resultEl.style.display='none';
   try {
