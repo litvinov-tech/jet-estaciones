@@ -645,6 +645,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </button>
 
     <div id="import-result" style="margin-top:12px;font-size:13px"></div>
+
+    <hr style="margin:16px 0;border:none;border-top:1px solid #eee">
+    <div style="font-size:13px;color:#666;margin-bottom:8px">📸 Подгрузить фото с Google Drive для всех станций без фото:</div>
+    <button onclick="fetchAllDrivePhotos()" style="width:100%;padding:10px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">
+      🖼 Загрузить фото из Drive
+    </button>
+    <div id="drive-photo-result" style="margin-top:8px;font-size:13px"></div>
   </div>
 </div>
 
@@ -3281,6 +3288,32 @@ function driveDirectUrl(url) {
 }
 
 // Helper: fetch Drive photo via server proxy (avoids CORS)
+async function fetchAllDrivePhotos() {
+  const res = document.getElementById('drive-photo-result');
+  // Find stations with Drive URL but no photo
+  const targets = stations.filter(s => s._photoUrl && s._photoUrl.includes('drive.google.com') && !s.photo);
+  if(!targets.length){
+    // Also check stations where photo IS a drive URL (not yet converted)
+    const drivePhoto = stations.filter(s => s.photo && s.photo.includes('drive.google.com'));
+    targets.push(...drivePhoto);
+  }
+  if(!targets.length){ res.innerHTML='<div class="ok">✅ Нет станций с фото Drive для обновления.</div>'; return; }
+  res.innerHTML=`<span class="spinner"></span> Обрабатываю ${targets.length} станций...`;
+  let done=0, failed=0;
+  for(const s of targets){
+    const url = s._photoUrl || s.photo;
+    try{
+      const b64 = await fetchDrivePhoto(url);
+      if(b64 && b64.startsWith('data:')){
+        await db.collection('stations').doc(s._docId).update({ photo: b64 });
+        done++;
+      } else { failed++; }
+    }catch{ failed++; }
+    res.innerHTML=`<span class="spinner"></span> ${done}/${targets.length} загружено...`;
+  }
+  res.innerHTML=`<div class="ok">✅ Загружено: ${done}${failed?` · ❌ Ошибок: ${failed}`:''}.</div>`;
+}
+
 async function fetchDrivePhoto(url) {
   if (!url || !url.includes('drive.google.com')) return url;
   try {
