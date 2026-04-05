@@ -160,6 +160,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* TOOLBAR ACTIVE */
 .tbtn.active{background:#005bff;color:white}
 
+/* NEARBY TYPE SUGGESTIONS */
+#type-suggestions{margin-bottom:10px;display:none}
+#type-suggestions .sug-label{font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.4px;margin-bottom:6px}
+#type-chips{display:flex;gap:6px;flex-wrap:wrap}
+.type-chip{padding:6px 11px;border:1.5px solid #e0e0e0;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;background:white;color:#333;white-space:nowrap;transition:all 0.15s}
+.type-chip:active,.type-chip.sel{border-color:#005bff;background:#e8f0ff;color:#005bff}
+.type-chip .chip-dist{font-size:10px;color:#aaa;margin-left:3px;font-weight:400}
+.type-chip.sel .chip-dist{color:#89aaff}
+#sug-spinner{font-size:12px;color:#aaa;padding:4px 0}
+
 /* RESTRICTED STREET TOOLTIP */
 .restricted-tip{background:#dc3545;color:white;border:none;border-radius:6px;font-weight:700;font-size:11px;padding:4px 8px;box-shadow:0 2px 8px rgba(220,53,69,0.5);white-space:nowrap}
 .restricted-tip::before{border-top-color:#dc3545}
@@ -326,6 +336,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       <img id="photo-preview" src="" alt="">
     </div>
     <div class="fg"><label>Nombre / Referencia *</label><input id="f-name" placeholder="Ej: Frente al Starbucks, Torre A..."></div>
+    <div id="type-suggestions">
+      <div class="sug-label">📍 Рядом найдено — выбери тип:</div>
+      <div id="type-chips"><span id="sug-spinner"><span class="spinner"></span>Ищу рядом...</span></div>
+    </div>
     <div class="fg">
       <label>Tipo *</label>
       <select id="f-type">
@@ -1027,6 +1041,7 @@ function openFormFromPin(){
   document.getElementById('f-coords').value = `${selCoords.lat.toFixed(6)}, ${selCoords.lng.toFixed(6)}`;
   checkNearby(selCoords);
   reverseGeo(selCoords);
+  fetchNearbySuggestions(selCoords.lat, selCoords.lng);
 }
 
 function cancelPin(){
@@ -1083,6 +1098,86 @@ function dist(a,b,c,d){
   const R=6371000,dA=(c-a)*Math.PI/180,dB=(d-b)*Math.PI/180;
   return R*2*Math.atan2(Math.sqrt(Math.sin(dA/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dB/2)**2),
     Math.sqrt(1-(Math.sin(dA/2)**2+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dB/2)**2)));
+}
+
+// Type index (language-independent) + emoji mapping
+const TYPE_EMOJIS = ['🏬','🍽️','🏢','🏘️','🏨','🏋️','🏫','🌳','🏥','📦'];
+
+function guessTypeIndex(a){
+  const am=(a.amenity||'').toLowerCase(), sh=(a.shop||'').toLowerCase();
+  const to=(a.tourism||'').toLowerCase(), le=(a.leisure||'').toLowerCase();
+  const bu=(a.building||'').toLowerCase(), of=(a.office||'').toLowerCase();
+  if(['restaurant','fast_food','food_court','cafe','bar'].includes(am))   return 1;
+  if(['hospital','clinic','pharmacy','doctors','dentist'].includes(am))   return 8;
+  if(['school','university','college','kindergarten'].includes(am))       return 6;
+  if(am==='gym'||le==='fitness_centre'||le==='sports_centre')             return 5;
+  if(['hotel','motel','hostel','guest_house'].includes(am)||to==='hotel') return 4;
+  if(['park','garden'].includes(le)||am==='park')                         return 7;
+  if(['mall','supermarket','department_store'].includes(sh)||bu==='mall') return 0;
+  if(of||bu==='office'||am==='office')                                    return 2;
+  if(['apartments','residential'].includes(bu)||am==='residential')      return 3;
+  return -1;
+}
+
+async function fetchNearbySuggestions(lat, lng){
+  const wrap  = document.getElementById('type-suggestions');
+  const chips = document.getElementById('type-chips');
+  wrap.style.display = 'block';
+  chips.innerHTML = '<span id="sug-spinner"><span class="spinner"></span>Ищу рядом...</span>';
+
+  const q = `[out:json][timeout:8];(
+    node["amenity"](around:150,${lat},${lng});
+    node["shop"](around:150,${lat},${lng});
+    node["leisure"](around:150,${lat},${lng});
+    node["tourism"](around:150,${lat},${lng});
+    node["building"](around:150,${lat},${lng});
+    node["office"](around:150,${lat},${lng});
+  );out body 30;`;
+
+  try {
+    const res  = await fetch('https://overpass-api.de/api/interpreter', {method:'POST', body:q});
+    const data = await res.json();
+    chips.innerHTML = '';
+
+    const seen = new Set();
+    const sugs = [];
+    (data.elements||[]).forEach(node => {
+      const tags = node.tags||{};
+      const idx  = guessTypeIndex(tags);
+      if(idx < 0 || seen.has(idx)) return;
+      seen.add(idx);
+      const d = Math.round(dist(lat, lng, node.lat, node.lon));
+      sugs.push({idx, name: tags.name||'', dist: d});
+    });
+
+    if(!sugs.length){
+      wrap.style.display = 'none';
+      return;
+    }
+
+    sugs.sort((a,b)=>a.dist-b.dist).slice(0,6).forEach(s => {
+      const typeName = t('types')[s.idx];
+      const btn = document.createElement('button');
+      btn.className = 'type-chip';
+      btn.innerHTML = `${TYPE_EMOJIS[s.idx]} ${typeName}<span class="chip-dist">${s.dist}м</span>`;
+      btn.onclick = () => {
+        // Select type
+        const sel = document.getElementById('f-type');
+        Array.from(sel.options).forEach(o => {
+          if(o.text === typeName) sel.value = o.value||o.text;
+        });
+        // Fill name if empty and POI has a name
+        const nameEl = document.getElementById('f-name');
+        if(s.name && !nameEl.value.trim()) nameEl.value = s.name;
+        // Visual
+        document.querySelectorAll('.type-chip').forEach(c=>c.classList.remove('sel'));
+        btn.classList.add('sel');
+      };
+      chips.appendChild(btn);
+    });
+  } catch(e){
+    wrap.style.display = 'none';
+  }
 }
 
 // Nominatim amenity/shop/tourism → our type
@@ -1164,6 +1259,8 @@ function closeAdd(){
 }
 
 function resetForm(){
+  document.getElementById('type-suggestions').style.display = 'none';
+  document.getElementById('type-chips').innerHTML = '';
   ['f-coords','f-addr','f-name','f-notes'].forEach(id=>document.getElementById(id).value='');
   document.getElementById('f-type').value='';
   document.getElementById('photo-preview').style.display='none';
