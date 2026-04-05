@@ -85,15 +85,27 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 
 /* LIST */
 #spot-list{list-style:none}
-.spot-item{padding:12px 0;border-bottom:1px solid #f0f0f0;cursor:pointer}
+.spot-item{padding:10px 0;border-bottom:1px solid #f0f0f0;cursor:pointer;display:flex;align-items:flex-start;gap:10px}
 .spot-item:last-child{border-bottom:none}
+.spot-item.selected{background:#f0f6ff;margin:0 -16px;padding-left:16px;padding-right:16px;border-radius:8px}
+.spot-check{width:18px;height:18px;cursor:pointer;flex-shrink:0;margin-top:3px;accent-color:#005bff}
+.spot-body{flex:1;min-width:0}
 .spot-name{font-weight:600;font-size:14px;color:#0d0d1a}
 .spot-badge{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:600;background:#e8f0ff;color:#005bff;margin-left:4px}
 .spot-cap{display:inline-block;padding:1px 7px;border-radius:10px;font-size:11px;font-weight:600;background:#e8f5e9;color:#28a745;margin-left:3px}
 .spot-meta{font-size:12px;color:#888;margin-top:2px}
+.spot-ts{font-size:11px;color:#aaa;margin-top:1px}
 .spot-who{font-size:11px;color:#005bff;margin-top:2px;font-weight:600}
-.spot-thumb{width:44px;height:44px;border-radius:6px;object-fit:cover;float:right;margin-left:8px}
-.del-btn{float:right;background:#fde8e8;color:#dc3545;border:none;border-radius:6px;padding:4px 9px;font-size:12px;cursor:pointer;margin-top:2px}
+.spot-thumb{width:48px;height:48px;border-radius:6px;object-fit:cover;flex-shrink:0}
+.del-btn{background:#fde8e8;color:#dc3545;border:none;border-radius:6px;padding:4px 9px;font-size:12px;cursor:pointer;flex-shrink:0}
+/* Selection toolbar */
+#list-sel-bar{display:flex;align-items:center;gap:8px;padding:8px 0 10px;border-bottom:1px solid #f0f0f0;margin-bottom:6px}
+#list-sel-bar label{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer;color:#444}
+#list-sel-all{width:16px;height:16px;accent-color:#005bff;cursor:pointer}
+#list-sel-count{font-size:12px;color:#888;flex:1}
+#list-export-btn{background:#e65100;color:white;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+#list-export-btn:disabled{background:#ccc;cursor:default}
+.sort-select{border:1.5px solid #e0e0e0;border-radius:8px;padding:5px 8px;font-size:12px;background:white;color:#444;cursor:pointer}
 .empty{text-align:center;padding:40px 20px;color:#aaa;font-size:14px}
 
 /* TEAM / STATS */
@@ -417,6 +429,16 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <button class="close-btn" onclick="closeOverlay('list-overlay')">✕</button>
     <h2>📋 Estaciones JET</h2>
     <div class="filter-bar" id="list-filters"></div>
+    <div id="list-sel-bar">
+      <label><input type="checkbox" id="list-sel-all" onchange="listToggleAll(this.checked)"> Todo</label>
+      <span id="list-sel-count">0 selec.</span>
+      <select class="sort-select" onchange="listSetSort(this.value)">
+        <option value="date_desc">🕐 Nuevas primero</option>
+        <option value="date_asc">🕐 Antiguas primero</option>
+        <option value="name_asc">🔤 A–Z</option>
+      </select>
+      <button id="list-export-btn" disabled onclick="exportSelectedCroqui()">📄 Croqui PDF (0)</button>
+    </div>
     <ul id="spot-list"></ul>
   </div>
 </div>
@@ -463,8 +485,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <button onclick="exportExcel()" style="width:100%;padding:14px;background:#1d6f42;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
       📊 Excel (.xlsx) — таблица с координатами
     </button>
+    <button onclick="exportCroquiMulti(stations);closeOverlay('export-overlay')" style="width:100%;padding:14px;background:#e65100;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
+      📄 Croqui PDF — все парковки (2 на странице)
+    </button>
     <button onclick="exportPDF()" style="width:100%;padding:14px;background:#dc3545;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
-      📄 PDF-отчёт — с фото и описанием
+      📋 PDF-отчёт — сводный список
     </button>
     <button onclick="exportJSON()" style="width:100%;padding:14px;background:#005bff;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
       📋 JSON — полные данные
@@ -1505,6 +1530,7 @@ async function delStation(docId){
 
 // ==================== LIST ====================
 function openList(){
+  selectedDocIds.clear();
   const users = [...new Set(stations.map(s=>s.userId))];
   const filtersEl = document.getElementById('list-filters');
   filtersEl.innerHTML = `<button class="filter-btn${!filterUser?' active':''}" onclick="setFilter(null)">Todos (${stations.length})</button>`
@@ -1525,25 +1551,77 @@ function setFilter(uid){
   renderListItems();
 }
 
+let selectedDocIds = new Set();
+let listSortMode = 'date_desc';
+
+function listSetSort(mode){
+  listSortMode = mode;
+  selectedDocIds.clear();
+  renderListItems();
+}
+
+function listGetSorted(){
+  let list = filterUser ? stations.filter(s=>s.userId===filterUser) : [...stations];
+  if(listSortMode === 'date_asc')  list.sort((a,b)=>(a.createdAt?.seconds||0)-(b.createdAt?.seconds||0));
+  else if(listSortMode === 'name_asc') list.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  else list.sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)); // date_desc default
+  return list;
+}
+
+function listToggleAll(checked){
+  const list = listGetSorted();
+  if(checked) list.forEach(s=>selectedDocIds.add(s._docId));
+  else selectedDocIds.clear();
+  renderListItems();
+}
+
+function listToggleOne(docId, checked){
+  if(checked) selectedDocIds.add(docId);
+  else selectedDocIds.delete(docId);
+  updateListSelBar();
+}
+
+function updateListSelBar(){
+  const n = selectedDocIds.size;
+  document.getElementById('list-sel-count').textContent = `${n} selec.`;
+  const btn = document.getElementById('list-export-btn');
+  btn.textContent = `📄 Croqui PDF (${n})`;
+  btn.disabled = n === 0;
+  const list = listGetSorted();
+  document.getElementById('list-sel-all').checked = n > 0 && n === list.length;
+}
+
 function renderListItems(){
   const ul = document.getElementById('spot-list');
-  const list = filterUser ? stations.filter(s=>s.userId===filterUser) : stations;
+  const list = listGetSorted();
   if(!list.length){
-    ul.innerHTML='<li class="empty">No hay estaciones.<br>Toca ＋ para agregar la primera.</li>';
+    ul.innerHTML='<li style="text-align:center;padding:40px 20px;color:#aaa;font-size:14px">No hay estaciones.<br>Toca ＋ para agregar la primera.</li>';
+    updateListSelBar();
     return;
   }
-  ul.innerHTML = list.map((s,i)=>`
-    <li class="spot-item" onclick="flyTo(${s.lat},${s.lng})">
-      ${s.photo?`<img class="spot-thumb" src="${s.photo}">`:''}
-      <button class="del-btn" onclick="event.stopPropagation();delStation('${s._docId}')">✕</button>
-      <div class="spot-name">${i+1}. ${s.name}
-        <span class="spot-badge">${s.type}</span>
-        ${s.capacity?`<span class="spot-cap">🛴 ${s.capacity}</span>`:''}
+  ul.innerHTML = list.map((s,i)=>{
+    const ts = s.createdAt?.toDate
+      ? s.createdAt.toDate().toLocaleString(lang==='ru'?'ru-RU':lang==='pt'?'pt-BR':'es-MX',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+      : (s.date||'—');
+    const isSel = selectedDocIds.has(s._docId);
+    return `
+    <li class="spot-item${isSel?' selected':''}">
+      <input type="checkbox" class="spot-check" ${isSel?'checked':''} onchange="listToggleOne('${s._docId}',this.checked)" onclick="event.stopPropagation()">
+      ${s.photo?`<img class="spot-thumb" src="${s.photo}" onclick="flyTo(${s.lat},${s.lng})">`:''}
+      <div class="spot-body" onclick="flyTo(${s.lat},${s.lng})">
+        <div class="spot-name">${i+1}. ${s.name}
+          <span class="spot-badge">${s.type}</span>
+          ${s.capacity?`<span class="spot-cap">🛴 ${s.capacity}</span>`:''}
+        </div>
+        <div class="spot-who">👤 ${s.userName||'—'}</div>
+        <div class="spot-meta">${s.address||'—'}</div>
+        <div class="spot-ts">🕐 ${ts}</div>
+        ${s.notes?`<div style="font-size:12px;color:#777;margin-top:2px">${s.notes}</div>`:''}
       </div>
-      <div class="spot-who">👤 ${s.userName||'—'}</div>
-      <div class="spot-meta">${s.address||'—'} · ${s.date}</div>
-      ${s.notes?`<div style="font-size:12px;color:#777;margin-top:2px">${s.notes}</div>`:''}
-    </li>`).join('');
+      ${currentRole==='admin'?`<button class="del-btn" onclick="event.stopPropagation();delStation('${s._docId}')">✕</button>`:''}
+    </li>`;
+  }).join('');
+  updateListSelBar();
 }
 
 function flyTo(lat,lng){
@@ -2316,6 +2394,133 @@ function makeCroqui(s){
   <!-- Coordinates (very bottom) -->
   <text x="${cx}" y="${H-3}" text-anchor="middle" fill="#b0b8cc" font-size="7.5" font-family="Arial">${(s.lat||0).toFixed(5)}, ${(s.lng||0).toFixed(5)}</text>
 </svg>`;
+}
+
+// --- CROQUI MULTI (selected stations, 2 per page) ---
+function exportSelectedCroqui(){
+  if(selectedDocIds.size === 0){ toast('⚠️ Выберите парковки'); return; }
+  const list = [...selectedDocIds].map(id=>stations.find(s=>s._docId===id)).filter(Boolean);
+  exportCroquiMulti(list);
+}
+
+function exportCroquiMulti(list){
+  if(!list.length) return;
+
+  const T = {
+    es:{title:'CROQUIS DE IMPLEMENTACIÓN DE ESTACIÓN',name:'Nombre',addr:'Dirección',coords:'Coordenadas',type:'Tipo de Lugar',cap:'Capacidad',radius:'Radio de Operación',own:'Tipo',by:'Registrado por',date:'Fecha',notes:'Notas',scheme:'Esquema',mapview:'Ubicación',print:'🖨️ Imprimir / Guardar PDF',propia:'JET Propia',competencia:'Competencia',generated:'Generado el'},
+    ru:{title:'КРОКИ — СХЕМА ПАРКОВКИ',name:'Название',addr:'Адрес',coords:'Координаты',type:'Тип объекта',cap:'Вместимость',radius:'Радиус',own:'Тип',by:'Добавил',date:'Дата',notes:'Примечания',scheme:'Схема',mapview:'Карта',print:'🖨️ Распечатать / Сохранить PDF',propia:'Наша JET',competencia:'Конкурент',generated:'Сформирован'},
+    pt:{title:'CROQUI DE IMPLEMENTAÇÃO DA ESTAÇÃO',name:'Nome',addr:'Endereço',coords:'Coordenadas',type:'Tipo de Local',cap:'Capacidade',radius:'Raio',own:'Tipo',by:'Registrado por',date:'Data',notes:'Notas',scheme:'Esquema',mapview:'Localização',print:'🖨️ Imprimir / Salvar PDF',propia:'JET Própria',competencia:'Concorrente',generated:'Gerado em'},
+  }[lang]||{};
+
+  const dateStr = new Date().toLocaleDateString(lang==='ru'?'ru-RU':lang==='pt'?'pt-BR':'es-MX',{year:'numeric',month:'long',day:'numeric'});
+
+  function stationBlock(s){
+    const isComp = s.ownership==='competencia';
+    const col = isComp?'#dc3545':'#005bff';
+    const ownLabel = isComp ? T.competencia : T.propia;
+    const addrParts = (s.address||'').split(',');
+    const municipio = addrParts.length>1 ? addrParts[addrParts.length-1].trim() : '';
+    const mapUrl = `https://staticmap.openstreetmap.de/staticmap.php?center=${s.lat},${s.lng}&zoom=17&size=320x160&markers=${s.lat},${s.lng},red-pushpin`;
+    const photoBlock = s.photo
+      ? `<img src="${s.photo}" style="width:100%;height:160px;object-fit:cover;display:block">`
+      : `<div style="width:100%;height:160px;background:#f0f3fa;display:flex;align-items:center;justify-content:center;font-size:36px;color:#ccc">📷</div>`;
+    const notesRow = s.notes?`<tr><td>${T.notes}</td><td style="font-style:italic;color:#555">${s.notes}</td></tr>`:'';
+    const ts = s.createdAt?.toDate
+      ? s.createdAt.toDate().toLocaleString(lang==='ru'?'ru-RU':lang==='pt'?'pt-BR':'es-MX',{year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit'})
+      : (s.date||'—');
+
+    return `
+<div class="station-block">
+  <div class="sb-header">
+    <div>
+      <span style="font-size:14px;font-weight:700;color:#1a1a2e">${s.name}</span>
+      <span class="badge" style="background:${isComp?'#fde8e8':'#e8f0ff'};color:${col}">${ownLabel}</span>
+      ${municipio?`<span style="font-size:10px;color:#888;margin-left:6px">${municipio}</span>`:''}
+    </div>
+    <div style="font-size:10px;color:#aaa">🕐 ${ts}</div>
+  </div>
+  <div class="sb-grid">
+    <div class="sb-col">
+      <div class="box-lbl">📷 Foto</div>
+      <div style="border-radius:6px;overflow:hidden;border:1px solid #e8edf8">${photoBlock}</div>
+    </div>
+    <div class="sb-col">
+      <div class="box-lbl">🗺 ${T.mapview}</div>
+      <div style="border-radius:6px;overflow:hidden;border:1px solid #e8edf8">
+        <img src="${mapUrl}" style="width:100%;height:160px;object-fit:cover;display:block"
+             onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+        <div style="display:none;width:100%;height:160px;align-items:center;justify-content:center;color:#aaa;font-size:12px;background:#f7f9ff">
+          ${(s.lat||0).toFixed(5)}, ${(s.lng||0).toFixed(5)}
+        </div>
+      </div>
+    </div>
+    <div class="sb-col">
+      <div class="box-lbl">📋 ${T.name}</div>
+      <table class="info-tbl">
+        <tr><td>${T.addr}</td><td>${s.address||'—'}</td></tr>
+        <tr><td>${T.coords}</td><td>${(s.lat||0).toFixed(5)}, ${(s.lng||0).toFixed(5)}</td></tr>
+        <tr><td>${T.type}</td><td>${s.type||'—'}</td></tr>
+        <tr><td>${T.cap}</td><td>${s.capacity||'—'} &nbsp; ${T.radius}: ${s.radius?s.radius+'m':'—'}</td></tr>
+        <tr><td>${T.by}</td><td>${s.userName||'—'} · ${s.date||'—'}</td></tr>
+        ${notesRow}
+      </table>
+    </div>
+    <div class="sb-col" style="display:flex;align-items:center;justify-content:center">
+      <div>
+        <div class="box-lbl">📐 ${T.scheme}</div>
+        ${makeCroqui(s)}
+      </div>
+    </div>
+  </div>
+</div>`;
+  }
+
+  // Group into pages of 2
+  const pages = [];
+  for(let i=0; i<list.length; i+=2){
+    pages.push(list.slice(i, i+2));
+  }
+
+  const pagesHtml = pages.map((pair,pi)=>`
+<div class="page${pi>0?' page-break':''}">
+  <div class="page-hdr">
+    <div><span class="logo">JET</span><span class="hdr-title">${T.title}</span></div>
+    <div style="text-align:right;font-size:10px;color:#888">${T.generated}: ${dateStr} &nbsp;·&nbsp; ${pi+1}/${pages.length}</div>
+  </div>
+  ${pair.map(s=>stationBlock(s)).join('<div class="divider"></div>')}
+</div>`).join('');
+
+  const html = `<!DOCTYPE html><html lang="${lang}"><head><meta charset="UTF-8">
+<title>JET Croquis ${dateStr}</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,Helvetica,sans-serif;background:#f5f5f5;color:#1a1a2e;font-size:11px}
+.page{width:210mm;min-height:297mm;background:white;padding:10mm 12mm;margin:0 auto 12px}
+.page-break{page-break-before:always;margin-top:0}
+.page-hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #005bff;padding-bottom:8px;margin-bottom:10px}
+.logo{font-size:28px;font-weight:900;color:#005bff;letter-spacing:-1.5px;margin-right:10px}
+.hdr-title{font-size:11px;font-weight:700;color:#1a1a2e;letter-spacing:0.3px}
+.station-block{margin-bottom:8px}
+.sb-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid #e8edf8}
+.badge{display:inline-block;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;margin-left:5px}
+.sb-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px}
+.sb-col{}
+.box-lbl{font-size:8px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px}
+.info-tbl{width:100%;border-collapse:collapse}
+.info-tbl td{padding:2px 4px;vertical-align:top;font-size:10px;line-height:1.35}
+.info-tbl td:first-child{font-weight:700;color:#444;white-space:nowrap;min-width:50px}
+.info-tbl tr:nth-child(even) td{background:#f8f9ff}
+.divider{border-top:1px dashed #d0d8f0;margin:10px 0}
+.print-btn{display:block;margin:12px auto;padding:10px 28px;background:#005bff;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
+@media print{.print-btn{display:none}body{background:white}html{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+</style></head><body>
+<button class="print-btn" onclick="window.print()">${T.print}</button>
+${pagesHtml}
+</body></html>`;
+
+  const win = window.open('','_blank');
+  if(win){ win.document.write(html); win.document.close(); }
+  else toast('⚠️ ' + (lang==='ru'?'Разрешите всплывающие окна':'Permite ventanas emergentes'));
 }
 
 // --- CROQUI (single station, one-page PDF) ---
