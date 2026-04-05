@@ -1,7 +1,10 @@
-const CACHE = 'jet-v9';
+const CACHE = 'jet-v10';
 
-// External CDN hosts — safe to cache forever (versioned URLs, never change)
-const CDN_HOSTS = ['unpkg.com', 'gstatic.com', 'tile.openstreetmap.org', 'waymarkedtrails.org'];
+// External CDN hosts — safe to cache forever (versioned URLs)
+const CDN_HOSTS = ['unpkg.com', 'gstatic.com', 'tile.openstreetmap.org', 'waymarkedtrails.org', 'sheetjs.com'];
+
+// Never cache these — always fetch fresh
+const NO_CACHE = ['index.html', 'sw.js', '/'];
 
 self.addEventListener('install', e => { self.skipWaiting(); });
 
@@ -19,10 +22,18 @@ self.addEventListener('fetch', e => {
   let url;
   try { url = new URL(e.request.url); } catch { return; }
 
+  const path = url.pathname;
   const isCDN = CDN_HOSTS.some(h => url.hostname.includes(h));
+  const isNoCache = NO_CACHE.some(p => path.endsWith(p));
 
-  if(isCDN){
-    // Cache-first: CDN libraries and map tiles (versioned, never change)
+  if(isNoCache){
+    // Always fetch fresh — no cache for main HTML and SW itself
+    e.respondWith(
+      fetch(e.request, { cache: 'no-store' })
+        .catch(() => caches.match(e.request))
+    );
+  } else if(isCDN){
+    // Cache-first: CDN libraries and map tiles
     e.respondWith(
       caches.match(e.request).then(cached => cached || fetch(e.request).then(res => {
         if(res.ok){
@@ -33,7 +44,7 @@ self.addEventListener('fetch', e => {
       }))
     );
   } else {
-    // Network-first: own files + Firebase APIs — always fresh, cache only as offline fallback
+    // Network-first: own files — always fresh, cache as offline fallback
     e.respondWith(
       fetch(e.request)
         .then(res => {
