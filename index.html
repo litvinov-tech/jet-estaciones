@@ -537,6 +537,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <option value="name_asc">🔤 A–Z</option>
       </select>
       <button id="list-export-btn" disabled onclick="exportSelectedCroqui()">📄 Croqui PDF (0)</button>
+      <button id="list-del-btn" disabled onclick="delSelected()" style="background:#dc3545;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;display:none">🗑 Удалить (0)</button>
     </div>
     <ul id="spot-list"></ul>
   </div>
@@ -2530,6 +2531,28 @@ async function delStation(docId){
   }catch(e){ toast('❌ '+e.message); }
 }
 
+async function delSelected(){
+  if(currentRole !== 'admin'){ toast('❌ ' + t('conn_err')); return; }
+  const ids = [...selectedDocIds];
+  if(!ids.length) return;
+  if(!confirm(`Удалить ${ids.length} парковок? Это необратимо.`)) return;
+  const res = document.getElementById('import-result'); // reuse status area if open
+  let done = 0;
+  const btn = document.getElementById('list-del-btn');
+  btn.disabled = true;
+  for(const docId of ids){
+    try{
+      await db.collection('stations').doc(docId).delete();
+      selectedDocIds.delete(docId);
+      done++;
+      btn.textContent = `🗑 ${done}/${ids.length}...`;
+    }catch(e){ console.error('del',docId,e); }
+  }
+  map.closePopup();
+  toast(`🗑 Удалено: ${done}`);
+  renderListItems();
+}
+
 // ==================== LIST ====================
 function openList(){
   selectedDocIds.clear();
@@ -2589,6 +2612,12 @@ function updateListSelBar(){
   const btn = document.getElementById('list-export-btn');
   btn.textContent = `📄 Croqui PDF (${n})`;
   btn.disabled = n === 0;
+  const delBtn = document.getElementById('list-del-btn');
+  if(delBtn){
+    delBtn.style.display = currentRole === 'admin' ? 'inline-block' : 'none';
+    delBtn.textContent = `🗑 (${n})`;
+    delBtn.disabled = n === 0;
+  }
   const list = listGetSorted();
   document.getElementById('list-sel-all').checked = n > 0 && n === list.length;
 }
