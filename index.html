@@ -415,6 +415,25 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   </div>
 </div>
 
+<!-- ====== EXPORT MODAL ====== -->
+<div class="overlay" id="export-overlay">
+  <div class="sheet">
+    <button class="close-btn" onclick="closeOverlay('export-overlay')">✕</button>
+    <h2>📤 Экспорт парковок</h2>
+    <p style="font-size:13px;color:#666;margin-bottom:16px">Выберите формат для скачивания <b id="export-count">0</b> парковок:</p>
+    <button onclick="exportExcel()" style="width:100%;padding:14px;background:#1d6f42;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
+      📊 Excel (.xlsx) — таблица с координатами
+    </button>
+    <button onclick="exportPDF()" style="width:100%;padding:14px;background:#dc3545;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
+      📄 PDF-отчёт — с фото и описанием
+    </button>
+    <button onclick="exportJSON()" style="width:100%;padding:14px;background:#005bff;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+      📋 JSON — полные данные
+    </button>
+    <div id="export-status" style="margin-top:12px;font-size:13px;text-align:center"></div>
+  </div>
+</div>
+
 <!-- ====== ADMIN PANEL ====== -->
 <div id="admin-panel-overlay">
   <div id="admin-panel">
@@ -2065,16 +2084,160 @@ function handleImport(input){
 // ==================== EXPORT ====================
 function exportData(){
   if(!stations.length){toast('⚠️ No hay estaciones');return;}
-  const choice=confirm(`Exportar ${stations.length} estaciones\n\nOK → JSON completo (con fotos)\nCancelar → CSV simple`);
-  if(choice){
-    download(new Blob([JSON.stringify(stations,null,2)],{type:'application/json'}),`jet_${today()}.json`);
-    toast('📤 JSON exportado');
-  } else {
-    const head='Nombre,Longitud,Latitud,Radio (m),Tipo,Capacidad,Dirección,Registrado por,Fecha,Notas\n';
-    const rows=stations.map(s=>`"${esc(s.name)}",${s.lng},${s.lat},${s.radius||''},"${esc(s.type)}","${esc(s.capacity||'')}","${esc(s.address)}","${esc(s.userName||'')}","${s.date}","${esc(s.notes||'')}"`).join('\n');
-    download(new Blob([head+rows],{type:'text/csv'}),`jet_${today()}.csv`);
-    toast('📤 CSV exportado');
+  document.getElementById('export-count').textContent = stations.length;
+  document.getElementById('export-status').innerHTML = '';
+  document.getElementById('export-overlay').classList.add('on');
+}
+
+// --- JSON ---
+function exportJSON(){
+  download(new Blob([JSON.stringify(stations,null,2)],{type:'application/json'}),`jet_${today()}.json`);
+  toast('📋 JSON exportado');
+  closeOverlay('export-overlay');
+}
+
+// --- EXCEL ---
+async function exportExcel(){
+  const btn = document.querySelector('#export-overlay button:nth-of-type(1)');
+  const status = document.getElementById('export-status');
+  status.innerHTML = '<span class="spinner"></span>Загрузка библиотеки...';
+  try {
+    // Lazy-load SheetJS
+    if(!window.XLSX){
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js';
+        s.onload=res; s.onerror=rej;
+        document.head.appendChild(s);
+      });
+    }
+    status.innerHTML = '<span class="spinner"></span>Формирование Excel...';
+
+    const L = LANGS[lang]||LANGS.es;
+    const headers = {
+      es:['#','Nombre','Tipo','Ownership','Dirección','Ciudad','Latitud','Longitud','Coordenadas','Capacidad','Radio (m)','Registrado por','Fecha','Notas'],
+      ru:['#','Название','Тип','Принадлежность','Адрес','Город','Широта','Долгота','Координаты','Вместимость','Радиус (м)','Добавил','Дата','Примечания'],
+      pt:['#','Nome','Tipo','Propriedade','Endereço','Cidade','Latitude','Longitude','Coordenadas','Capacidade','Raio (m)','Registrado por','Data','Notas'],
+    };
+    const hdr = headers[lang]||headers.es;
+    const ownLabel = (v) => ({propia:{es:'JET',ru:'JET',pt:'JET'},competencia:{es:'Competencia',ru:'Конкурент',pt:'Concorrente'}}[v]||{});
+
+    const rows = stations.map((s,i) => {
+      const addrParts = (s.address||'').split(',').map(p=>p.trim());
+      const city = addrParts[addrParts.length-1]||'';
+      return [
+        i+1, s.name||'', s.type||'',
+        (ownLabel(s.ownership)||{})[lang]||s.ownership||'',
+        s.address||'', city,
+        s.lat, s.lng,
+        `${(s.lat||0).toFixed(6)}, ${(s.lng||0).toFixed(6)}`,
+        s.capacity||'', s.radius||'',
+        s.userName||'', s.date||'', s.notes||''
+      ];
+    });
+
+    const ws = XLSX.utils.aoa_to_sheet([hdr, ...rows]);
+    // Column widths
+    ws['!cols'] = [4,25,18,14,35,18,12,12,24,12,10,20,12,30].map(w=>({wch:w}));
+    // Style header row (bold simulation via freeze)
+    ws['!freeze'] = {xSplit:0, ySplit:1};
+
+    const wb = XLSX.utils.book_new();
+    const sheetName = {es:'Estaciones',ru:'Парковки',pt:'Estações'}[lang]||'Stations';
+    XLSX.utils.book_append_sheet(wb, ws, sheetName);
+    XLSX.writeFile(wb, `jet_${today()}.xlsx`);
+
+    toast('📊 Excel скачан');
+    status.innerHTML = '';
+    closeOverlay('export-overlay');
+  } catch(e){
+    status.innerHTML = `<span style="color:#dc3545">❌ Ошибка: ${e.message}</span>`;
   }
+}
+
+// --- PDF (HTML Report, opens in new tab → Ctrl+P → Save as PDF) ---
+function exportPDF(){
+  const L = LANGS[lang]||LANGS.es;
+  const own = {
+    es:{propia:'✅ Propia JET',competencia:'🔴 Competencia'},
+    ru:{propia:'✅ Наша JET',competencia:'🔴 Конкурент'},
+    pt:{propia:'✅ Própria JET',competencia:'🔴 Concorrente'}
+  }[lang]||{};
+  const titles = {
+    es:{title:'Reporte de Estaciones JET',date:'Fecha',total:'Total estaciones',jet:'Propias JET',comp:'Competencia',cities:'Ciudades',name:'Estación',type:'Tipo',addr:'Dirección',coords:'Coordenadas',cap:'Capacidad',radius:'Radio',by:'Registrado por',notes:'Notas',noPhoto:'Sin foto',printBtn:'🖨️ Imprimir / Guardar PDF'},
+    ru:{title:'Отчёт о парковках JET',date:'Дата',total:'Всего парковок',jet:'Наши JET',comp:'Конкуренты',cities:'Городов',name:'Парковка',type:'Тип',addr:'Адрес',coords:'Координаты',cap:'Вместимость',radius:'Радиус',by:'Добавил',notes:'Примечания',noPhoto:'Фото нет',printBtn:'🖨️ Распечатать / Сохранить PDF'},
+    pt:{title:'Relatório de Estações JET',date:'Data',total:'Total estações',jet:'Próprias JET',comp:'Concorrentes',cities:'Cidades',name:'Estação',type:'Tipo',addr:'Endereço',coords:'Coordenadas',cap:'Capacidade',radius:'Raio',by:'Registrado por',notes:'Notas',noPhoto:'Sem foto',printBtn:'🖨️ Imprimir / Salvar PDF'}
+  }[lang]||{};
+
+  const ownCount  = stations.filter(s=>s.ownership!=='competencia').length;
+  const compCount = stations.filter(s=>s.ownership==='competencia').length;
+  const citySet   = new Set(stations.map(s=>(s.address||'').split(',').pop().trim()).filter(Boolean));
+
+  const stationsHtml = stations.map((s,i)=>`
+    <div class="sc">
+      ${s.photo
+        ? `<img class="sp" src="${s.photo}" alt="">`
+        : `<div class="sp-empty">📍</div>`}
+      <div class="si">
+        <div class="sn">${i+1}. ${s.name}
+          <span class="st ${s.ownership==='competencia'?'stc':''}">${s.type}</span>
+          <span class="st ${s.ownership==='competencia'?'stc':''}">${(own[s.ownership])||s.ownership||''}</span>
+        </div>
+        <div class="sm"><b>${titles.addr}:</b> ${s.address||'—'}</div>
+        <div class="sm"><b>${titles.coords}:</b> ${(s.lat||0).toFixed(6)}, ${(s.lng||0).toFixed(6)}</div>
+        <div class="sm" style="display:flex;gap:16px">
+          <span><b>${titles.cap}:</b> ${s.capacity||'—'}</span>
+          <span><b>${titles.radius}:</b> ${s.radius ? s.radius+'m' : '—'}</span>
+          <span><b>${titles.by}:</b> ${s.userName||'—'}</span>
+          <span><b>${titles.date}:</b> ${s.date||'—'}</span>
+        </div>
+        ${s.notes ? `<div class="sm" style="color:#555;font-style:italic">"${s.notes}"</div>` : ''}
+      </div>
+    </div>`).join('');
+
+  const html = `<!DOCTYPE html><html lang="${lang}"><head><meta charset="UTF-8">
+<title>JET Report ${today()}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:Arial,Helvetica,sans-serif;padding:20px;color:#222;max-width:900px;margin:0 auto}
+  .hdr{text-align:center;border-bottom:3px solid #005bff;padding-bottom:14px;margin-bottom:20px}
+  .logo{font-size:40px;font-weight:900;color:#005bff;letter-spacing:-2px}
+  .htitle{font-size:20px;font-weight:700;margin:6px 0 4px}
+  .hdate{font-size:13px;color:#888}
+  .sgrid{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+  .scard{border:1px solid #e0e0e0;border-radius:8px;padding:12px;text-align:center}
+  .snum{font-size:30px;font-weight:900;color:#005bff}
+  .slbl{font-size:11px;color:#888;margin-top:4px}
+  .sc{page-break-inside:avoid;border:1px solid #e0e0e0;border-radius:8px;padding:12px;margin-bottom:10px;display:flex;gap:12px;align-items:flex-start}
+  .sp{width:110px;height:85px;object-fit:cover;border-radius:6px;flex-shrink:0}
+  .sp-empty{width:110px;height:85px;background:#f5f5f5;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:28px;color:#ccc}
+  .si{flex:1;min-width:0}
+  .sn{font-size:14px;font-weight:700;margin-bottom:5px}
+  .st{display:inline-block;padding:2px 8px;border-radius:10px;font-size:11px;background:#e8f0ff;color:#005bff;margin-left:4px;font-weight:600}
+  .stc{background:#fde8e8;color:#dc3545}
+  .sm{font-size:12px;color:#555;margin-top:3px}
+  .print-btn{display:block;margin:0 auto 20px;padding:12px 30px;background:#005bff;color:white;border:none;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer}
+  @media print{.print-btn{display:none}.sc{page-break-inside:avoid}}
+</style></head><body>
+<button class="print-btn" onclick="window.print()">${titles.printBtn}</button>
+<div class="hdr">
+  <div class="logo">JET</div>
+  <div class="htitle">${titles.title}</div>
+  <div class="hdate">${titles.date}: ${new Date().toLocaleDateString(lang==='ru'?'ru-RU':lang==='pt'?'pt-BR':'es-MX', {year:'numeric',month:'long',day:'numeric'})}</div>
+</div>
+<div class="sgrid">
+  <div class="scard"><div class="snum">${stations.length}</div><div class="slbl">${titles.total}</div></div>
+  <div class="scard"><div class="snum" style="color:#28a745">${ownCount}</div><div class="slbl">${titles.jet}</div></div>
+  <div class="scard"><div class="snum" style="color:#dc3545">${compCount}</div><div class="slbl">${titles.comp}</div></div>
+  <div class="scard"><div class="snum">${citySet.size}</div><div class="slbl">${titles.cities}</div></div>
+</div>
+${stationsHtml}
+</body></html>`;
+
+  const win = window.open('','_blank');
+  if(win){ win.document.write(html); win.document.close(); }
+  else toast('⚠️ Разрешите всплывающие окна для этого сайта');
+  closeOverlay('export-overlay');
 }
 
 function esc(v){return (v||'').replace(/"/g,'""');}
