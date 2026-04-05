@@ -1280,7 +1280,7 @@ function renderSuggestions(elements){
     const info = POI_CATS[cat];
     pois.forEach(el => {
       const rawName = el.tags.name || el.tags['name:es'] || el.tags['name:ru'] || el.tags['name:pt'] || info[lang] || info.es;
-      const safeName = rawName.replace(/'/g,''').replace(/"/g,'&quot;');
+      const safeName = rawName.replace(/'/g,'\u2019').replace(/"/g,'&quot;');
       const stationType = info['type' + lang.charAt(0).toUpperCase() + lang.slice(1)] || info.typeEs;
       const icon = L.divIcon({
         className:'',
