@@ -2389,6 +2389,16 @@ function setPlacement(btn, val){
   const el = document.getElementById('place-sidewalk'); if(el) el.textContent = t('place_sidewalk');
   const er = document.getElementById('place-road');     if(er) er.textContent = t('place_road');
   const ep = document.getElementById('place-parking');  if(ep) ep.textContent = t('place_parking');
+  // Road: min width 2.50m, no pedestrian space needed
+  const fw = document.getElementById('f-dims-w');
+  const faixaRow = document.querySelector('#f-faixa')?.closest('.fg');
+  if(val === 'road'){
+    if(fw){ fw.value='2.50'; fw.readOnly=false; fw.style.background=''; fw.style.color=''; }
+    if(faixaRow) faixaRow.style.display='none';
+  } else {
+    if(fw){ fw.value='1.30'; fw.readOnly=true; fw.style.background='#f5f5f5'; fw.style.color='#555'; }
+    if(faixaRow) faixaRow.style.display='';
+  }
   setPlacement._sync && setPlacement._sync(val);
 }
 setPlacement._sync = null;
@@ -2425,7 +2435,7 @@ async function saveStation(){
     const data = {
       name, type, ownership: selOwn,
       placement: selPlacement,
-      dimensions: (()=>{ const l=document.getElementById('f-dims-l'); const len=l.value==='custom'?document.getElementById('f-dims-custom').value||'4.5':l.value; return `1.30 m x ${len} m`; })(),
+      dimensions: (()=>{ const w=document.getElementById('f-dims-w').value||'1.30'; const l=document.getElementById('f-dims-l'); const len=l.value==='custom'?document.getElementById('f-dims-custom').value||'4.5':l.value; return `${w} m x ${len} m`; })(),
       faixaLivre: document.getElementById('f-faixa').value||'',
       address:  document.getElementById('f-addr').value,
       notes:    document.getElementById('f-notes').value,
@@ -3931,9 +3941,9 @@ function exportCroquiMulti(list){
   if(!list.length) return;
 
   const T = {
-    es:{title:'CROQUIS DE IMPLEMENTACIÓN DE ESTACIÓN',name:'Nombre',addr:'Dirección',coords:'Coordenadas',type:'Tipo de Lugar',cap:'Capacidad',radius:'Radio de Operación',own:'Tipo',by:'Registrado por',date:'Fecha',notes:'Notas',scheme:'Esquema',mapview:'Ubicación',print:'🖨️ Imprimir / Guardar PDF',propia:'JET Propia',competencia:'Competencia',generated:'Generado el',photo:'Foto'},
-    ru:{title:'КРОКИ — СХЕМА ПАРКОВКИ',name:'Название',addr:'Адрес',coords:'Координаты',type:'Тип объекта',cap:'Вместимость',radius:'Радиус',own:'Тип',by:'Добавил',date:'Дата',notes:'Примечания',scheme:'Схема',mapview:'Карта',print:'🖨️ Распечатать / Сохранить PDF',propia:'Наша JET',competencia:'Конкурент',generated:'Сформирован',photo:'Фото'},
-    pt:{title:'CROQUI DE IMPLEMENTAÇÃO DA ESTAÇÃO',name:'Nome',addr:'Endereço',coords:'Coordenadas',type:'Tipo de Local',cap:'Capacidade',radius:'Raio',own:'Tipo',by:'Registrado por',date:'Data',notes:'Notas',scheme:'Esquema',mapview:'Localização',print:'🖨️ Imprimir / Salvar PDF',propia:'JET Própria',competencia:'Concorrente',generated:'Gerado em',photo:'Foto'},
+    es:{title:'CROQUIS DE IMPLEMENTACIÓN DE ESTACIÓN',name:'Nombre',addr:'Dirección',coords:'Coordenadas',type:'Tipo de Lugar',cap:'Capacidad',radius:'Radio de Operación',own:'Tipo',by:'Registrado por',date:'Fecha',notes:'Notas',scheme:'Esquema',mapview:'Ubicación',print:'🖨️ Imprimir / Guardar PDF',propia:'JET Propia',competencia:'Competencia',generated:'Generado el',photo:'Foto',dims:'Dimensiones',faixa:'Acera libre'},
+    ru:{title:'КРОКИ — СХЕМА ПАРКОВКИ',name:'Название',addr:'Адрес',coords:'Координаты',type:'Тип объекта',cap:'Вместимость',radius:'Радиус',own:'Тип',by:'Добавил',date:'Дата',notes:'Примечания',scheme:'Схема',mapview:'Карта',print:'🖨️ Распечатать / Сохранить PDF',propia:'Наша JET',competencia:'Конкурент',generated:'Сформирован',photo:'Фото',dims:'Размеры',faixa:'Св. место пеш.'},
+    pt:{title:'CROQUI DE IMPLEMENTAÇÃO DA ESTAÇÃO',name:'Nome',addr:'Endereço',coords:'Coordenadas',type:'Tipo de Local',cap:'Capacidade',radius:'Raio',own:'Tipo',by:'Registrado por',date:'Data',notes:'Notas',scheme:'Esquema',mapview:'Localização',print:'🖨️ Imprimir / Salvar PDF',propia:'JET Própria',competencia:'Concorrente',generated:'Gerado em',photo:'Foto',dims:'Dimensões',faixa:'Calçada livre'},
   }[lang]||{};
 
   const dateStr = new Date().toLocaleDateString(lang==='ru'?'ru-RU':lang==='pt'?'pt-BR':'es-MX',{year:'numeric',month:'long',day:'numeric'});
@@ -3978,6 +3988,8 @@ function exportCroquiMulti(list){
         <tr><td>${T.coords}</td><td>${(s.lat||0).toFixed(5)}, ${(s.lng||0).toFixed(5)}</td></tr>
         <tr><td>${T.type}</td><td>${s.type||'—'}</td></tr>
         <tr><td>${T.cap}</td><td>${s.capacity||'—'} &nbsp; ${T.radius}: ${s.radius?s.radius+'m':'—'}</td></tr>
+        ${s.dimensions?`<tr><td>${T.dims}</td><td>${s.dimensions}</td></tr>`:''}
+        ${s.faixaLivre&&s.placement!=='road'?`<tr><td>${T.faixa}</td><td>${s.faixaLivre} m</td></tr>`:''}
         <tr><td>${T.by}</td><td>${s.userName||'—'} · ${s.date||'—'}</td></tr>
         ${notesRow}
       </table>
