@@ -253,6 +253,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #pwa-ios-hint .ios-steps{font-size:13px;color:#444;line-height:1.8}
 #pwa-ios-hint{position:relative}
 #pwa-ios-hint .ios-close{position:absolute;top:10px;right:12px;background:none;border:none;font-size:20px;color:#aaa;cursor:pointer;line-height:1}
+
+/* SUGGESTIONS / POI */
+#tb-suggest.active{background:#28a745!important;color:white!important}
+#poi-legend{position:absolute;bottom:148px;right:12px;background:white;border-radius:12px;padding:10px 12px;box-shadow:0 3px 14px rgba(0,0,0,0.22);z-index:1000;min-width:150px;max-width:190px;font-size:12px}
+.poi-legend-title{font-weight:700;font-size:11px;margin-bottom:8px;color:#0d0d1a;text-transform:uppercase;letter-spacing:0.3px}
+.poi-cat-row{display:flex;align-items:center;gap:7px;padding:3px 0;cursor:pointer;border-radius:5px;transition:background 0.15s}
+.poi-cat-row:hover{background:#f5f5f5}
+.poi-cat-row.hidden-cat{opacity:0.35}
+.poi-cat-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
+.poi-cat-count{margin-left:auto;font-weight:700;font-size:11px}
+.poi-loading{text-align:center;color:#888;font-size:12px;padding:8px 0}
 </style>
 </head>
 <body>
@@ -356,6 +367,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <button class="tbtn" id="tb-list" onclick="openList()">📋 Lista</button>
     <button class="tbtn" id="tb-team" onclick="openTeam()">👥 Equipo</button>
     <button class="tbtn" id="bike-btn" onclick="toggleBikeLayer(this)">🚴 Ciclovías</button>
+    <button class="tbtn" id="tb-suggest" onclick="toggleSuggestions()">🎯 Sugerencias</button>
     <button class="tbtn" id="tb-import" onclick="openImport()">📥 Importar</button>
     <button class="tbtn" id="tb-export" onclick="exportData()">📤 Exportar</button>
     <button class="tbtn" id="tb-admin" onclick="openAdminPanel()" style="display:none;position:relative">🛡 Admin<span id="tb-admin-badge" style="position:absolute;top:2px;right:2px;background:#dc3545;color:white;border-radius:8px;font-size:9px;padding:1px 4px;font-weight:700;display:none">0</span></button>
@@ -577,6 +589,15 @@ const LANGS = {
     import_err:'❌ Error al leer archivo:',no_records:'⚠️ No se encontraron registros válidos.',
     pwa_title:'Instalar la app', pwa_sub:'Agrega JET a tu pantalla de inicio', pwa_install:'Instalar',
     pwa_ios_steps:'Toca <strong>«Compartir»</strong> <span style="font-size:16px">⬆️</span> en Safari, luego <strong>«En pantalla de inicio»</strong> 📲',
+    tb_suggest:'🎯 Sugerencias',
+    suggest_title:'Lugares prioritarios',
+    suggest_loading:'Buscando lugares...',
+    suggest_empty:'No se encontraron lugares en esta zona',
+    suggest_zoom:'Acerca el mapa (zoom ≥ 14) para ver sugerencias',
+    suggest_on:'🎯 Sugerencias activadas',
+    suggest_off:'Sugerencias desactivadas',
+    suggest_add:'➕ Agregar estación aquí',
+    suggest_err:'⚠️ Error al cargar lugares. Intenta de nuevo.',
   },
   ru: {
     login:'Войти', register:'Регистрация',
@@ -614,6 +635,15 @@ const LANGS = {
     import_err:'❌ Ошибка чтения файла:', no_records:'⚠️ Записей не найдено.',
     pwa_title:'Установить приложение', pwa_sub:'Добавьте JET на экран — работает офлайн', pwa_install:'Установить',
     pwa_ios_steps:'Нажмите <strong>«Поделиться»</strong> <span style="font-size:16px">⬆️</span> внизу Safari, затем <strong>«На экран Домой»</strong> 📲',
+    tb_suggest:'🎯 Предложения',
+    suggest_title:'Приоритетные места',
+    suggest_loading:'Ищу места...',
+    suggest_empty:'Мест не найдено в этой зоне',
+    suggest_zoom:'Приблизьте карту (zoom ≥ 14) для предложений',
+    suggest_on:'🎯 Предложения включены',
+    suggest_off:'Предложения отключены',
+    suggest_add:'➕ Добавить парковку здесь',
+    suggest_err:'⚠️ Ошибка загрузки мест. Попробуйте снова.',
   },
   pt: {
     login:'Entrar', register:'Cadastrar',
@@ -651,6 +681,15 @@ const LANGS = {
     import_err:'❌ Erro ao ler arquivo:', no_records:'⚠️ Nenhum registro válido encontrado.',
     pwa_title:'Instalar o app', pwa_sub:'Adicione JET à sua tela inicial', pwa_install:'Instalar',
     pwa_ios_steps:'Toque em <strong>«Compartilhar»</strong> <span style="font-size:16px">⬆️</span> no Safari, depois <strong>«Tela de Início»</strong> 📲',
+    tb_suggest:'🎯 Sugestões',
+    suggest_title:'Locais prioritários',
+    suggest_loading:'Buscando locais...',
+    suggest_empty:'Nenhum local encontrado nesta área',
+    suggest_zoom:'Aproxime o mapa (zoom ≥ 14) para ver sugestões',
+    suggest_on:'🎯 Sugestões ativadas',
+    suggest_off:'Sugestões desativadas',
+    suggest_add:'➕ Adicionar estação aqui',
+    suggest_err:'⚠️ Erro ao carregar locais. Tente novamente.',
   }
 };
 
@@ -689,6 +728,7 @@ function applyLang(){
   const tbl = document.getElementById('tb-list');  if(tbl) tbl.textContent = t('tb_list');
   const tbt = document.getElementById('tb-team');  if(tbt) tbt.textContent = t('tb_team');
   const tbb = document.getElementById('bike-btn'); if(tbb && !tbb.classList.contains('active')) tbb.textContent = t('tb_bike');
+  const tbs = document.getElementById('tb-suggest'); if(tbs) tbs.textContent = (suggestionsActive ? '🟢 ' : '') + t('tb_suggest');
   // FAB labels
   const fl = document.querySelectorAll('.fab-lbl');
   if(fl[0]) fl[0].textContent = t('fab_gps');
@@ -746,6 +786,12 @@ let userColorMap  = {};
 let filterUser    = null;
 let radiusCircles = {};
 let bikeLayer = null;
+let suggestionsLayer  = null;
+let suggestionsActive = false;
+let suggestAbort      = null;
+let suggestDebounce   = null;
+let hiddenCats        = new Set();
+let lastSuggestData   = {};   // {cat:[elements...]} — last loaded data for legend re-render
 let currentRole   = 'user'; // 'admin' | 'user' | 'disabled'
 let delReqDocId   = null;   // station docId pending delete request
 const ADMIN_EMAIL = 'litvinov@jetshr.com.br';
@@ -816,6 +862,218 @@ map.on('click', e => {
   if(document.querySelector('.overlay.on') || document.getElementById('admin-panel-overlay').classList.contains('on')) return;
   placePinOnly(e.latlng);
 });
+
+map.on('moveend', () => {
+  if(!suggestionsActive) return;
+  clearTimeout(suggestDebounce);
+  suggestDebounce = setTimeout(loadSuggestions, 900);
+});
+
+// ==================== SUGGESTIONS (POI via Overpass API) ====================
+
+const POI_CATS = {
+  restaurant:{icon:'🍽️', col:'#ff6b35', es:'Restaurante / Café', ru:'Ресторан / Кафе', pt:'Restaurante / Café', typeEs:'Restaurante', typeRu:'Ресторан', typePt:'Restaurante'},
+  hotel:     {icon:'🏨', col:'#9c27b0', es:'Hotel',              ru:'Отель',            pt:'Hotel',              typeEs:'Hotel',            typeRu:'Отель',          typePt:'Hotel'},
+  shopping:  {icon:'🛒', col:'#ff9800', es:'Comercial',          ru:'Торговый центр',   pt:'Comercial',          typeEs:'Centro Comercial', typeRu:'Торговый центр', typePt:'Shopping'},
+  transport: {icon:'🚌', col:'#00bcd4', es:'Transporte',         ru:'Транспорт',        pt:'Transporte',         typeEs:'Otro',             typeRu:'Другое',         typePt:'Outro'},
+  gym:       {icon:'💪', col:'#4caf50', es:'Gimnasio',           ru:'Спортзал',         pt:'Academia',           typeEs:'Gimnasio',         typeRu:'Фитнес-зал',     typePt:'Academia'},
+  school:    {icon:'🏫', col:'#2196f3', es:'Educación',          ru:'Учёба',            pt:'Educação',           typeEs:'Escuela',          typeRu:'Школа',          typePt:'Escola'},
+  health:    {icon:'🏥', col:'#f44336', es:'Salud',              ru:'Здоровье',         pt:'Saúde',              typeEs:'Salud',            typeRu:'Здравоохранение',typePt:'Saúde'},
+  office:    {icon:'🏢', col:'#607d8b', es:'Oficina / Banco',    ru:'Офис / Банк',      pt:'Escritório / Banco', typeEs:'Oficina',          typeRu:'Офис',           typePt:'Escritório'},
+};
+
+function classifyPOI(tags){
+  const a=tags.amenity||'', tv=tags.tourism||'', s=tags.shop||'',
+        l=tags.leisure||'', h=tags.highway||'', r=tags.railway||'',
+        b=tags.building||'', o=tags.office||'';
+  if(/^(restaurant|cafe|fast_food|food_court|bar|pub)$/.test(a)) return 'restaurant';
+  if(/^(hotel|hostel|motel|guest_house|apartment)$/.test(tv))    return 'hotel';
+  if(/^(mall|supermarket|department_store|convenience|market|hypermarket)$/.test(s)) return 'shopping';
+  if(/^(bus_station)$/.test(a)||/^(bus_stop)$/.test(h)||/^(station|subway_entrance|tram_stop|halt)$/.test(r)) return 'transport';
+  if(/^(fitness_centre|sports_centre|stadium|swimming_pool)$/.test(l)||/^gym$/.test(a)) return 'gym';
+  if(/^(school|university|college|kindergarten|library)$/.test(a)) return 'school';
+  if(/^(hospital|clinic|pharmacy|doctors|dentist|health_centre)$/.test(a)) return 'health';
+  if(/^(commercial|retail|office)$/.test(b)||o||/^(bank|atm|office)$/.test(a)) return 'office';
+  return null;
+}
+
+function toggleSuggestions(){
+  suggestionsActive = !suggestionsActive;
+  if(!suggestionsLayer) suggestionsLayer = L.layerGroup().addTo(map);
+  const btn = document.getElementById('tb-suggest');
+  if(btn){
+    btn.classList.toggle('active', suggestionsActive);
+    btn.textContent = (suggestionsActive ? '🟢 ' : '') + t('tb_suggest');
+  }
+  if(suggestionsActive){
+    toast(t('suggest_on'));
+    loadSuggestions();
+  } else {
+    if(suggestAbort){ suggestAbort.abort(); suggestAbort=null; }
+    clearTimeout(suggestDebounce);
+    suggestionsLayer.clearLayers();
+    const leg = document.getElementById('poi-legend');
+    if(leg) leg.remove();
+    toast(t('suggest_off'));
+  }
+}
+
+async function loadSuggestions(){
+  if(!suggestionsActive) return;
+  if(map.getZoom() < 14){ toast(t('suggest_zoom')); return; }
+
+  // Abort previous request
+  if(suggestAbort){ suggestAbort.abort(); }
+  suggestAbort = new AbortController();
+
+  const btn = document.getElementById('tb-suggest');
+  if(btn) btn.textContent = '⏳ ...';
+
+  // Show loading in legend
+  showSuggestLegend(null);
+
+  const b = map.getBounds();
+  const bbox = `${b.getSouth().toFixed(5)},${b.getWest().toFixed(5)},${b.getNorth().toFixed(5)},${b.getEast().toFixed(5)}`;
+  const q = `[out:json][timeout:12][bbox:${bbox}];(`+
+    `node["amenity"~"^(restaurant|cafe|fast_food|bar|pub|hospital|clinic|pharmacy|school|university|college|gym|bus_station|bank|atm)$"];`+
+    `node["tourism"~"^(hotel|hostel|motel|guest_house)$"];`+
+    `node["shop"~"^(mall|supermarket|department_store|convenience|hypermarket)$"];`+
+    `node["leisure"~"^(fitness_centre|sports_centre|stadium)$"];`+
+    `node["highway"="bus_stop"];`+
+    `node["railway"~"^(station|subway_entrance|tram_stop)$"];`+
+    `node["office"~"."];`+
+    `);out 200;`;
+
+  try {
+    const resp = await fetch(
+      `https://overpass-api.de/api/interpreter?data=${encodeURIComponent(q)}`,
+      {signal: suggestAbort.signal}
+    );
+    if(!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    renderSuggestions(data.elements || []);
+  } catch(e){
+    if(e.name === 'AbortError') return;
+    toast(t('suggest_err'));
+    if(btn) btn.textContent = '🟢 ' + t('tb_suggest');
+  }
+  if(btn && suggestionsActive) btn.textContent = '🟢 ' + t('tb_suggest');
+}
+
+function renderSuggestions(elements){
+  suggestionsLayer.clearLayers();
+  lastSuggestData = {};
+
+  // Classify and group
+  elements.forEach(el => {
+    if(!el.lat || !el.lon) return;
+    const cat = classifyPOI(el.tags || {});
+    if(!cat) return;
+    // Skip if a JET station already exists within 25m
+    const near = stations.some(s => {
+      const dy = (s.lat - el.lat) * 111320;
+      const dx = (s.lng - el.lon) * 111320 * Math.cos(el.lat * Math.PI/180);
+      return Math.sqrt(dx*dx + dy*dy) < 25;
+    });
+    if(near) return;
+    if(!lastSuggestData[cat]) lastSuggestData[cat] = [];
+    lastSuggestData[cat].push(el);
+  });
+
+  // Draw markers
+  Object.entries(lastSuggestData).forEach(([cat, pois]) => {
+    if(hiddenCats.has(cat)) return;
+    const info = POI_CATS[cat];
+    pois.forEach(el => {
+      const rawName = el.tags.name || el.tags['name:es'] || el.tags['name:ru'] || el.tags['name:pt'] || info[lang] || info.es;
+      const safeName = rawName.replace(/'/g,''').replace(/"/g,'&quot;');
+      const stationType = info['type' + lang.charAt(0).toUpperCase() + lang.slice(1)] || info.typeEs;
+      const icon = L.divIcon({
+        className:'',
+        html:`<div style="background:${info.col};border-radius:50%;width:28px;height:28px;border:2.5px solid white;box-shadow:0 2px 7px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:13px;cursor:pointer">${info.icon}</div>`,
+        iconSize:[28,28], iconAnchor:[14,14]
+      });
+      const m = L.marker([el.lat, el.lon], {icon}).addTo(suggestionsLayer);
+      m.bindPopup(`
+<div style="font-size:13px;min-width:190px;max-width:220px">
+  <div style="font-weight:700;margin-bottom:3px;font-size:14px">${rawName}</div>
+  <div style="display:flex;align-items:center;gap:5px;margin-bottom:8px">
+    <span style="background:${info.col}22;color:${info.col};padding:2px 8px;border-radius:10px;font-size:11px;font-weight:700">${info.icon} ${info[lang]||info.es}</span>
+  </div>
+  <button onclick="addFromPOI(${el.lat},${el.lon},'${safeName}','${stationType}')"
+    style="width:100%;padding:9px;background:#005bff;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer">
+    ${t('suggest_add')}
+  </button>
+</div>`, {maxWidth:240});
+    });
+  });
+
+  const total = Object.values(lastSuggestData).reduce((a,b)=>a+b.length,0);
+  if(total === 0) toast(t('suggest_empty'));
+  showSuggestLegend(lastSuggestData);
+}
+
+function showSuggestLegend(cats){
+  let el = document.getElementById('poi-legend');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'poi-legend';
+    const appDiv = document.querySelector('#app > div[style*="flex"]');
+    (appDiv || document.getElementById('app')).appendChild(el);
+  }
+  if(!suggestionsActive){ el.remove(); return; }
+
+  if(!cats){
+    // Loading state
+    el.innerHTML = `<div class="poi-legend-title">📍 ${t('suggest_title')}</div><div class="poi-loading"><span class="spinner"></span> ${t('suggest_loading')}</div>`;
+    return;
+  }
+
+  const rows = Object.entries(POI_CATS).map(([key, info]) => {
+    const count = cats[key]?.length || 0;
+    const hidden = hiddenCats.has(key);
+    return `<div class="poi-cat-row${hidden?' hidden-cat':''}" onclick="togglePOICat('${key}')">
+      <div class="poi-cat-dot" style="background:${info.col}"></div>
+      <span>${info[lang]||info.es}</span>
+      ${count > 0 ? `<span class="poi-cat-count" style="color:${info.col}">${count}</span>` : ''}
+    </div>`;
+  }).join('');
+
+  const total = Object.values(cats).reduce((a,b)=>a+b.length,0);
+  el.innerHTML = `
+    <div class="poi-legend-title">📍 ${t('suggest_title')} <span style="color:#888;font-weight:400">(${total})</span></div>
+    ${rows}
+    <div style="margin-top:8px;border-top:1px solid #eee;padding-top:6px;font-size:10px;color:#aaa;text-align:center">OpenStreetMap · Overpass API</div>`;
+}
+
+function togglePOICat(cat){
+  if(hiddenCats.has(cat)) hiddenCats.delete(cat);
+  else hiddenCats.add(cat);
+  // Re-render with cached data
+  if(suggestionsLayer) suggestionsLayer.clearLayers();
+  if(Object.keys(lastSuggestData).length) renderSuggestions(
+    Object.values(lastSuggestData).flat().map(el => ({...el}))
+  );
+}
+
+function addFromPOI(lat, lng, name, type){
+  map.closePopup();
+  selCoords = {lat, lng};
+  placePin({lat, lng});
+  map.setView([lat, lng], 18);
+  openAdd();
+  setTimeout(() => {
+    const fn = document.getElementById('f-name');
+    if(fn && !fn.value) fn.value = name;
+    const ft = document.getElementById('f-type');
+    if(ft){
+      const opts = Array.from(ft.options);
+      const match = opts.find(o => o.text === type);
+      if(match) ft.value = match.value || match.text;
+    }
+    reverseGeo({lat, lng});
+  }, 120);
+}
 
 // ==================== AUTH ====================
 auth.onAuthStateChanged(async (user) => {
