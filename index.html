@@ -224,9 +224,46 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .city-row:last-child{border-bottom:none}
 .city-bar-wrap{flex:1;height:6px;background:#f0f0f0;border-radius:3px;overflow:hidden}
 .city-bar{height:100%;background:#005bff;border-radius:3px}
+
+/* PWA INSTALL BANNER */
+#pwa-banner{position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#fff;border-top:1px solid #e0e0e0;box-shadow:0 -4px 20px rgba(0,0,0,0.15);padding:14px 16px;display:flex;align-items:center;gap:12px;transform:translateY(100%);transition:transform 0.3s ease;animation:none}
+#pwa-banner.show{transform:translateY(0)}
+#pwa-banner .pwa-icon{width:48px;height:48px;border-radius:12px;background:#005bff;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+#pwa-banner .pwa-text{flex:1;min-width:0}
+#pwa-banner .pwa-title{font-size:15px;font-weight:700;color:#0d0d1a;margin-bottom:2px}
+#pwa-banner .pwa-sub{font-size:12px;color:#666;line-height:1.3}
+#pwa-banner .pwa-btn{background:#005bff;color:#fff;border:none;border-radius:10px;padding:10px 16px;font-size:14px;font-weight:700;cursor:pointer;white-space:nowrap;flex-shrink:0}
+#pwa-banner .pwa-close{background:none;border:none;font-size:20px;color:#aaa;cursor:pointer;padding:4px;flex-shrink:0}
+#pwa-ios-hint{position:fixed;bottom:0;left:0;right:0;z-index:9999;background:#fff;border-top:1px solid #e0e0e0;box-shadow:0 -4px 20px rgba(0,0,0,0.15);padding:16px;display:none}
+#pwa-ios-hint .ios-row{display:flex;align-items:center;gap:12px;margin-bottom:10px}
+#pwa-ios-hint .ios-icon{width:48px;height:48px;border-radius:12px;background:#005bff;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
+#pwa-ios-hint .ios-title{font-size:15px;font-weight:700;color:#0d0d1a}
+#pwa-ios-hint .ios-steps{font-size:13px;color:#444;line-height:1.8}
+#pwa-ios-hint .ios-close{float:right;background:none;border:none;font-size:20px;color:#aaa;cursor:pointer;margin-top:-36px}
 </style>
 </head>
 <body>
+
+<!-- PWA Install Banner (Android/Chrome) -->
+<div id="pwa-banner">
+  <div class="pwa-icon">🚲</div>
+  <div class="pwa-text">
+    <div class="pwa-title" data-i18n="pwa_title">Установить приложение</div>
+    <div class="pwa-sub" data-i18n="pwa_sub">Добавьте JET на экран — работает офлайн</div>
+  </div>
+  <button class="pwa-btn" id="pwa-install-btn" data-i18n="pwa_install">Установить</button>
+  <button class="pwa-close" id="pwa-close-btn">✕</button>
+</div>
+
+<!-- iOS Install Hint -->
+<div id="pwa-ios-hint">
+  <button class="ios-close" id="pwa-ios-close">✕</button>
+  <div class="ios-row">
+    <div class="ios-icon">🚲</div>
+    <div class="ios-title" data-i18n="pwa_title">Установить приложение JET</div>
+  </div>
+  <div class="ios-steps" data-i18n="pwa_ios_steps">Нажмите <strong>«Поделиться»</strong> <span style="font-size:16px">⬆️</span> внизу Safari, затем <strong>«На экран Домой»</strong> 📲</div>
+</div>
 
 <!-- ====== PENDING APPROVAL SCREEN ====== -->
 <div id="pending-screen" style="display:none;position:fixed;inset:0;background:#0d0d1a;z-index:9001;align-items:center;justify-content:center;padding:20px;flex-direction:column;text-align:center">
@@ -515,6 +552,8 @@ const LANGS = {
     user_online:'en campo ahora', you:'Yo', stations_count:'estación',
     imported_ok:'✅ Importadas:', duplicates:'duplicados omitidos',
     import_err:'❌ Error al leer archivo:',no_records:'⚠️ No se encontraron registros válidos.',
+    pwa_title:'Instalar la app', pwa_sub:'Agrega JET a tu pantalla de inicio', pwa_install:'Instalar',
+    pwa_ios_steps:'Toca <strong>«Compartir»</strong> <span style="font-size:16px">⬆️</span> en Safari, luego <strong>«En pantalla de inicio»</strong> 📲',
   },
   ru: {
     login:'Войти', register:'Регистрация',
@@ -550,6 +589,8 @@ const LANGS = {
     user_online:'в поле сейчас', you:'Я', stations_count:'парковок',
     imported_ok:'✅ Импортировано:', duplicates:'дублей пропущено',
     import_err:'❌ Ошибка чтения файла:', no_records:'⚠️ Записей не найдено.',
+    pwa_title:'Установить приложение', pwa_sub:'Добавьте JET на экран — работает офлайн', pwa_install:'Установить',
+    pwa_ios_steps:'Нажмите <strong>«Поделиться»</strong> <span style="font-size:16px">⬆️</span> внизу Safari, затем <strong>«На экран Домой»</strong> 📲',
   },
   pt: {
     login:'Entrar', register:'Cadastrar',
@@ -585,6 +626,8 @@ const LANGS = {
     user_online:'em campo agora', you:'Eu', stations_count:'estação',
     imported_ok:'✅ Importadas:', duplicates:'duplicatas ignoradas',
     import_err:'❌ Erro ao ler arquivo:', no_records:'⚠️ Nenhum registro válido encontrado.',
+    pwa_title:'Instalar o app', pwa_sub:'Adicione JET à sua tela inicial', pwa_install:'Instalar',
+    pwa_ios_steps:'Toque em <strong>«Compartilhar»</strong> <span style="font-size:16px">⬆️</span> no Safari, depois <strong>«Tela de Início»</strong> 📲',
   }
 };
 
@@ -647,6 +690,12 @@ function applyLang(){
   // Modal titles (only if not currently set by openEdit/startAddMap etc)
   const at = document.getElementById('add-title');
   if(at && !editingId) at.textContent = t('new_st');
+  // Generic data-i18n (pwa banner etc.)
+  document.querySelectorAll('[data-i18n]').forEach(el=>{
+    const key = el.dataset.i18n;
+    const val = t(key);
+    if(val && val !== key){ el.innerHTML = val; }
+  });
 }
 
 // ==================== CONSTANTS ====================
@@ -2413,6 +2462,52 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
 
 // Apply language on initial load
 applyLang();
+
+// ==================== PWA INSTALL BANNER ====================
+(function(){
+  const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  if(!isMobile) return;                          // show only on phones/tablets
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
+    || window.navigator.standalone === true;     // already installed
+  if(isStandalone) return;
+  if(localStorage.getItem('pwa_dismissed')) return;
+
+  const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
+  const banner = document.getElementById('pwa-banner');
+  const iosBanner = document.getElementById('pwa-ios-hint');
+
+  if(isIOS){
+    // iOS Safari — show manual hint after 3s
+    setTimeout(()=>{ iosBanner.style.display='block'; }, 3000);
+    document.getElementById('pwa-ios-close').onclick = ()=>{
+      iosBanner.style.display='none';
+      localStorage.setItem('pwa_dismissed','1');
+    };
+    return;
+  }
+
+  // Android/Chrome — wait for beforeinstallprompt
+  let deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', e=>{
+    e.preventDefault();
+    deferredPrompt = e;
+    setTimeout(()=>{ banner.classList.add('show'); }, 2000);
+  });
+
+  document.getElementById('pwa-install-btn').onclick = async ()=>{
+    if(!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const { outcome } = await deferredPrompt.userChoice;
+    deferredPrompt = null;
+    banner.classList.remove('show');
+    if(outcome === 'accepted') localStorage.setItem('pwa_dismissed','1');
+  };
+
+  document.getElementById('pwa-close-btn').onclick = ()=>{
+    banner.classList.remove('show');
+    localStorage.setItem('pwa_dismissed','1');
+  };
+})();
 </script>
 </body>
 </html>
