@@ -313,12 +313,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div id="pending-screen" style="display:none;position:fixed;inset:0;background:#0d0d1a;z-index:9001;align-items:center;justify-content:center;padding:20px;flex-direction:column;text-align:center">
   <div style="font-size:40px;margin-bottom:16px">⏳</div>
   <div style="font-size:24px;font-weight:900;color:#005bff;margin-bottom:8px">JET</div>
-  <div style="color:white;font-size:18px;font-weight:700;margin-bottom:10px">Solicitud enviada</div>
-  <div style="color:rgba(255,255,255,0.6);font-size:14px;max-width:280px;line-height:1.5;margin-bottom:24px">
+  <div style="color:white;font-size:18px;font-weight:700;margin-bottom:10px" data-i18n="pending_title">Solicitud enviada</div>
+  <div style="color:rgba(255,255,255,0.6);font-size:14px;max-width:280px;line-height:1.5;margin-bottom:24px" data-i18n="pending_sub">
     Tu registro está pendiente de aprobación.<br>El administrador revisará tu acceso en breve.
   </div>
   <div id="pending-email" style="color:rgba(255,255,255,0.4);font-size:12px;margin-bottom:24px"></div>
-  <button onclick="auth.signOut()" style="background:rgba(255,255,255,0.1);color:white;border:none;border-radius:10px;padding:12px 24px;font-size:14px;cursor:pointer">Cerrar sesión</button>
+  <button onclick="auth.signOut()" style="background:rgba(255,255,255,0.1);color:white;border:none;border-radius:10px;padding:12px 24px;font-size:14px;cursor:pointer" data-i18n="pending_logout">Cerrar sesión</button>
 </div>
 
 <!-- ====== AUTH SCREEN ====== -->
@@ -403,29 +403,39 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div id="zone-msg"></div>
     <div id="nearby-msg"></div>
     <div class="fg">
-      <label>Tipo de estación *</label>
+      <label data-i18n="lbl_station_type">Tipo de estación *</label>
       <div class="own-toggle">
         <button class="own-btn sel-propia" id="own-propia" onclick="setOwn(this,'propia')">✅ Propia JET</button>
         <button class="own-btn" id="own-comp" onclick="setOwn(this,'competencia')">🔴 Competencia</button>
       </div>
     </div>
-    <div class="fg"><label>Coordenadas</label><input id="f-coords" readonly placeholder="Esperando ubicación..."></div>
-    <div class="fg"><label>Dirección</label><input id="f-addr" placeholder="Detectando..."></div>
     <div class="fg">
-      <label>📷 Foto del lugar</label>
+      <label data-i18n="lbl_placement">Ubicación física</label>
+      <div class="own-toggle" id="placement-toggle">
+        <button class="own-btn sel-propia" id="place-sidewalk" onclick="setPlacement(this,'sidewalk')">🚶 Banqueta / Acera</button>
+        <button class="own-btn" id="place-road" onclick="setPlacement(this,'road')">🚗 Vía pública</button>
+        <button class="own-btn" id="place-parking" onclick="setPlacement(this,'parking')">🅿️ Estacionamiento</button>
+      </div>
+    </div>
+    <div class="fg"><label data-i18n="lbl_coords">Coordenadas</label><input id="f-coords" readonly data-i18n-ph="ph_coords" placeholder="Esperando ubicación..."></div>
+    <div class="fg"><label data-i18n="lbl_addr">Dirección</label><input id="f-addr" data-i18n-ph="ph_addr" placeholder="Detectando..."></div>
+    <div class="fg">
+      <label data-i18n="lbl_photo">📷 Foto del lugar</label>
       <div class="photo-btn" onclick="document.getElementById('f-photo').click()">
-        <span id="photo-btn-txt">📷 Tomar foto</span>
+        <span id="photo-btn-txt" data-i18n="photo_btn">📷 Tomar foto</span>
       </div>
       <input type="file" accept="image/*" capture="environment" id="f-photo" onchange="previewPic(this)">
       <img id="photo-preview" src="" alt="">
+      <button id="ai-analyze-btn" onclick="analyzePhotoWithAI()" style="display:none;width:100%;margin-top:8px;padding:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:0.3px" data-i18n="ai_btn">🤖 Analizar con IA</button>
+      <div id="ai-result" style="display:none;margin-top:8px;padding:10px;background:#f0f4ff;border-radius:8px;font-size:12px;color:#333;border-left:3px solid #6366f1"></div>
     </div>
-    <div class="fg"><label>Nombre / Referencia *</label><input id="f-name" placeholder="Ej: Frente al Starbucks, Torre A..."></div>
+    <div class="fg"><label data-i18n="lbl_name">Nombre / Referencia *</label><input id="f-name" data-i18n-ph="ph_name" placeholder="Ej: Frente al Starbucks, Torre A..."></div>
     <div id="type-suggestions">
-      <div class="sug-label">📍 Рядом найдено — выбери тип:</div>
-      <div id="type-chips"><span id="sug-spinner"><span class="spinner"></span>Ищу рядом...</span></div>
+      <div class="sug-label" data-i18n="sug_lbl">📍 Encontrado cerca — elige el tipo:</div>
+      <div id="type-chips"></div>
     </div>
     <div class="fg">
-      <label>Tipo *</label>
+      <label data-i18n="lbl_tipo">Tipo *</label>
       <select id="f-type">
         <option value="">Seleccionar...</option>
         <option>Centro Comercial</option><option>Restaurante</option><option>Oficina</option>
@@ -434,7 +444,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </select>
     </div>
     <div class="fg">
-      <label>Capacidad (scooters)</label>
+      <label data-i18n="lbl_cap">Capacidad (scooters)</label>
       <div class="cap-grid" id="cap-grid">
         <button class="cap-btn" onclick="setCap(this,'1-3')">1–3</button>
         <button class="cap-btn" onclick="setCap(this,'4-8')">4–8</button>
@@ -443,12 +453,17 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
       </div>
     </div>
     <div class="fg">
-      <label id="lbl-radius">Radio de estacionamiento: <strong id="radius-val">20 m</strong></label>
+      <label id="lbl-radius"><span data-i18n="lbl_radius">Radio de estacionamiento:</span> <strong id="radius-val">20 m</strong></label>
       <input type="range" id="f-radius" min="1" max="100" value="20"
              style="width:100%;accent-color:#005bff;margin-top:6px"
              oninput="selRadius2=+this.value;document.getElementById('radius-val').textContent=this.value+' m'">
     </div>
-    <div class="fg"><label>Notas</label><textarea id="f-notes" rows="2" placeholder="Observaciones..."></textarea></div>
+    <div class="fg" style="display:flex;gap:8px">
+      <div style="flex:1"><label data-i18n="lbl_dimensions">📐 Dimensiones</label><input id="f-dims" data-i18n-ph="ph_dimensions" placeholder="Ej: 1.80 m x 4.70 m" value="1.80 m x 4.70 m"></div>
+      <div style="width:90px"><label data-i18n="lbl_faixa">Acera libre</label><input id="f-faixa" type="number" step="0.1" min="0" data-i18n-ph="ph_faixa" placeholder="2.5" style="width:100%"></div>
+    </div>
+    <div class="fg"><label data-i18n="lbl_notes">Notas</label><textarea id="f-notes" rows="2" data-i18n-ph="ph_notes" placeholder="Observaciones..."></textarea></div>
+    <button id="ai-location-btn" onclick="analyzeLocationWithAI()" style="width:100%;margin-bottom:8px;padding:10px;background:linear-gradient(135deg,#4f46e5,#7c3aed);color:white;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer" data-i18n="ai_location_btn">🤖 Analizar ubicación</button>
     <button id="save-btn" onclick="saveStation()">💾 Guardar Estación</button>
   </div>
 </div>
@@ -537,19 +552,22 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div class="overlay" id="export-overlay">
   <div class="sheet">
     <button class="close-btn" onclick="closeOverlay('export-overlay')">✕</button>
-    <h2>📤 Экспорт парковок</h2>
-    <p style="font-size:13px;color:#666;margin-bottom:16px">Выберите формат для скачивания <b id="export-count">0</b> парковок:</p>
+    <h2 data-i18n="exp_title">📤 Exportar estaciones</h2>
+    <p id="export-sub" style="font-size:13px;color:#666;margin-bottom:16px">Seleccione formato para descargar <b id="export-count">0</b> estaciones:</p>
     <button onclick="exportExcel()" style="width:100%;padding:14px;background:#1d6f42;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
-      📊 Excel (.xlsx) — таблица с координатами
+      <span data-i18n="exp_btn_excel">📊 Excel (.xlsx) — tabla con coordenadas</span>
     </button>
     <button onclick="exportCroquiMulti(stations);closeOverlay('export-overlay')" style="width:100%;padding:14px;background:#e65100;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
-      📄 Croqui PDF — все парковки (2 на странице)
+      <span data-i18n="exp_btn_croqui">📄 Croqui PDF — todas (2 por página)</span>
     </button>
     <button onclick="exportPDF()" style="width:100%;padding:14px;background:#dc3545;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
-      📋 PDF-отчёт — сводный список
+      <span data-i18n="exp_btn_pdf">📋 PDF resumen — lista consolidada</span>
     </button>
-    <button onclick="exportJSON()" style="width:100%;padding:14px;background:#005bff;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
-      📋 JSON — полные данные
+    <button onclick="exportJSON()" style="width:100%;padding:14px;background:#005bff;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
+      <span data-i18n="exp_btn_json">📋 JSON — datos completos</span>
+    </button>
+    <button onclick="exportOficial()" style="width:100%;padding:14px;background:linear-gradient(135deg,#1a1a2e,#16213e);color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
+      <span data-i18n="exp_btn_oficial">🏛 CSV Formato Oficial (57 campos)</span>
     </button>
     <div id="export-status" style="margin-top:12px;font-size:13px;text-align:center"></div>
   </div>
@@ -559,14 +577,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <div id="admin-panel-overlay">
   <div id="admin-panel">
     <div class="ap-header">
-      <div class="ap-title">🛡 Панель администратора</div>
-      <button class="ap-close" onclick="closeAdminPanel()">✕ Закрыть</button>
+      <div class="ap-title" data-i18n="ap_title">🛡 Panel Administrador</div>
+      <button class="ap-close" onclick="closeAdminPanel()" data-i18n="ap_close">✕ Cerrar</button>
     </div>
     <div class="ap-tabs">
-      <button class="ap-tab active" id="aptab-dash"    onclick="showApTab('dash')">📊 Отчёт</button>
-      <button class="ap-tab"        id="aptab-emp"     onclick="showApTab('emp')">👥 Сотрудники<span class="ap-badge" id="ap-badge-emp">0</span></button>
-      <button class="ap-tab"        id="aptab-req"     onclick="showApTab('req')">📋 Заявки<span class="ap-badge" id="ap-badge-req">0</span></button>
-      <button class="ap-tab"        id="aptab-act"     onclick="showApTab('act')">⚡ Активность</button>
+      <button class="ap-tab active" id="aptab-dash"    onclick="showApTab('dash')" data-i18n="ap_tab_dash">📊 Reporte</button>
+      <button class="ap-tab"        id="aptab-emp"     onclick="showApTab('emp')"><span data-i18n="ap_tab_emp">👥 Empleados</span><span class="ap-badge" id="ap-badge-emp">0</span></button>
+      <button class="ap-tab"        id="aptab-req"     onclick="showApTab('req')"><span data-i18n="ap_tab_req">📋 Solicitudes</span><span class="ap-badge" id="ap-badge-req">0</span></button>
+      <button class="ap-tab"        id="aptab-act"     onclick="showApTab('act')" data-i18n="ap_tab_act">⚡ Actividad</button>
     </div>
     <div class="ap-body">
       <div id="apc-dash"></div>
@@ -583,12 +601,21 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <button class="close-btn" onclick="closeOverlay('import-overlay')">✕</button>
     <h2>📥 Importar Estaciones</h2>
     <p style="font-size:13px;color:#666;margin-bottom:14px">
-      CSV esperado: <code style="background:#f5f5f5;padding:1px 5px;border-radius:4px">lat,lng,nombre,tipo,direccion,capacidad,notas</code>
+      Formatos: <b>CSV</b> (coma/punto y coma), <b>TSV</b> (tabulador), <b>JSON</b><br>
+      Columnas requeridas: <code style="background:#f5f5f5;padding:1px 5px;border-radius:4px">lat, lng</code> (o latitude/longitude)
     </p>
     <div class="import-area" onclick="document.getElementById('f-import').click()">
-      📂 Toca para seleccionar archivo<br><small style="color:#aaa">CSV o JSON</small>
+      📂 Toca para seleccionar archivo<br><small style="color:#aaa">CSV · TSV · JSON</small>
     </div>
-    <input type="file" id="f-import" accept=".csv,.json" onchange="handleImport(this)">
+    <input type="file" id="f-import" accept="text/*,.csv,.tsv,.json" onchange="handleImport(this)">
+
+    <div style="margin:12px 0;text-align:center;color:#bbb;font-size:12px">— o pega el contenido aquí —</div>
+    <textarea id="import-paste" rows="5" placeholder="Pega aquí el contenido del CSV..."
+      style="width:100%;box-sizing:border-box;border:1px solid #ddd;border-radius:8px;padding:8px;font-size:12px;font-family:monospace;resize:vertical"></textarea>
+    <button onclick="handleImportPaste()" style="width:100%;margin-top:8px;padding:10px;background:#2563eb;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">
+      📋 Importar texto pegado
+    </button>
+
     <div id="import-result" style="margin-top:12px;font-size:13px"></div>
   </div>
 </div>
@@ -598,6 +625,57 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db   = firebase.firestore();
+
+// ==================== AI CONFIG ====================
+let ANTHROPIC_KEY = '';
+let GROQ_KEY      = '';
+
+let AI_REGULATIONS = ''; // loaded from bot server on startup
+
+const AI_SYSTEM_BASE = `Eres un experto en instalación de estaciones de scooters eléctricos JET.
+Analiza imágenes de lugares urbanos para determinar si son aptos para una estación JET.
+
+REGLAS FIJAS (nunca cambiar):
+- Radio de estacionamiento: SIEMPRE 20 metros exactos
+- Tipos disponibles (elige UNO): Centro Comercial, Restaurante, Oficina, Residencial, Hotel, Gimnasio, Escuela, Parque, Salud, Transporte, Otro
+
+Responde ÚNICAMENTE con JSON válido, sin texto adicional:
+{
+  "name": "nombre descriptivo corto del lugar (max 40 chars)",
+  "type": "tipo del lugar (de la lista exacta)",
+  "notes": "observaciones: visibilidad, acceso, afluencia, obstáculos",
+  "valid": true,
+  "reason": "por qué es apto o no apto para estación JET"
+}`;
+
+function get_AI_SYSTEM(){
+  if(AI_REGULATIONS){
+    return AI_SYSTEM_BASE + `\n\nREGLAMENTO OFICIAL DE AUTORIDADES LOCALES (aplica siempre):\n${AI_REGULATIONS.slice(0,3000)}`;
+  }
+  return AI_SYSTEM_BASE;
+}
+
+// Load parking regulations from bot server
+async function loadRegulations(){
+  try {
+    const r = await fetch('http://163.176.250.160:8765/regulations');
+    const d = await r.json();
+    if(d.exists && d.text){ AI_REGULATIONS = d.text; console.log('[AI] Regulations loaded:', d.text.length, 'chars'); }
+  } catch(e){ console.warn('[AI] Regulations not available:', e.message); }
+}
+
+async function loadConfig(){
+  try {
+    const r = await fetch('http://163.176.250.160:8765/config');
+    const d = await r.json();
+    if(d.anthropic_key) ANTHROPIC_KEY = d.anthropic_key;
+    if(d.groq_key)      GROQ_KEY      = d.groq_key;
+    console.log('[AI] Config loaded');
+  } catch(e){ console.warn('[AI] Config not available:', e.message); }
+}
+// Try to load on startup (non-blocking)
+loadRegulations();
+loadConfig();
 
 // ==================== I18N ====================
 const LANGS = {
@@ -610,7 +688,7 @@ const LANGS = {
     new_st:'➕ Nueva Estación', edit_st:'✏️ Editar Estación',
     own_jet:'✅ Propia JET', competitor:'🔴 Competencia',
     save:'💾 Guardar', update:'💾 Actualizar', saving:'Guardando...',
-    types:['Centro Comercial','Restaurante','Oficina','Residencial','Hotel','Gimnasio','Escuela','Parque','Salud','Otro'],
+    types:['Centro Comercial','Restaurante','Oficina','Residencial','Hotel','Gimnasio','Escuela','Parque','Salud','Otro','Transporte'],
     type_ph:'Seleccionar...', stations:'estaciones',
     saved:'✅ Estación guardada', updated:'✅ Estación actualizada', deleted:'🗑 Eliminada',
     gps_on:'GPS activo', gps_search:'buscando...', gps_off:'GPS off', gps_no:'sin GPS',
@@ -646,6 +724,36 @@ const LANGS = {
     suggest_off:'Sugerencias desactivadas',
     suggest_add:'➕ Agregar estación aquí',
     suggest_err:'⚠️ Error al cargar lugares. Intenta de nuevo.',
+    sug_lbl:'📍 Encontrado cerca — elige el tipo:',
+    save_st:'💾 Guardar Estación', update_st:'💾 Actualizar Estación',
+    photo_btn:'📷 Tomar foto', new_st_gps:'📍 Nueva Estación (GPS)', new_st_map:'🗺 Nueva Estación (mapa)',
+    add_here:'➕ Agregar aquí', cancel_btn:'✕ Cancelar',
+    pending_title:'Solicitud enviada',
+    pending_sub:'Tu registro está pendiente de aprobación.<br>El administrador revisará tu acceso en breve.',
+    pending_logout:'Cerrar sesión',
+    lbl_placement:'Ubicación física', place_sidewalk:'🚶 Banqueta / Acera', place_road:'🚗 Vía pública / Calle', place_parking:'🅿️ Estacionamiento privado',
+    lbl_station_type:'Tipo de estación *', lbl_coords:'Coordenadas', lbl_addr:'Dirección',
+    lbl_photo:'📷 Foto del lugar', lbl_name:'Nombre / Referencia *', lbl_tipo:'Tipo *',
+    lbl_cap:'Capacidad (scooters)', lbl_radius:'Radio de estacionamiento:', lbl_notes:'Notas',
+    ph_coords:'Esperando ubicación...', ph_addr:'Detectando...',
+    ph_name:'Ej: Frente al Starbucks, Torre A...', ph_notes:'Observaciones...',
+    nearby_hist:'📍 Estaciones cercanas:',
+    ai_btn:'🤖 Analizar con IA', ai_analyzing:'🤖 Analizando...', ai_done:'✅ Análisis listo',
+    ai_no_photo:'⚠️ Primero toma una foto', ai_err:'❌ Error IA:',
+    ai_name_hint:'💡 Nombre sugerido por IA',
+    lbl_dimensions:'📐 Dimensiones del lugar', ph_dimensions:'Ej: 1.80 m x 4.70 m',
+    lbl_faixa:'Ancho acera libre (m)', ph_faixa:'Ej: 2.5',
+    ai_location_btn:'🤖 Analizar ubicación', ai_location_analyzing:'🤖 Analizando ubicación...',
+    import_processing:'Procesando...', import_drive_fetch:'Descargando fotos de Drive...',
+    import_drive_ok:'✅ Foto importada', import_drive_err:'⚠️ Foto no disponible',
+    ap_title:'🛡 Panel Administrador', ap_close:'✕ Cerrar', ap_tab_dash:'📊 Reporte', ap_tab_emp:'👥 Empleados', ap_tab_req:'📋 Solicitudes', ap_tab_act:'⚡ Actividad',
+    ap_total_st:'📍 Total estaciones', ap_employees:'👤 Empleados', ap_pending:'⏳ Pendientes aprob.', ap_del_reqs:'🗑 Solicitudes borrado', ap_own_vs_comp:'✅ Propias JET vs 🔴 Competencia', ap_ours:'propias', ap_by_city:'📍 Estaciones por ciudad', ap_no_data:'Sin datos', ap_by_type:'🏢 Por tipo de lugar', ap_emp_act:'👥 Actividad empleados', ap_load_err:'❌ Error de carga:',
+    role_admin:'Admin', role_user:'Empleado', role_disabled:'Bloqueado', role_pending:'Pendiente',
+    ap_me:'(yo)', ap_st_added:'estaciones · Agregado:', ap_approve:'✅ Aprobar', ap_make_admin:'👑 Hacer admin', ap_make_user:'👤 Empleado', ap_block:'🚫 Bloquear', ap_restore:'✅ Restaurar acceso', ap_delete_user:'🗑 Eliminar', ap_st_short:'est.', ap_total_users:'Total: {n} usuarios · {a} activos', ap_active:'activos', ap_awaiting:'⏳ Pendientes de aprobación', ap_active_emp:'👥 Empleados activos',
+    ap_reg_reqs:'⏳ Solicitudes de registro', ap_no_reqs:'Sin solicitudes pendientes ✅', ap_reg_date:'Fecha de registro:', ap_reject:'🚫 Rechazar', ap_del_st_reqs:'🗑 Solicitudes de borrado', ap_no_del_reqs:'Sin solicitudes de borrado ✅', ap_del_station:'✅ Eliminar estación', ap_req_rejected:'✕ Solicitud rechazada',
+    ap_no_stations:'No hay estaciones registradas', ap_last_of:'Últimas {n} de {total} estaciones', ap_competitor_short:'🔴 competencia',
+    exp_title:'📤 Exportar estaciones', exp_sub:'Seleccione formato para descargar {n} estaciones:', exp_building:'Generando Excel...', exp_excel_done:'📊 Excel descargado', exp_err:'❌ Error:', loading:'Cargando...',
+    exp_btn_excel:'📊 Excel (.xlsx) — tabla con coordenadas', exp_btn_croqui:'📄 Croqui PDF — todas (2 por página)', exp_btn_pdf:'📋 PDF resumen — lista consolidada', exp_btn_json:'📋 JSON — datos completos', exp_btn_oficial:'🏛 CSV Formato Oficial (57 campos)',
   },
   ru: {
     login:'Войти', register:'Регистрация',
@@ -656,7 +764,7 @@ const LANGS = {
     new_st:'➕ Новая парковка', edit_st:'✏️ Редактировать',
     own_jet:'✅ Наша JET', competitor:'🔴 Конкурент',
     save:'💾 Сохранить', update:'💾 Обновить', saving:'Сохранение...',
-    types:['Торговый центр','Ресторан','Офис','Жилой район','Отель','Фитнес-зал','Школа','Парк','Здравоохранение','Другое'],
+    types:['Торговый центр','Ресторан','Офис','Жилой район','Отель','Фитнес-зал','Школа','Парк','Здравоохранение','Другое','Транспорт'],
     type_ph:'Выбрать...', stations:'парковок',
     saved:'✅ Парковка сохранена', updated:'✅ Парковка обновлена', deleted:'🗑 Удалено',
     gps_on:'GPS активен', gps_search:'поиск...', gps_off:'GPS выкл', gps_no:'нет GPS',
@@ -692,6 +800,36 @@ const LANGS = {
     suggest_off:'Предложения отключены',
     suggest_add:'➕ Добавить парковку здесь',
     suggest_err:'⚠️ Ошибка загрузки мест. Попробуйте снова.',
+    sug_lbl:'📍 Рядом найдено — выбери тип:',
+    save_st:'💾 Сохранить парковку', update_st:'💾 Обновить парковку',
+    photo_btn:'📷 Сфотографировать', new_st_gps:'📍 Новая парковка (GPS)', new_st_map:'🗺 Новая парковка (карта)',
+    add_here:'➕ Добавить здесь', cancel_btn:'✕ Отмена',
+    pending_title:'Заявка отправлена',
+    pending_sub:'Ваша регистрация ожидает одобрения.<br>Администратор скоро проверит ваш доступ.',
+    pending_logout:'Выйти',
+    lbl_placement:'Расположение', place_sidewalk:'🚶 Тротуар', place_road:'🚗 Проезжая часть', place_parking:'🅿️ Частная парковка',
+    lbl_station_type:'Тип парковки *', lbl_coords:'Координаты', lbl_addr:'Адрес',
+    lbl_photo:'📷 Фото места', lbl_name:'Название / Ориентир *', lbl_tipo:'Тип *',
+    lbl_cap:'Вместимость (скутеры)', lbl_radius:'Радиус парковки:', lbl_notes:'Заметки',
+    ph_coords:'Ожидание геолокации...', ph_addr:'Определяю...',
+    ph_name:'Напр: ТЦ Мегамолл, Башня А...', ph_notes:'Примечания...',
+    nearby_hist:'📍 Ближайшие парковки:',
+    ai_btn:'🤖 Анализировать ИИ', ai_analyzing:'🤖 Анализирую...', ai_done:'✅ Анализ готов',
+    ai_no_photo:'⚠️ Сначала сделайте фото', ai_err:'❌ Ошибка ИИ:',
+    ai_name_hint:'💡 Название предложено ИИ',
+    lbl_dimensions:'📐 Размеры места', ph_dimensions:'Напр: 1.80 м x 4.70 м',
+    lbl_faixa:'Ширина свободного тротуара (м)', ph_faixa:'Напр: 2.5',
+    ai_location_btn:'🤖 Анализировать место', ai_location_analyzing:'🤖 Анализирую место...',
+    import_processing:'Обработка...', import_drive_fetch:'Загрузка фото с Drive...',
+    import_drive_ok:'✅ Фото загружено', import_drive_err:'⚠️ Фото недоступно',
+    ap_title:'🛡 Панель администратора', ap_close:'✕ Закрыть', ap_tab_dash:'📊 Отчёт', ap_tab_emp:'👥 Сотрудники', ap_tab_req:'📋 Заявки', ap_tab_act:'⚡ Активность',
+    ap_total_st:'📍 Всего парковок', ap_employees:'👤 Сотрудников', ap_pending:'⏳ Ждут одобрения', ap_del_reqs:'🗑 Заявки на удаление', ap_own_vs_comp:'✅ Наши JET vs 🔴 Конкуренты', ap_ours:'наших', ap_by_city:'📍 Парковки по городам', ap_no_data:'Нет данных', ap_by_type:'🏢 По типу объекта', ap_emp_act:'👥 Активность сотрудников', ap_load_err:'❌ Ошибка загрузки:',
+    role_admin:'Admin', role_user:'Сотрудник', role_disabled:'Заблокирован', role_pending:'Ожидает',
+    ap_me:'(я)', ap_st_added:'парковок · Добавлен:', ap_approve:'✅ Одобрить', ap_make_admin:'👑 Сделать админом', ap_make_user:'👤 Сотрудник', ap_block:'🚫 Заблокировать', ap_restore:'✅ Восстановить доступ', ap_delete_user:'🗑 Удалить', ap_st_short:'парк.', ap_total_users:'Всего: {n} пользователей · {a} активных', ap_active:'активных', ap_awaiting:'⏳ Ожидают одобрения', ap_active_emp:'👥 Активные сотрудники',
+    ap_reg_reqs:'⏳ Заявки на регистрацию', ap_no_reqs:'Нет ожидающих заявок ✅', ap_reg_date:'Дата регистрации:', ap_reject:'🚫 Отклонить', ap_del_st_reqs:'🗑 Заявки на удаление парковок', ap_no_del_reqs:'Нет заявок на удаление ✅', ap_del_station:'✅ Удалить станцию', ap_req_rejected:'✕ Заявка отклонена',
+    ap_no_stations:'Нет добавленных парковок', ap_last_of:'Последние {n} из {total} парковок', ap_competitor_short:'🔴 конкурент',
+    exp_title:'📤 Экспорт парковок', exp_sub:'Выберите формат для скачивания {n} парковок:', exp_building:'Формирование Excel...', exp_excel_done:'📊 Excel скачан', exp_err:'❌ Ошибка:', loading:'Загрузка...',
+    exp_btn_excel:'📊 Excel (.xlsx) — таблица с координатами', exp_btn_croqui:'📄 Croqui PDF — все парковки (2 на странице)', exp_btn_pdf:'📋 PDF-отчёт — сводный список', exp_btn_json:'📋 JSON — полные данные', exp_btn_oficial:'🏛 CSV Формат Официальный (57 полей)',
   },
   pt: {
     login:'Entrar', register:'Cadastrar',
@@ -702,7 +840,7 @@ const LANGS = {
     new_st:'➕ Nova Estação', edit_st:'✏️ Editar Estação',
     own_jet:'✅ Própria JET', competitor:'🔴 Concorrente',
     save:'💾 Salvar', update:'💾 Atualizar', saving:'Salvando...',
-    types:['Shopping','Restaurante','Escritório','Residencial','Hotel','Academia','Escola','Parque','Saúde','Outro'],
+    types:['Shopping','Restaurante','Escritório','Residencial','Hotel','Academia','Escola','Parque','Saúde','Outro','Transporte'],
     type_ph:'Selecionar...', stations:'estações',
     saved:'✅ Estação salva', updated:'✅ Estação atualizada', deleted:'🗑 Removida',
     gps_on:'GPS ativo', gps_search:'buscando...', gps_off:'GPS desligado', gps_no:'sem GPS',
@@ -738,6 +876,36 @@ const LANGS = {
     suggest_off:'Sugestões desativadas',
     suggest_add:'➕ Adicionar estação aqui',
     suggest_err:'⚠️ Erro ao carregar locais. Tente novamente.',
+    sug_lbl:'📍 Encontrado perto — escolha o tipo:',
+    save_st:'💾 Salvar Estação', update_st:'💾 Atualizar Estação',
+    photo_btn:'📷 Tirar foto', new_st_gps:'📍 Nova Estação (GPS)', new_st_map:'🗺 Nova Estação (mapa)',
+    add_here:'➕ Adicionar aqui', cancel_btn:'✕ Cancelar',
+    pending_title:'Solicitação enviada',
+    pending_sub:'Seu cadastro está aguardando aprovação.<br>O administrador verificará seu acesso em breve.',
+    pending_logout:'Sair',
+    lbl_placement:'Localização física', place_sidewalk:'🚶 Calçada', place_road:'🚗 Via pública', place_parking:'🅿️ Estacionamento privado',
+    lbl_station_type:'Tipo de estação *', lbl_coords:'Coordenadas', lbl_addr:'Endereço',
+    lbl_photo:'📷 Foto do local', lbl_name:'Nome / Referência *', lbl_tipo:'Tipo *',
+    lbl_cap:'Capacidade (scooters)', lbl_radius:'Raio de estacionamento:', lbl_notes:'Notas',
+    ph_coords:'Aguardando localização...', ph_addr:'Detectando...',
+    ph_name:'Ex: Em frente ao Starbucks, Torre A...', ph_notes:'Observações...',
+    nearby_hist:'📍 Estações próximas:',
+    ai_btn:'🤖 Analisar com IA', ai_analyzing:'🤖 Analisando...', ai_done:'✅ Análise pronta',
+    ai_no_photo:'⚠️ Primeiro tire uma foto', ai_err:'❌ Erro IA:',
+    ai_name_hint:'💡 Nome sugerido pela IA',
+    lbl_dimensions:'📐 Dimensões do local', ph_dimensions:'Ex: 1.80 m x 4.70 m',
+    lbl_faixa:'Largura da faixa livre (m)', ph_faixa:'Ex: 2.5',
+    ai_location_btn:'🤖 Analisar localização', ai_location_analyzing:'🤖 Analisando local...',
+    import_processing:'Processando...', import_drive_fetch:'Baixando fotos do Drive...',
+    import_drive_ok:'✅ Foto importada', import_drive_err:'⚠️ Foto indisponível',
+    ap_title:'🛡 Painel Administrador', ap_close:'✕ Fechar', ap_tab_dash:'📊 Relatório', ap_tab_emp:'👥 Funcionários', ap_tab_req:'📋 Solicitações', ap_tab_act:'⚡ Atividade',
+    ap_total_st:'📍 Total de estações', ap_employees:'👤 Funcionários', ap_pending:'⏳ Aguardando aprob.', ap_del_reqs:'🗑 Solicitações de exclusão', ap_own_vs_comp:'✅ Próprias JET vs 🔴 Concorrência', ap_ours:'próprias', ap_by_city:'📍 Estações por cidade', ap_no_data:'Sem dados', ap_by_type:'🏢 Por tipo de local', ap_emp_act:'👥 Atividade dos funcionários', ap_load_err:'❌ Erro de carregamento:',
+    role_admin:'Admin', role_user:'Funcionário', role_disabled:'Bloqueado', role_pending:'Aguardando',
+    ap_me:'(eu)', ap_st_added:'estações · Adicionado:', ap_approve:'✅ Aprovar', ap_make_admin:'👑 Tornar admin', ap_make_user:'👤 Funcionário', ap_block:'🚫 Bloquear', ap_restore:'✅ Restaurar acesso', ap_delete_user:'🗑 Excluir', ap_st_short:'est.', ap_total_users:'Total: {n} usuários · {a} ativos', ap_active:'ativos', ap_awaiting:'⏳ Aguardando aprovação', ap_active_emp:'👥 Funcionários ativos',
+    ap_reg_reqs:'⏳ Solicitações de cadastro', ap_no_reqs:'Sem solicitações pendentes ✅', ap_reg_date:'Data de cadastro:', ap_reject:'🚫 Rejeitar', ap_del_st_reqs:'🗑 Solicitações de exclusão', ap_no_del_reqs:'Sem solicitações de exclusão ✅', ap_del_station:'✅ Excluir estação', ap_req_rejected:'✕ Solicitação rejeitada',
+    ap_no_stations:'Nenhuma estação registrada', ap_last_of:'Últimas {n} de {total} estações', ap_competitor_short:'🔴 concorrência',
+    exp_title:'📤 Exportar estações', exp_sub:'Selecione o formato para baixar {n} estações:', exp_building:'Gerando Excel...', exp_excel_done:'📊 Excel baixado', exp_err:'❌ Erro:', loading:'Carregando...',
+    exp_btn_excel:'📊 Excel (.xlsx) — tabela com coordenadas', exp_btn_croqui:'📄 Croqui PDF — todas (2 por página)', exp_btn_pdf:'📋 PDF resumo — lista consolidada', exp_btn_json:'📋 JSON — dados completos', exp_btn_oficial:'🏛 CSV Formato Oficial (57 campos)',
   }
 };
 
@@ -801,12 +969,27 @@ function applyLang(){
   // Modal titles (only if not currently set by openEdit/startAddMap etc)
   const at = document.getElementById('add-title');
   if(at && !editingId) at.textContent = t('new_st');
-  // Generic data-i18n (pwa banner etc.)
+  // Generic data-i18n (labels, pwa banner, pending screen, etc.)
   document.querySelectorAll('[data-i18n]').forEach(el=>{
     const key = el.dataset.i18n;
     const val = t(key);
     if(val && val !== key){ el.innerHTML = val; }
   });
+  // Placeholders
+  document.querySelectorAll('[data-i18n-ph]').forEach(el=>{
+    const key = el.dataset.i18nPh;
+    const val = t(key);
+    if(val && val !== key){ el.placeholder = val; }
+  });
+  // Save/photo buttons (updated by JS functions, sync here too)
+  const sb = document.getElementById('save-btn');
+  if(sb && !editingId) sb.textContent = t('save_st');
+  const pbt = document.getElementById('photo-btn-txt');
+  if(pbt) pbt.textContent = t('photo_btn');
+  // Placement toggle labels
+  const psw = document.getElementById('place-sidewalk'); if(psw) psw.textContent = t('place_sidewalk');
+  const prd = document.getElementById('place-road');     if(prd) prd.textContent = t('place_road');
+  const ppk = document.getElementById('place-parking');  if(ppk) ppk.textContent = t('place_parking');
 }
 
 // ==================== CONSTANTS ====================
@@ -825,7 +1008,7 @@ let currentUser = null;
 let stations    = [];
 let myLat = null, myLng = null, myMarker = null;
 let tempPin = null, selCoords = null;
-let addMode = false, selCap = '', selOwn = 'propia', selRadius2 = 20;
+let addMode = false, selCap = '', selOwn = 'propia', selRadius2 = 20, selPlacement = 'sidewalk';
 let editingId = null;
 let unsubStations = null, unsubLocations = null, unsubDeleteReqs = null;
 let locationTimer = null;
@@ -1379,6 +1562,7 @@ auth.onAuthStateChanged(async (user) => {
       document.getElementById('auth-screen').style.display = 'none';
       document.getElementById('pending-screen').style.display = 'flex';
       document.getElementById('pending-email').textContent = user.email;
+      applyLang();
       return;
     }
     document.getElementById('pending-screen').style.display = 'none';
@@ -1412,7 +1596,7 @@ let authMode = 'login';
 
 function switchTab(mode){
   authMode = mode;
-  document.getElementById('auth-btn').textContent = mode==='login' ? 'Iniciar sesión' : 'Registrarse';
+  document.getElementById('auth-btn').textContent = mode==='login' ? t('login') : t('register');
   document.getElementById('name-row').style.display = mode==='reg' ? 'block' : 'none';
   document.getElementById('auth-err').style.display = 'none';
   ['tab-login','tab-reg'].forEach(id=>document.getElementById(id).classList.remove('active'));
@@ -1654,12 +1838,12 @@ function setGPSStatus(txt,color){
 
 function goGPS(){
   if(myLat){ map.flyTo([myLat,myLng],17); }
-  else toast('GPS no disponible aún...');
+  else toast(t('no_gps_warn'));
 }
 
 function fitAllMarkers(){
   const pts = stations.map(s=>[s.lat,s.lng]).filter(p=>p[0]&&p[1]);
-  if(!pts.length){ toast('⚠️ Нет парковок / No hay estaciones'); return; }
+  if(!pts.length){ toast(t('no_export')); return; }
   if(pts.length===1) map.setView(pts[0],16);
   else map.fitBounds(pts, {padding:[40,40]});
 }
@@ -1685,8 +1869,8 @@ function placePinOnly(ll){
   tempPin.bindPopup(`
     <div style="font-family:system-ui;text-align:center;padding:4px 2px;min-width:180px">
       <div style="font-size:12px;color:#888;margin-bottom:10px">📍 ${coordStr}</div>
-      <button onclick="openFormFromPin()" style="width:100%;padding:10px;background:#005bff;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:6px">➕ Добавить парковку</button>
-      <button onclick="cancelPin()" style="width:100%;padding:7px;background:#f5f5f5;color:#555;border:none;border-radius:8px;font-size:13px;cursor:pointer">✕ Отмена</button>
+      <button onclick="openFormFromPin()" style="width:100%;padding:10px;background:#005bff;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer;margin-bottom:6px">${t('add_here')}</button>
+      <button onclick="cancelPin()" style="width:100%;padding:7px;background:#f5f5f5;color:#555;border:none;border-radius:8px;font-size:13px;cursor:pointer">${t('cancel_btn')}</button>
     </div>
   `, {closeButton:false}).openPopup();
 }
@@ -1704,6 +1888,19 @@ function openFormFromPin(){
   fetchNearbySuggestions(selCoords.lat, selCoords.lng);
 }
 
+function openAdd(){
+  addMode = false;
+  resetForm();
+  editingId = null;
+  document.getElementById('add-title').textContent = t('new_st');
+  document.getElementById('add-overlay').classList.add('on');
+  if(selCoords){
+    document.getElementById('f-coords').value = `${selCoords.lat.toFixed(6)}, ${selCoords.lng.toFixed(6)}`;
+    checkNearby(selCoords);
+    fetchNearbySuggestions(selCoords.lat, selCoords.lng);
+  }
+}
+
 function cancelPin(){
   map.closePopup();
   if(tempPin){ map.removeLayer(tempPin); tempPin=null; }
@@ -1714,7 +1911,7 @@ function cancelPin(){
 function startAddGPS(){
   if(!myLat){ toast(t('no_gps_warn')); return; }
   addMode = false;
-  document.getElementById('add-title').textContent = '📍 Nueva Estación (GPS)';
+  document.getElementById('add-title').textContent = t('new_st_gps');
   document.getElementById('add-overlay').classList.add('on');
   resetForm();
   placePin({lat:myLat, lng:myLng});
@@ -1722,11 +1919,11 @@ function startAddGPS(){
 
 function startAddMap(){
   addMode = true;
-  document.getElementById('add-title').textContent = '🗺 Nueva Estación (mapa)';
+  document.getElementById('add-title').textContent = t('new_st_map');
   document.getElementById('add-overlay').classList.add('on');
   document.getElementById('map-mode-banner').style.display = 'block';
   resetForm();
-  setMsg('warn','👆 Toca el mapa para colocar el punto');
+  setMsg('warn', t('map_banner'));
 }
 
 function placePin(ll){
@@ -1748,10 +1945,20 @@ function placePin(ll){
 }
 
 function checkNearby(ll){
-  const nearby = stations.filter(s => dist(ll.lat,ll.lng,s.lat,s.lng)<100);
-  document.getElementById('nearby-msg').innerHTML = nearby.length
-    ? `<div class="warn">⚠️ Ya hay estaciones cerca:<br>${nearby.map(s=>`• ${s.name} (${Math.round(dist(ll.lat,ll.lng,s.lat,s.lng))}m)`).join('<br>')}</div>`
-    : '';
+  const nearby = stations.filter(s => dist(ll.lat,ll.lng,s.lat,s.lng)<300).sort((a,b)=>dist(ll.lat,ll.lng,a.lat,a.lng)-dist(ll.lat,ll.lng,b.lat,b.lng));
+  if(!nearby.length){ document.getElementById('nearby-msg').innerHTML=''; return; }
+  const conflict = nearby.filter(s=>dist(ll.lat,ll.lng,s.lat,s.lng)<100);
+  const cls = conflict.length ? 'warn' : 'info';
+  const icon = conflict.length ? '⚠️ ' : '';
+  const label = conflict.length ? t('nearby_warn') : t('nearby_hist');
+  document.getElementById('nearby-msg').innerHTML =
+    `<div class="${cls}" style="font-size:12px">${icon}${label}<br>${
+      nearby.map(s=>{
+        const d=Math.round(dist(ll.lat,ll.lng,s.lat,s.lng));
+        const own = s.ownership==='competencia'?'🔴':'✅';
+        return `${own} ${s.name} — ${s.type||''} (${d}m)`;
+      }).join('<br>')
+    }</div>`;
 }
 
 function dist(a,b,c,d){
@@ -1761,12 +1968,16 @@ function dist(a,b,c,d){
 }
 
 // Type index (language-independent) + emoji mapping
-const TYPE_EMOJIS = ['🏬','🍽️','🏢','🏘️','🏨','🏋️','🏫','🌳','🏥','📦'];
+// Index 10 = transport (bus stop, tram, metro)
+const TYPE_EMOJIS = ['🏬','🍽️','🏢','🏘️','🏨','🏋️','🏫','🌳','🏥','📦','🚌'];
 
 function guessTypeIndex(a){
   const am=(a.amenity||'').toLowerCase(), sh=(a.shop||'').toLowerCase();
   const to=(a.tourism||'').toLowerCase(), le=(a.leisure||'').toLowerCase();
   const bu=(a.building||'').toLowerCase(), of=(a.office||'').toLowerCase();
+  const hw=(a.highway||'').toLowerCase(), pt=(a.public_transport||'').toLowerCase();
+  const rw=(a.railway||'').toLowerCase();
+  if(hw==='bus_stop'||pt==='stop_position'||rw==='tram_stop'||am==='bus_station') return 10;
   if(['restaurant','fast_food','food_court','cafe','bar'].includes(am))   return 1;
   if(['hospital','clinic','pharmacy','doctors','dentist'].includes(am))   return 8;
   if(['school','university','college','kindergarten'].includes(am))       return 6;
@@ -1783,16 +1994,19 @@ async function fetchNearbySuggestions(lat, lng){
   const wrap  = document.getElementById('type-suggestions');
   const chips = document.getElementById('type-chips');
   wrap.style.display = 'block';
-  chips.innerHTML = '<span id="sug-spinner"><span class="spinner"></span>Ищу рядом...</span>';
+  chips.innerHTML = `<span id="sug-spinner"><span class="spinner"></span>${t('suggest_loading')}</span>`;
 
   const q = `[out:json][timeout:8];(
-    node["amenity"](around:150,${lat},${lng});
-    node["shop"](around:150,${lat},${lng});
-    node["leisure"](around:150,${lat},${lng});
-    node["tourism"](around:150,${lat},${lng});
-    node["building"](around:150,${lat},${lng});
-    node["office"](around:150,${lat},${lng});
-  );out body 30;`;
+    node["amenity"](around:200,${lat},${lng});
+    node["shop"](around:200,${lat},${lng});
+    node["leisure"](around:200,${lat},${lng});
+    node["tourism"](around:200,${lat},${lng});
+    node["building"](around:200,${lat},${lng});
+    node["office"](around:200,${lat},${lng});
+    node["highway"="bus_stop"](around:300,${lat},${lng});
+    node["public_transport"="stop_position"](around:300,${lat},${lng});
+    node["railway"="tram_stop"](around:300,${lat},${lng});
+  );out body 40;`;
 
   try {
     const res  = await fetch('https://overpass-api.de/api/interpreter', {method:'POST', body:q});
@@ -1819,7 +2033,7 @@ async function fetchNearbySuggestions(lat, lng){
       const typeName = t('types')[s.idx];
       const btn = document.createElement('button');
       btn.className = 'type-chip';
-      btn.innerHTML = `${TYPE_EMOJIS[s.idx]} ${typeName}<span class="chip-dist">${s.dist}м</span>`;
+      btn.innerHTML = `${TYPE_EMOJIS[s.idx]} ${typeName}<span class="chip-dist">${s.dist}m</span>`;
       btn.onclick = () => {
         // Select type
         const sel = document.getElementById('f-type');
@@ -1838,6 +2052,175 @@ async function fetchNearbySuggestions(lat, lng){
   } catch(e){
     wrap.style.display = 'none';
   }
+}
+
+// ==================== AI FUNCTIONS ====================
+async function analyzePhotoWithAI(){
+  const preview = document.getElementById('photo-preview');
+  if(preview.style.display==='none'||!preview.src){ toast(t('ai_no_photo')); return; }
+
+  const btn = document.getElementById('ai-analyze-btn');
+  const resultEl = document.getElementById('ai-result');
+  btn.disabled=true; btn.textContent=t('ai_analyzing');
+  resultEl.style.display='none';
+
+  try {
+    const imgSrc  = preview.src;
+    const base64  = imgSrc.split(',')[1];
+    const mime    = imgSrc.split(';')[0].split(':')[1]||'image/jpeg';
+    const address = document.getElementById('f-addr').value||'';
+
+    const resp = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key': ANTHROPIC_KEY,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body: JSON.stringify({
+        model:'claude-opus-4-6',
+        max_tokens:512,
+        system: get_AI_SYSTEM(),
+        messages:[{
+          role:'user',
+          content:[
+            {type:'image', source:{type:'base64', media_type:mime, data:base64}},
+            {type:'text',  text:`Analiza este lugar para estación JET. Dirección: ${address||'desconocida'}. Idioma de respuesta: ${lang==='ru'?'ruso':lang==='pt'?'portugués':'español'}.`}
+          ]
+        }]
+      })
+    });
+
+    const json = await resp.json();
+    if(json.error) throw new Error(json.error.message);
+    const raw = json.content?.[0]?.text||'';
+    const match = raw.match(/\{[\s\S]*\}/);
+    if(!match) throw new Error('No JSON');
+    const r = JSON.parse(match[0]);
+
+    // Auto-fill name (only if empty)
+    if(r.name){
+      const nameEl = document.getElementById('f-name');
+      if(!nameEl.value.trim()){ nameEl.value=r.name; nameEl.style.boxShadow='0 0 0 2px #6366f1'; setTimeout(()=>nameEl.style.boxShadow='',2000); }
+    }
+    // Auto-fill type
+    if(r.type){
+      const sel = document.getElementById('f-type');
+      // Try current-lang match first, then fallback to index match
+      let matched = false;
+      Array.from(sel.options).forEach(o=>{ if(o.text===r.type){ sel.value=o.value||o.text; matched=true; } });
+      if(!matched){
+        // Try matching by index across languages
+        ['es','ru','pt'].forEach(l=>{ if(matched) return;
+          const idx = LANGS[l].types?.indexOf(r.type);
+          if(idx>=0){ const cur=t('types')[idx]; Array.from(sel.options).forEach(o=>{ if(o.text===cur){ sel.value=o.value||o.text; matched=true; } }); }
+        });
+      }
+    }
+    // Auto-fill notes (only if empty)
+    if(r.notes && !document.getElementById('f-notes').value.trim()) document.getElementById('f-notes').value=r.notes;
+
+    // Show result card
+    const icon = r.valid ? '✅' : '⚠️';
+    resultEl.innerHTML = `<strong>${icon} ${r.valid?(lang==='ru'?'Подходит':lang==='pt'?'Apto':'Apto'):(lang==='ru'?'Не подходит':lang==='pt'?'Não apto':'No apto')}</strong><br>${r.reason||''}`;
+    resultEl.style.borderColor = r.valid ? '#22c55e' : '#f59e0b';
+    resultEl.style.background  = r.valid ? '#f0fdf4' : '#fffbeb';
+    resultEl.style.display='block';
+
+    // Radius is always 20m — enforce
+    setRadius2(20);
+
+    toast(t('ai_done'));
+  } catch(e){
+    toast(`${t('ai_err')} ${e.message}`);
+  } finally {
+    btn.disabled=false; btn.textContent=t('ai_btn');
+  }
+}
+
+// Analyze location by address alone (no photo needed)
+async function analyzeLocationWithAI(){
+  const address = document.getElementById('f-addr').value.trim();
+  if(!address || address === 'Detectando...'){ toast('⚠️ ' + (lang==='ru'?'Сначала выберите точку на карте':lang==='pt'?'Primeiro selecione um ponto no mapa':'Primero selecciona un punto en el mapa')); return; }
+  const btn = document.getElementById('ai-location-btn');
+  btn.disabled=true; btn.textContent=t('ai_location_analyzing');
+  const resultEl = document.getElementById('ai-result');
+  resultEl.style.display='none';
+  try {
+    const resp = await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',
+      headers:{
+        'Content-Type':'application/json',
+        'x-api-key': ANTHROPIC_KEY,
+        'anthropic-version':'2023-06-01',
+        'anthropic-dangerous-direct-browser-access':'true'
+      },
+      body: JSON.stringify({
+        model:'claude-haiku-4-5-20251001',
+        max_tokens:400,
+        system: get_AI_SYSTEM(),
+        messages:[{
+          role:'user',
+          content:`Analiza esta dirección para instalar una estación JET: "${address}". No hay foto disponible, analiza solo por la dirección y contexto urbano. Idioma: ${lang==='ru'?'ruso':lang==='pt'?'portugués':'español'}.`
+        }]
+      })
+    });
+    const json = await resp.json();
+    if(json.error) throw new Error(json.error.message);
+    const raw = json.content?.[0]?.text||'';
+    const match = raw.match(/\{[\s\S]*\}/);
+    if(!match) throw new Error('No JSON');
+    const r = JSON.parse(match[0]);
+    if(r.name && !document.getElementById('f-name').value.trim()){
+      document.getElementById('f-name').value = r.name;
+    }
+    if(r.type){
+      const sel = document.getElementById('f-type');
+      Array.from(sel.options).forEach(o=>{ if(o.text===r.type) sel.value=o.value||o.text; });
+    }
+    if(r.notes && !document.getElementById('f-notes').value.trim()) document.getElementById('f-notes').value=r.notes;
+    setRadius2(20);
+    const icon = r.valid?'✅':'⚠️';
+    resultEl.innerHTML=`<strong>${icon} ${r.valid?(lang==='ru'?'Подходит':lang==='pt'?'Apto':'Apto'):(lang==='ru'?'Не подходит':lang==='pt'?'Não apto':'No apto')}</strong><br>${r.reason||''}`;
+    resultEl.style.borderColor=r.valid?'#22c55e':'#f59e0b';
+    resultEl.style.background=r.valid?'#f0fdf4':'#fffbeb';
+    resultEl.style.display='block';
+    toast(t('ai_done'));
+  } catch(e){
+    toast(`${t('ai_err')} ${e.message}`);
+  } finally {
+    btn.disabled=false; btn.textContent=t('ai_location_btn');
+  }
+}
+
+async function suggestNameWithGroq(address, type){
+  if(!address) return;
+  const nameEl = document.getElementById('f-name');
+  if(nameEl.value.trim()) return; // don't overwrite user input
+  try {
+    const resp = await fetch('https://api.groq.com/openai/v1/chat/completions',{
+      method:'POST',
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_KEY}`},
+      body: JSON.stringify({
+        model:'llama-3.1-8b-instant',
+        max_tokens:40,
+        temperature:0.4,
+        messages:[
+          {role:'system', content:'Genera nombres cortos y descriptivos (max 5 palabras) para estaciones de scooters JET. Responde SOLO con el nombre, sin explicaciones ni puntuación final.'},
+          {role:'user', content:`Nombre para estación en: ${address}${type?', tipo: '+type:''}`}
+        ]
+      })
+    });
+    const d = await resp.json();
+    const name = d.choices?.[0]?.message?.content?.trim();
+    if(name && !nameEl.value.trim()){
+      nameEl.value = name;
+      nameEl.title = t('ai_name_hint');
+      nameEl.style.boxShadow='0 0 0 2px #6366f155';
+      setTimeout(()=>{ nameEl.style.boxShadow=''; nameEl.title=''; },3000);
+    }
+  } catch(e){ /* silent — optional feature */ }
 }
 
 // Nominatim amenity/shop/tourism → our type
@@ -1871,16 +2254,21 @@ async function reverseGeo(ll){
     const road   = a.road||a.pedestrian||a.path||'';
     const suburb = a.suburb||a.neighbourhood||a.quarter||'';
     const city   = a.city||a.town||a.municipality||'';
-    el.value = [road,suburb,city].filter(Boolean).join(', ')||'Dirección no encontrada';
+    const fullAddr = [road,suburb,city].filter(Boolean).join(', ')||'Dirección no encontrada';
+    el.value = fullAddr;
     el.removeAttribute('readonly');
 
-    // Auto-fill name if empty
+    // Auto-fill name if empty — try Nominatim first, then Groq as fallback
     const nameEl = document.getElementById('f-name');
     if(!nameEl.value.trim()){
-      const placeName = d.name
-        || a.amenity || a.shop || a.tourism || a.leisure
-        || a.building || a.office || '';
-      if(placeName && placeName.length > 2) nameEl.value = placeName;
+      const placeName = d.name || a.amenity || a.shop || a.tourism || a.leisure || a.building || a.office || '';
+      if(placeName && placeName.length > 2){
+        nameEl.value = placeName;
+      } else {
+        // Ask Groq for a smart suggestion (async, non-blocking)
+        const curType = document.getElementById('f-type').value;
+        suggestNameWithGroq(fullAddr, curType);
+      }
     }
 
     // Auto-fill type if not selected
@@ -1899,12 +2287,12 @@ async function reverseGeo(ll){
       road.toLowerCase().includes(s.toLowerCase())||s.toLowerCase().includes(road.toLowerCase())
     );
     setMsg(restricted ? 'err' : 'ok', restricted
-      ? `⛔ ZONA RESTRINGIDA — "${road}" no permite estaciones JET.`
+      ? `${t('restricted')} (${road})`
       : t('valid')
     );
   }catch{
     el.value=''; el.removeAttribute('readonly');
-    el.placeholder='Sin conexión — escribe manualmente';
+    el.placeholder = t('offline_addr');
     setMsg('info', t('offline_addr'));
   }
 }
@@ -1921,19 +2309,23 @@ function closeAdd(){
 function resetForm(){
   document.getElementById('type-suggestions').style.display = 'none';
   document.getElementById('type-chips').innerHTML = '';
-  ['f-coords','f-addr','f-name','f-notes'].forEach(id=>document.getElementById(id).value='');
+  ['f-coords','f-addr','f-name','f-notes','f-faixa'].forEach(id=>document.getElementById(id).value='');
+  const fd=document.getElementById('f-dims'); if(fd) fd.value='1.80 m x 4.70 m';
   document.getElementById('f-type').value='';
   document.getElementById('photo-preview').style.display='none';
-  document.getElementById('photo-btn-txt').textContent='📷 Tomar foto';
+  const aiBtn=document.getElementById('ai-analyze-btn'); if(aiBtn) aiBtn.style.display='none';
+  const aiRes=document.getElementById('ai-result'); if(aiRes) aiRes.style.display='none';
+  document.getElementById('photo-btn-txt').textContent=t('photo_btn');
   document.getElementById('f-photo').value='';
   document.getElementById('zone-msg').innerHTML='';
   document.getElementById('nearby-msg').innerHTML='';
-  selCap=''; selOwn='propia'; editingId=null; selRadius2=20;
+  selCap=''; selOwn='propia'; editingId=null; selRadius2=20; selPlacement='sidewalk';
+  setPlacement(null,'sidewalk');
   const rSlider=document.getElementById('f-radius');
   if(rSlider){rSlider.value=20;document.getElementById('radius-val').textContent='20 m';}
   document.querySelectorAll('.cap-btn').forEach(b=>b.classList.remove('sel'));
   setOwn(document.getElementById('own-propia'),'propia');
-  document.getElementById('save-btn').textContent='💾 Guardar Estación';
+  document.getElementById('save-btn').textContent=t('save_st');
 }
 
 function setOwn(btn, val){
@@ -1941,6 +2333,21 @@ function setOwn(btn, val){
   document.getElementById('own-propia').className = 'own-btn' + (val==='propia'?' sel-propia':'');
   document.getElementById('own-comp').className   = 'own-btn' + (val==='competencia'?' sel-competencia':'');
 }
+
+function setPlacement(btn, val){
+  selPlacement = val;
+  ['sidewalk','road','parking'].forEach(k => {
+    const el = document.getElementById('place-'+k);
+    if(!el) return;
+    el.className = 'own-btn' + (k===val?' sel-propia':'');
+  });
+  // Update button labels with translated text
+  const el = document.getElementById('place-sidewalk'); if(el) el.textContent = t('place_sidewalk');
+  const er = document.getElementById('place-road');     if(er) er.textContent = t('place_road');
+  const ep = document.getElementById('place-parking');  if(ep) ep.textContent = t('place_parking');
+  setPlacement._sync && setPlacement._sync(val);
+}
+setPlacement._sync = null;
 
 function setMsg(type,txt){
   document.getElementById('zone-msg').innerHTML=`<div class="${type}">${txt}</div>`;
@@ -1969,10 +2376,13 @@ async function saveStation(){
   const photoEl = document.getElementById('photo-preview');
   const photo   = photoEl.style.display!=='none' ? photoEl.src : '';
   const btn = document.getElementById('save-btn');
-  btn.disabled=true; btn.textContent='Guardando...';
+  btn.disabled=true; btn.textContent=t('saving');
   try{
     const data = {
       name, type, ownership: selOwn,
+      placement: selPlacement,
+      dimensions: document.getElementById('f-dims').value||'1.80 m x 4.70 m',
+      faixaLivre: document.getElementById('f-faixa').value||'',
       address:  document.getElementById('f-addr').value,
       notes:    document.getElementById('f-notes').value,
       capacity: selCap,
@@ -1998,7 +2408,7 @@ async function saveStation(){
   }catch(e){
     toast('❌ Error: '+e.message);
   } finally {
-    btn.disabled=false; btn.textContent='💾 Guardar Estación';
+    btn.disabled=false; btn.textContent=t('save_st');
   }
 }
 
@@ -2009,8 +2419,8 @@ function openEdit(docId){
   map.closePopup();
   editingId = docId;
   addMode = false;
-  document.getElementById('add-title').textContent = '✏️ Editar Estación';
-  document.getElementById('save-btn').textContent = '💾 Actualizar Estación';
+  document.getElementById('add-title').textContent = t('edit_st');
+  document.getElementById('save-btn').textContent = t('update_st');
   document.getElementById('add-overlay').classList.add('on');
   resetForm();
   editingId = docId; // resetForm clears it, set again
@@ -2019,8 +2429,11 @@ function openEdit(docId){
   document.getElementById('f-addr').value  = s.address||'';
   document.getElementById('f-name').value  = s.name||'';
   document.getElementById('f-notes').value = s.notes||'';
+  const fd=document.getElementById('f-dims'); if(fd) fd.value=s.dimensions||'1.80 m x 4.70 m';
+  const ff=document.getElementById('f-faixa'); if(ff) ff.value=s.faixaLivre||'';
   document.getElementById('f-type').value  = s.type||'';
   setOwn(document.getElementById(s.ownership==='competencia'?'own-comp':'own-propia'), s.ownership||'propia');
+  setPlacement(null, s.placement||'sidewalk');
   if(s.capacity){
     document.querySelectorAll('.cap-btn').forEach(b=>{if(b.textContent.replace('–','-')===s.capacity||b.getAttribute('onclick')?.includes(s.capacity)){b.classList.add('sel');}});
     selCap = s.capacity;
@@ -2249,39 +2662,39 @@ async function renderApDash(){
       <div class="stat-grid">
         <div class="stat-card" style="background:#e8f0ff">
           <div class="stat-num" style="color:#005bff">${stations.length}</div>
-          <div class="stat-lbl">📍 Всего парковок</div>
+          <div class="stat-lbl">${t('ap_total_st')}</div>
         </div>
         <div class="stat-card" style="background:#f5f5f5">
           <div class="stat-num" style="color:#333">${activeUsers.length}</div>
-          <div class="stat-lbl">👤 Сотрудников</div>
+          <div class="stat-lbl">${t('ap_employees')}</div>
         </div>
         <div class="stat-card" style="background:${pendingUsers.length?'#fff3cd':'#e8f5e9'}">
           <div class="stat-num" style="color:${pendingUsers.length?'#856404':'#28a745'}">${pendingUsers.length}</div>
-          <div class="stat-lbl">⏳ Ждут одобрения</div>
+          <div class="stat-lbl">${t('ap_pending')}</div>
         </div>
         <div class="stat-card" style="background:${pendingDels?'#fde8e8':'#e8f5e9'}">
           <div class="stat-num" style="color:${pendingDels?'#dc3545':'#28a745'}">${pendingDels}</div>
-          <div class="stat-lbl">🗑 Заявки на удаление</div>
+          <div class="stat-lbl">${t('ap_del_reqs')}</div>
         </div>
       </div>
 
-      <div class="ap-section">✅ Наши JET vs 🔴 Конкуренты</div>
+      <div class="ap-section">${t('ap_own_vs_comp')}</div>
       <div style="display:flex;justify-content:space-between;font-size:12px;color:#555;margin-bottom:4px">
         <span>✅ JET: <b style="color:#28a745">${ownCount}</b></span>
-        <span>🔴 Конкур.: <b style="color:#dc3545">${compCount}</b></span>
-        <span><b>${ownPct}%</b> наших</span>
+        <span>${t('ap_competitor_short')}: <b style="color:#dc3545">${compCount}</b></span>
+        <span><b>${ownPct}%</b> ${t('ap_ours')}</span>
       </div>
       <div class="ratio-bar"><div class="ratio-fill" style="width:${ownPct}%"></div></div>
 
-      <div class="ap-section">📍 Парковки по городам</div>
+      <div class="ap-section">${t('ap_by_city')}</div>
       ${cities.length ? cities.map(([city,cnt])=>`
         <div class="city-row">
           <div style="font-size:12px;color:#333;min-width:0;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${city}</div>
           <div class="city-bar-wrap"><div class="city-bar" style="width:${Math.round(cnt/maxCity*100)}%"></div></div>
           <div style="font-size:12px;font-weight:700;color:#005bff;min-width:28px;text-align:right">${cnt}</div>
-        </div>`).join('') : '<div class="empty">Нет данных</div>'}
+        </div>`).join('') : `<div class="empty">${t('ap_no_data')}</div>`}
 
-      <div class="ap-section">🏢 По типу объекта</div>
+      <div class="ap-section">${t('ap_by_type')}</div>
       ${topTypes.map(([type,cnt])=>`
         <div class="city-row">
           <div style="font-size:12px;color:#333;flex:1">${type}</div>
@@ -2289,7 +2702,7 @@ async function renderApDash(){
           <div style="font-size:12px;font-weight:700;color:#9c27b0;min-width:28px;text-align:right">${cnt}</div>
         </div>`).join('')}
 
-      <div class="ap-section">👥 Активность сотрудников</div>
+      <div class="ap-section">${t('ap_emp_act')}</div>
       ${activeUsers.sort((a,b)=>{
         const ca = stations.filter(s=>s.userId===a.uid).length;
         const cb = stations.filter(s=>s.userId===b.uid).length;
@@ -2297,14 +2710,14 @@ async function renderApDash(){
       }).map(u=>{
         const cnt = stations.filter(s=>s.userId===u.uid).length;
         return `<div class="city-row">
-          <div style="font-size:12px;color:#333;flex:1">${u.name||'—'}<span class="role-pill ${u.role==='admin'?'role-admin':'role-user'}" style="margin-left:4px">${u.role==='admin'?'Admin':'User'}</span></div>
+          <div style="font-size:12px;color:#333;flex:1">${u.name||'—'}<span class="role-pill ${u.role==='admin'?'role-admin':'role-user'}" style="margin-left:4px">${u.role==='admin'?t('role_admin'):t('role_user')}</span></div>
           <div class="city-bar-wrap"><div class="city-bar" style="width:${stations.length?Math.round(cnt/stations.length*100):0}%;background:#28a745"></div></div>
           <div style="font-size:12px;font-weight:700;color:#28a745;min-width:28px;text-align:right">${cnt}</div>
         </div>`;
       }).join('')}
     `;
   } catch(e){
-    el.innerHTML = `<div class="err">❌ Ошибка загрузки: ${e.message}</div>`;
+    el.innerHTML = `<div class="err">${t('ap_load_err')} ${e.message}</div>`;
   }
 }
 
@@ -2322,38 +2735,39 @@ async function renderApEmployees(){
       const stCnt = stations.filter(s=>s.userId===u.uid).length;
       const joined = u.createdAt?.toDate().toLocaleDateString('ru-RU') || '—';
       const initials = (u.name||'?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase();
-      const roleLabel = {admin:'Admin',user:'Сотрудник',disabled:'Заблокирован',pending:'Ожидает'}[u.role]||'—';
+      const roleLabel = {admin:t('role_admin'),user:t('role_user'),disabled:t('role_disabled'),pending:t('role_pending')}[u.role]||'—';
       const roleClass = {admin:'role-admin',user:'role-user',disabled:'role-disabled',pending:'role-pending'}[u.role]||'role-user';
       return `<div class="emp-row" style="${isPending?'border-left:3px solid #ffc107':''}">
         <div class="emp-avatar">${initials}</div>
         <div class="emp-info" style="flex:1;min-width:0">
-          <div class="emp-name">${u.name||'—'} ${isMe?'<span style="color:#888;font-size:10px">(я)</span>':''}
+          <div class="emp-name">${u.name||'—'} ${isMe?`<span style="color:#888;font-size:10px">${t('ap_me')}</span>`:''}
             <span class="role-pill ${roleClass}">${roleLabel}</span>
           </div>
           <div class="emp-email">${u.email}</div>
-          <div class="emp-meta">📍 ${stCnt} парковок · Добавлен: ${joined}</div>
+          <div class="emp-meta">📍 ${stCnt} ${t('ap_st_added')} ${joined}</div>
           ${!isMe ? `<div class="emp-actions">
-            ${isPending ? `<button class="ea-btn" style="background:#28a745;color:white" onclick="apSetRole('${u.uid}','user',this)">✅ Одобрить</button>` : ''}
-            ${u.role!=='admin' ? `<button class="ea-btn rbtn-admin" onclick="apSetRole('${u.uid}','admin',this)">👑 Сделать админом</button>` : ''}
-            ${u.role!=='user' && !isPending ? `<button class="ea-btn rbtn-user" onclick="apSetRole('${u.uid}','user',this)">👤 Сотрудник</button>` : ''}
-            ${u.role!=='disabled' ? `<button class="ea-btn rbtn-block" onclick="apSetRole('${u.uid}','disabled',this)">🚫 Заблокировать</button>` : `<button class="ea-btn" style="background:#28a745;color:white" onclick="apSetRole('${u.uid}','user',this)">✅ Восстановить доступ</button>`}
-            <button class="ea-btn rbtn-delete" onclick="apDeleteUser('${u.uid}','${(u.name||'').replace(/'/g,"\\'")}')">🗑 Удалить</button>
+            ${isPending ? `<button class="ea-btn" style="background:#28a745;color:white" onclick="apSetRole('${u.uid}','user',this)">${t('ap_approve')}</button>` : ''}
+            ${u.role!=='admin' ? `<button class="ea-btn rbtn-admin" onclick="apSetRole('${u.uid}','admin',this)">${t('ap_make_admin')}</button>` : ''}
+            ${u.role!=='user' && !isPending ? `<button class="ea-btn rbtn-user" onclick="apSetRole('${u.uid}','user',this)">${t('ap_make_user')}</button>` : ''}
+            ${u.role!=='disabled' ? `<button class="ea-btn rbtn-block" onclick="apSetRole('${u.uid}','disabled',this)">${t('ap_block')}</button>` : `<button class="ea-btn" style="background:#28a745;color:white" onclick="apSetRole('${u.uid}','user',this)">${t('ap_restore')}</button>`}
+            <button class="ea-btn rbtn-delete" onclick="apDeleteUser('${u.uid}','${(u.name||'').replace(/'/g,"\\'")}')">${t('ap_delete_user')}</button>
           </div>` : ''}
         </div>
         <div style="text-align:center;min-width:40px">
           <div style="font-size:22px;font-weight:900;color:#005bff">${stCnt}</div>
-          <div style="font-size:9px;color:#aaa">парк.</div>
+          <div style="font-size:9px;color:#aaa">${t('ap_st_short')}</div>
         </div>
       </div>`;
     };
 
+    const activeCount = users.filter(u=>u.role==='admin'||u.role==='user').length;
     el.innerHTML = `
-      <div style="font-size:12px;color:#888;margin-bottom:10px">Всего: <b>${users.length}</b> пользователей · <b>${users.filter(u=>u.role==='admin'||u.role==='user').length}</b> активных</div>
+      <div style="font-size:12px;color:#888;margin-bottom:10px">${t('ap_total_users').replace('{n}',users.length).replace('{a}',activeCount)}</div>
       ${pending.length ? `
-        <div class="ap-section" style="color:#856404">⏳ Ожидают одобрения (${pending.length})</div>
+        <div class="ap-section" style="color:#856404">${t('ap_awaiting')} (${pending.length})</div>
         ${pending.map(u=>renderUser(u,true)).join('')}
-        <div class="ap-section">👥 Активные сотрудники</div>
-      ` : '<div class="ap-section">👥 Все сотрудники</div>'}
+        <div class="ap-section">${t('ap_active_emp')}</div>
+      ` : `<div class="ap-section">${t('ap_active_emp')}</div>`}
       ${active.sort((a,b)=>stations.filter(s=>s.userId===b.uid).length - stations.filter(s=>s.userId===a.uid).length)
               .map(u=>renderUser(u,false)).join('')}
     `;
@@ -2363,7 +2777,7 @@ async function renderApEmployees(){
 }
 
 async function apSetRole(uid, role, btn){
-  if(currentRole !== 'admin'){ toast('❌ Нет доступа'); return; }
+  if(currentRole !== 'admin'){ toast('❌ ' + t('conn_err')); return; }
   const labels = {admin:'администратором',user:'сотрудником',disabled:'заблокирован'};
   if(!confirm(`Изменить пользователя: ${labels[role]}?`)) return;
   btn.disabled = true; btn.textContent = '...';
@@ -2376,7 +2790,7 @@ async function apSetRole(uid, role, btn){
 }
 
 async function apDeleteUser(uid, name){
-  if(currentRole !== 'admin'){ toast('❌ Нет доступа'); return; }
+  if(currentRole !== 'admin'){ toast('❌ ' + t('conn_err')); return; }
   if(!confirm(`Удалить пользователя «${name}»?\n\nЕго парковки останутся в базе. Это действие нельзя отменить.`)) return;
   try {
     await db.collection('users').doc(uid).delete();
@@ -2400,9 +2814,9 @@ async function renderApRequests(){
     let html = '';
 
     // Registration requests
-    html += `<div class="ap-section" style="color:#856404">⏳ Заявки на регистрацию (${usersSnap.size})</div>`;
+    html += `<div class="ap-section" style="color:#856404">${t('ap_reg_reqs')} (${usersSnap.size})</div>`;
     if(usersSnap.empty){
-      html += '<div style="font-size:13px;color:#aaa;padding:8px 0;margin-bottom:8px">Нет ожидающих заявок ✅</div>';
+      html += `<div style="font-size:13px;color:#aaa;padding:8px 0;margin-bottom:8px">${t('ap_no_reqs')}</div>`;
     } else {
       usersSnap.docs.forEach(doc=>{
         const u = doc.data();
@@ -2410,19 +2824,19 @@ async function renderApRequests(){
         html += `<div class="req-card">
           <div class="req-card-title">👤 ${u.name||'—'}</div>
           <div class="req-card-sub">✉️ ${u.email}</div>
-          <div class="req-card-meta">Дата регистрации: ${date}</div>
+          <div class="req-card-meta">${t('ap_reg_date')} ${date}</div>
           <div class="req-card-actions">
-            <button class="btn-approve" onclick="apSetRole('${doc.id}','user',this)">✅ Одобрить</button>
-            <button class="btn-reject" onclick="apSetRole('${doc.id}','disabled',this)">🚫 Отклонить</button>
+            <button class="btn-approve" onclick="apSetRole('${doc.id}','user',this)">${t('ap_approve')}</button>
+            <button class="btn-reject" onclick="apSetRole('${doc.id}','disabled',this)">${t('ap_reject')}</button>
           </div>
         </div>`;
       });
     }
 
     // Delete requests
-    html += `<div class="ap-section" style="color:#dc3545;margin-top:16px">🗑 Заявки на удаление парковок (${delSnap.size})</div>`;
+    html += `<div class="ap-section" style="color:#dc3545;margin-top:16px">${t('ap_del_st_reqs')} (${delSnap.size})</div>`;
     if(delSnap.empty){
-      html += '<div style="font-size:13px;color:#aaa;padding:8px 0">Нет заявок на удаление ✅</div>';
+      html += `<div style="font-size:13px;color:#aaa;padding:8px 0">${t('ap_no_del_reqs')}</div>`;
     } else {
       delSnap.docs.forEach(doc=>{
         const r = doc.data();
@@ -2432,8 +2846,8 @@ async function renderApRequests(){
           <div class="req-card-sub">💬 «${r.reason}»</div>
           <div class="req-card-meta">👤 ${r.userName} · ${date}</div>
           <div class="req-card-actions">
-            <button class="btn-approve" onclick="apApproveDelete('${doc.id}','${r.stationId}',this)">✅ Удалить станцию</button>
-            <button class="btn-reject" onclick="apRejectDelete('${doc.id}',this)">✕ Отклонить</button>
+            <button class="btn-approve" onclick="apApproveDelete('${doc.id}','${r.stationId}',this)">${t('ap_del_station')}</button>
+            <button class="btn-reject" onclick="apRejectDelete('${doc.id}',this)">${t('ap_reject')}</button>
           </div>
         </div>`;
       });
@@ -2446,23 +2860,23 @@ async function renderApRequests(){
 }
 
 async function apApproveDelete(reqId, stationId, btn){
-  if(currentRole !== 'admin'){ toast('❌ Нет доступа'); return; }
-  if(!confirm('Удалить эту парковку?')) return;
+  if(currentRole !== 'admin'){ toast('❌ ' + t('conn_err')); return; }
+  if(!confirm(t('del_confirm'))) return;
   btn.disabled=true; btn.textContent='...';
   try {
     await db.collection('stations').doc(stationId).delete();
     await db.collection('deleteRequests').doc(reqId).update({status:'approved'});
-    toast('✅ Парковка удалена');
+    toast(t('deleted'));
     renderApRequests();
   } catch(e){ toast('❌ '+e.message); btn.disabled=false; }
 }
 
 async function apRejectDelete(reqId, btn){
-  if(currentRole !== 'admin'){ toast('❌ Нет доступа'); return; }
+  if(currentRole !== 'admin'){ toast('❌ ' + t('conn_err')); return; }
   btn.disabled=true; btn.textContent='...';
   try {
     await db.collection('deleteRequests').doc(reqId).update({status:'rejected'});
-    toast('✕ Заявка отклонена');
+    toast(t('ap_req_rejected'));
     renderApRequests();
   } catch(e){ toast('❌ '+e.message); btn.disabled=false; }
 }
@@ -2470,7 +2884,7 @@ async function apRejectDelete(reqId, btn){
 function renderApActivity(){
   const el = document.getElementById('apc-act');
   if(!stations.length){
-    el.innerHTML='<div class="empty">Нет добавленных парковок</div>';
+    el.innerHTML=`<div class="empty">${t('ap_no_stations')}</div>`;
     return;
   }
   const sorted = [...stations].sort((a,b)=>{
@@ -2480,7 +2894,7 @@ function renderApActivity(){
   });
   const items = sorted.slice(0,100);
   el.innerHTML = `
-    <div style="font-size:12px;color:#888;margin-bottom:10px">Последние ${items.length} из ${stations.length} парковок</div>
+    <div style="font-size:12px;color:#888;margin-bottom:10px">${t('ap_last_of').replace('{n}',items.length).replace('{total}',stations.length)}</div>
     ${items.map((s,i)=>{
       const isComp = s.ownership==='competencia';
       const addr = (s.address||'').split(',').map(p=>p.trim());
@@ -2494,7 +2908,7 @@ function renderApActivity(){
             <span class="act-who">👤 ${s.userName||'—'}</span>
             <span class="act-meta">📍 ${city}</span>
             <span class="act-meta">📅 ${date}</span>
-            ${isComp?'<span style="font-size:10px;color:#dc3545">🔴 конкурент</span>':''}
+            ${isComp?`<span style="font-size:10px;color:#dc3545">${t('ap_competitor_short')}</span>`:''}
           </div>
         </div>
       </div>`;
@@ -2602,12 +3016,12 @@ async function renderRequestsTab(){
 }
 
 async function approveDelete(reqId, stationId){
-  if(currentRole !== 'admin'){ toast('❌ Acceso denegado'); return; }
-  if(!confirm('¿Confirmar eliminación de esta estación?')) return;
+  if(currentRole !== 'admin'){ toast('❌ ' + t('conn_err')); return; }
+  if(!confirm(t('del_confirm'))) return;
   try{
     await db.collection('stations').doc(stationId).delete();
     await db.collection('deleteRequests').doc(reqId).update({status:'approved'});
-    toast('✅ Estación eliminada');
+    toast(t('deleted'));
     renderRequestsTab();
   }catch(e){ toast('❌ '+e.message); }
 }
@@ -2742,6 +3156,10 @@ function previewPic(input){
       const p = document.getElementById('photo-preview');
       p.src=data; p.style.display='block';
       document.getElementById('photo-btn-txt').textContent='✅ Foto cargada — toca para cambiar';
+      // Show AI analyze button
+      const aiBtn = document.getElementById('ai-analyze-btn');
+      if(aiBtn){ aiBtn.style.display='block'; aiBtn.textContent=t('ai_btn'); }
+      document.getElementById('ai-result').style.display='none';
     };
     img.src = e.target.result;
   };
@@ -2754,68 +3172,250 @@ function openImport(){
   document.getElementById('import-overlay').classList.add('on');
 }
 
+// Helper: parse TSV/CSV line respecting quoted fields
+function parseTSVLine(line, sep) {
+  const cols = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (ch === sep && !inQ) {
+      cols.push(cur.trim()); cur = '';
+    } else { cur += ch; }
+  }
+  cols.push(cur.trim());
+  return cols;
+}
+
+// Helper: Google Drive direct URL
+function driveDirectUrl(url) {
+  if (!url) return '';
+  const m = url.match(/\/d\/([-\w]+)/);
+  if (m) return `https://drive.google.com/uc?export=view&id=${m[1]}`;
+  return url;
+}
+
+// Helper: fetch Drive photo as base64 (via CORS proxy workaround)
+async function fetchDrivePhoto(url) {
+  const direct = driveDirectUrl(url);
+  if (!direct || direct === url) return url; // not a drive link, keep as-is
+  try {
+    const resp = await fetch(direct, { mode: 'cors' });
+    if (!resp.ok) return direct; // keep URL if can't fetch
+    const blob = await resp.blob();
+    return await new Promise(res => {
+      const r = new FileReader();
+      r.onload = e => res(e.target.result);
+      r.readAsDataURL(blob);
+    });
+  } catch {
+    return direct; // keep URL as fallback
+  }
+}
+
+function handleImportPaste(){
+  const text = document.getElementById('import-paste').value.trim();
+  if(!text){ alert('Pega el contenido CSV primero'); return; }
+  const res = document.getElementById('import-result');
+  res.innerHTML='<span class="spinner"></span> Procesando...';
+  processImportText(text, 'paste.csv', res);
+}
+
 function handleImport(input){
   if(!input.files||!input.files[0]) return;
   const file=input.files[0];
   const res=document.getElementById('import-result');
-  res.innerHTML='<span class="spinner"></span>Procesando...';
+  res.innerHTML='<span class="spinner"></span> Procesando...';
   const reader=new FileReader();
   reader.onload=async e=>{
+    const rawText = e.target.result.replace(/^\uFEFF/,'');
+    processImportText(rawText, file.name, res);
+  };
+  reader.readAsText(file,'utf-8');
+}
+
+async function processImportText(rawText, fileName, res){
     try{
       let imported=[];
-      if(file.name.endsWith('.json')){
-        imported=JSON.parse(e.target.result);
+      const text = rawText.replace(/^\uFEFF/,''); // strip BOM
+
+      if(fileName.endsWith('.json')){
+        imported=JSON.parse(text);
       } else {
-        const lines=e.target.result.trim().split('\n');
-        const hdr=lines[0].toLowerCase().replace(/\r/,'').split(',');
-        const idx=k=>hdr.findIndex(h=>h.includes(k));
-        const iLat=idx('lat'),iLng=idx('lng')>=0?idx('lng'):idx('lon');
-        const iNom=idx('nombre')>=0?idx('nombre'):idx('name');
-        const iTip=idx('tipo')>=0?idx('tipo'):idx('type');
-        const iAdr=idx('dire')>=0?idx('dire'):idx('addr');
-        const iCap=idx('cap'), iNot=idx('nota')>=0?idx('nota'):idx('note');
+        const lines = text.trim().split(/\r?\n/);
+        const rawHdr = lines[0];
+
+        // Detect separator: tab → TSV official, semicolon → Excel EU, comma → legacy
+        const sep = rawHdr.includes('\t') ? '\t' : rawHdr.includes(';') ? ';' : ',';
+        const hdr = parseTSVLine(rawHdr, sep).map(h => h.toLowerCase().replace(/"/g,'').trim());
+
+        const col = (names) => {
+          for (const n of names) {
+            const i = hdr.findIndex(h => h.includes(n.toLowerCase()));
+            if (i >= 0) return i;
+          }
+          return -1;
+        };
+
+        // 57-column official format detection: look for 'codigoestacao' or 'nome da estação'
+        const isOfficial = hdr.some(h => h.includes('codigoestacao') || h.includes('nome da esta'));
+
+        // Normalize header for matching (remove accents)
+        const norm = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase();
+        const hdrNorm = hdr.map(norm);
+        const col2 = (names) => {
+          for (const n of names) {
+            const nn = norm(n);
+            const i = hdrNorm.findIndex(h => h.includes(nn));
+            if (i >= 0) return i;
+          }
+          return -1;
+        };
+
+        const iLat  = col2(['latitude','lat']);
+        const iLng  = col2(['longitude','lng','lon']);
+        const iNom  = col2(['nome da esta','nombre de esta','name','nome']);
+        const iTip  = col2(['tipoestacao','tipo','type']);
+        const iAdr  = col2(['endereco completo','endereço completo','direcc','addr','enderec']);
+        const iCap  = col2(['capacidade','capacidad','cap']);
+        const iNot  = col2(['observacoestecnicas','observacoes','observaçoes','notas','note','obs']);
+        const iPho  = col2(['foto da esta','foto','photo','imagem']);
+        const iStat = col2(['statusestacao','status']);
+        const iDims = col2(['dimensoes','dimensões','dimens']);
+        const iFaix = col2(['largura da faixa','faixalivre','faixa']);
+        const iPlac = col2(['condicaoimplantacao','condicao','placement']);
+        const iCod  = col2(['codigoestacao','codigo']);
+        const iCid  = col2(['cidade','ciudad','city']);
+        const iBai  = col2(['bairro','barrio','neighborhood']);
+        const iCrBy = col2(['criadopor','creado','created by','username']);
+        const iDate = col2(['datacriacao','fecha','date']);
+
+        // Map TipoEstacao → ownership
+        const mapTipo = (v) => {
+          const u = (v||'').toUpperCase();
+          if (u === 'PUBLICA' || u === 'JET') return 'propia';
+          if (u === 'PRIVADA' || u === 'COMPETENCIA' || u === 'CONCORRENTE') return 'competencia';
+          return 'propia';
+        };
+
+        // Map CondicaoImplantacao → placement
+        const mapPlacement = (v) => {
+          const u = (v||'').toLowerCase();
+          if (u.includes('banquet') || u.includes('acera') || u.includes('calçada')) return 'sidewalk';
+          if (u.includes('vía') || u.includes('via') || u.includes('pública') || u.includes('publica')) return 'road';
+          if (u.includes('estacion') || u.includes('privado') || u.includes('privad')) return 'parking';
+          return 'sidewalk';
+        };
+
+        console.log('[Import] sep='+JSON.stringify(sep)+' cols='+hdr.length+' headers='+JSON.stringify(hdr));
+        console.log('[Import] iLat='+iLat+' iLng='+iLng+' iNom='+iNom+' iTip='+iTip+' iAdr='+iAdr);
+        if(iLat<0||iLng<0){
+          res.innerHTML=`<div class="err">⚠️ No se encontró columna de coordenadas.<br><small>Encabezados detectados: <b>${hdr.join(', ')}</b></small><br><small>Se necesita: lat/latitude y lng/longitude/lon</small></div>`;
+          return;
+        }
+
         for(let i=1;i<lines.length;i++){
-          const c=lines[i].replace(/\r/,'').split(',');
-          if(c.length<2) continue;
-          const lat=parseFloat(c[iLat]),lng=parseFloat(c[iLng>=0?iLng:1]);
+          const line = lines[i];
+          if(!line.trim()) continue;
+          const c = parseTSVLine(line, sep);
+          const g = (idx) => idx >= 0 ? (c[idx]||'').replace(/^"|"$/g,'').trim() : '';
+
+          const latRaw = g(iLat).replace(',','.');
+          const lngRaw = g(iLng).replace(',','.');
+          const lat = parseFloat(latRaw);
+          const lng = parseFloat(lngRaw);
           if(isNaN(lat)||isNaN(lng)) continue;
-          imported.push({lat,lng,
-            name:  iNom>=0?(c[iNom]||'').replace(/"/g,'').trim():`Est ${i}`,
-            type:  iTip>=0?(c[iTip]||'').replace(/"/g,'').trim():'Otro',
-            address:iAdr>=0?(c[iAdr]||'').replace(/"/g,'').trim():'',
-            capacity:iCap>=0?(c[iCap]||'').replace(/"/g,'').trim():'',
-            notes: iNot>=0?(c[iNot]||'').replace(/"/g,'').trim():'',
-            photo:'',
+
+          const photoUrl = g(iPho);
+          const isDriveUrl = photoUrl.includes('drive.google.com');
+
+          imported.push({
+            lat, lng,
+            name:       g(iNom) || `Est ${i}`,
+            type:       g(iTip) || 'Otro',
+            address:    g(iAdr),
+            capacity:   g(iCap),
+            notes:      g(iNot),
+            ownership:  mapTipo(g(iTip)),
+            placement:  mapPlacement(g(iPlac)),
+            dimensions: g(iDims) || '1.80 m x 4.70 m',
+            faixaLivre: g(iFaix),
+            city:       g(iCid),
+            neighborhood: g(iBai),
+            stationCode: g(iCod),
+            userName:   g(iCrBy),
+            date:       g(iDate),
+            _photoUrl:  photoUrl,
+            _photoIsDrive: isDriveUrl,
+            photo:      isDriveUrl ? '' : photoUrl,
           });
         }
       }
-      if(!imported.length){res.innerHTML='<div class="err">⚠️ No se encontraron registros válidos.</div>';return;}
-      let added=0,skipped=0;
+
+      if(!imported.length){
+        res.innerHTML='<div class="err">⚠️ No se encontraron registros válidos.</div>';
+        return;
+      }
+
+      // Phase 1: add stations to Firestore
+      let added=0, skipped=0, photosFetched=0, photosFailed=0;
+      const docIds = [];
+
+      res.innerHTML=`<span class="spinner"></span> Importando ${imported.length} estaciones...`;
+
       for(const imp of imported){
         const dup=stations.some(s=>dist(s.lat,s.lng,imp.lat,imp.lng)<20);
         if(dup){skipped++;continue;}
-        await db.collection('stations').add({
-          ...imp,
-          userId:  currentUser.uid,
-          userName:currentUser.displayName||currentUser.email.split('@')[0],
-          date:    new Date().toLocaleDateString('es-MX'),
-          createdAt:firebase.firestore.FieldValue.serverTimestamp()
+        const { _photoUrl, _photoIsDrive, ...data } = imp;
+        const ref = await db.collection('stations').add({
+          ...data,
+          ownership: data.ownership || 'propia',
+          userId:    currentUser.uid,
+          userName:  data.userName || currentUser.displayName||currentUser.email.split('@')[0],
+          date:      data.date || new Date().toLocaleDateString('es-MX'),
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
+        docIds.push({ ref, imp });
         added++;
       }
-      res.innerHTML=`<div class="ok">✅ Importadas: <b>${added}</b>${skipped?` (${skipped} duplicados omitidos)`:''}</div>`;
-      input.value='';
+
+      // Phase 2: fetch Google Drive photos
+      const driveItems = docIds.filter(x => x.imp._photoIsDrive && x.imp._photoUrl);
+      if (driveItems.length) {
+        res.innerHTML=`<span class="spinner"></span> Descargando ${driveItems.length} fotos de Drive...`;
+        for (const { ref, imp } of driveItems) {
+          try {
+            const b64 = await fetchDrivePhoto(imp._photoUrl);
+            await ref.update({ photo: b64 });
+            photosFetched++;
+          } catch {
+            photosFailed++;
+          }
+          res.innerHTML=`<span class="spinner"></span> Fotos: ${photosFetched}/${driveItems.length}...`;
+        }
+      }
+
+      let msg = `✅ Importadas: <b>${added}</b>`;
+      if(skipped) msg += ` (${skipped} duplicados omitidos)`;
+      if(photosFetched) msg += ` • ${photosFetched} fotos de Drive`;
+      if(photosFailed) msg += ` • ${photosFailed} fotos fallidas`;
+      res.innerHTML=`<div class="ok">${msg}</div>`;
+      document.getElementById('import-paste').value='';
     }catch(err){
       res.innerHTML=`<div class="err">❌ Error: ${err.message}</div>`;
+      console.error(err);
     }
-  };
-  reader.readAsText(file);
 }
 
 // ==================== EXPORT ====================
 function exportData(){
-  if(!stations.length){toast('⚠️ No hay estaciones');return;}
-  document.getElementById('export-count').textContent = stations.length;
+  if(!stations.length){toast(t('no_export'));return;}
+  const n = stations.length;
+  document.getElementById('export-count').textContent = n;
+  const subTpl = t('exp_sub').replace('{n}', n);
+  document.getElementById('export-sub').innerHTML = subTpl.replace(String(n), `<b id="export-count">${n}</b>`);
   document.getElementById('export-status').innerHTML = '';
   document.getElementById('export-overlay').classList.add('on');
 }
@@ -2827,11 +3427,194 @@ function exportJSON(){
   closeOverlay('export-overlay');
 }
 
+// --- FORMATO OFICIAL (57 columns, competitor-compatible) ---
+function exportOficial(){
+  if(!stations.length){ toast(t('no_export')); return; }
+  const status = document.getElementById('export-status');
+  status.innerHTML = '<span class="spinner"></span> Generando CSV oficial...';
+
+  // Helper: normalize street name → code key
+  function streetKey(addr){
+    const st = (addr||'').split(',')[0]
+      .toUpperCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // remove accents
+      .replace(/[^A-Z0-9\s]/g,'').trim()
+      .replace(/\s+/g,'_');
+    return st || 'SIN_NOMBRE';
+  }
+
+  // Build sequential codes: STREET-001 per street
+  const seqByStreet = {};
+  const seqGlobalMap = {};
+  const stationsSorted = [...stations].sort((a,b)=>(a.address||'').localeCompare(b.address||''));
+  stationsSorted.forEach((s,gi) => {
+    const sk = streetKey(s.address);
+    seqByStreet[sk] = (seqByStreet[sk]||0) + 1;
+    seqGlobalMap[s._docId] = gi + 1;
+  });
+
+  // Duplicate detection: group stations within 50m of each other
+  const dupGroup = {};
+  for(let i=0;i<stations.length;i++){
+    for(let j=i+1;j<stations.length;j++){
+      const d = dist(stations[i].lat,stations[i].lng,stations[j].lat,stations[j].lng);
+      if(d<50){
+        const key = [stations[i]._docId,stations[j]._docId].sort().join('-');
+        dupGroup[stations[i]._docId] = dupGroup[stations[i]._docId]||key;
+        dupGroup[stations[j]._docId] = dupGroup[stations[j]._docId]||key;
+      }
+    }
+  }
+
+  // Street seq tracker for final output
+  const usedStreetSeq = {};
+
+  // Google Maps URLs from coords
+  const gmapsSat  = (lat,lng) => `https://www.google.com/maps/@${lat},${lng},19z/data=!3m1!1e3`;
+  const gmapsMap  = (lat,lng) => `https://maps.google.com/?q=${lat},${lng}`;
+  const gmapsSV   = (lat,lng) => `https://maps.google.com/?layer=c&cbll=${lat},${lng}`;
+
+  // Standard scooter station dimensions (fallback)
+  const DIMS_DEFAULT = '1.80 m x 4.70 m';
+  const PLACEMENT_LABEL = {
+    sidewalk: 'Implantación sobre banqueta/acera',
+    road:     'Implantación sobre vía pública',
+    parking:  'Implantación en estacionamiento privado',
+  };
+
+  const COLS = [
+    'RowKey','CodigoEstacao','Nome da Estação','Pais','Cidade','Bairro',
+    'Endereço completo da estação','Subprefeitura','Localização','Latitude','Longitude',
+    'TipoEstacao','StatusEstacao','TipoPublica','Modalidade','Dimensões da Estação',
+    'Largura da Faixa Livre (m)','FaixaLivreMinima','Capacidade','AreaTotal',
+    'CondicaoImplantacao','BaseLegal','ResponsavelTecnico','DataLevantamento',
+    'ObservacoesTecnicas','NomeLocalPrivado','NomeAutorizante','CargoAutorizante',
+    'TelefoneAutorizante','EmailAutorizante','DocumentoAutorizacao','DataAutorizacao',
+    'DeclaracaoAutorizante','ResponsabilidadeCivil','ValidadeAutorizacao',
+    'Foto da Estação','Imagem Satélite','Imagem Mapa','Street View','TPU',
+    'Croqui','CroquiStatus','CroquiTentativas','CroquiUltimoErro','CroquiUltimaExec',
+    'Observações','SeqPorBairro','SeqGlobal','AddrNorm','DupGrupo','DupMotivo',
+    'DupStatus','DupResolucao','CriadoPor','OrigemDado','DataCriacao','UltimaEdicao',
+    'PerfilCriador','Operador','NomeConcorrente','Alcaldia','Estado','Regiao'
+  ];
+
+  const rows = [COLS];
+
+  stations.forEach(s => {
+    const addrParts = (s.address||'').split(',').map(p=>p.trim());
+    const sk    = streetKey(s.address);
+    usedStreetSeq[sk] = (usedStreetSeq[sk]||0)+1;
+    const seq3  = String(usedStreetSeq[sk]).padStart(3,'0');
+    const codigo = `${sk}-${seq3}`;
+
+    const bairro  = addrParts[1]||'';
+    const cidade  = s.city || addrParts[addrParts.length-1]||'';
+    const latStr  = String(s.lat||0).replace('.',',');
+    const lngStr  = String(s.lng||0).replace('.',',');
+    const loc     = `${(s.lat||0).toFixed(7)}, ${(s.lng||0).toFixed(7)}`;
+    const tipo    = s.ownership==='competencia' ? 'PRIVADA' : 'PUBLICA';
+    const areaM2  = Math.round(Math.PI * 20 * 20); // always 20m radius
+    const isDup   = !!dupGroup[s._docId];
+
+    // Photo: if base64, leave as indicator; if URL keep it
+    const photoVal = (s.photo||'').startsWith('data:') ? '[foto_base64]' : (s.photo||'');
+
+    // Date format: DD/MM/YYYY HH:MM:SS
+    const dateVal = s.date || today();
+    const createdAt = s.createdAt?.seconds
+      ? new Date(s.createdAt.seconds*1000).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'})
+      : dateVal;
+
+    rows.push([
+      s._docId||'',                              // RowKey
+      codigo,                                    // CodigoEstacao
+      s.name||'',                                // Nome da Estação
+      s.country||'',                             // Pais
+      cidade,                                    // Cidade
+      bairro,                                    // Bairro
+      s.address||'',                             // Endereço completo
+      '',                                        // Subprefeitura
+      loc,                                       // Localização
+      latStr,                                    // Latitude
+      lngStr,                                    // Longitude
+      tipo,                                      // TipoEstacao
+      'SOLICITADO',                              // StatusEstacao
+      '',                                        // TipoPublica
+      '',                                        // Modalidade
+      s.dimensions||DIMS_DEFAULT,                // Dimensões da Estação
+      s.faixaLivre||'',                          // Largura da Faixa Livre
+      '',                                        // FaixaLivreMinima
+      s.capacity||'',                            // Capacidade
+      `${areaM2} m²`,                            // AreaTotal
+      PLACEMENT_LABEL[s.placement]||PLACEMENT_LABEL.sidewalk, // CondicaoImplantacao
+      '',                                        // BaseLegal
+      '',                                        // ResponsavelTecnico
+      dateVal,                                   // DataLevantamento
+      s.notes||'',                               // ObservacoesTecnicas
+      '',                                        // NomeLocalPrivado
+      '',                                        // NomeAutorizante
+      '',                                        // CargoAutorizante
+      '',                                        // TelefoneAutorizante
+      '',                                        // EmailAutorizante
+      '',                                        // DocumentoAutorizacao
+      '',                                        // DataAutorizacao
+      '',                                        // DeclaracaoAutorizante
+      '',                                        // ResponsabilidadeCivil
+      '',                                        // ValidadeAutorizacao
+      photoVal,                                  // Foto da Estação
+      gmapsSat(s.lat,s.lng),                     // Imagem Satélite
+      gmapsMap(s.lat,s.lng),                     // Imagem Mapa
+      gmapsSV(s.lat,s.lng),                      // Street View
+      '',                                        // TPU
+      '',                                        // Croqui
+      'PENDENTE',                                // CroquiStatus
+      '0',                                       // CroquiTentativas
+      '',                                        // CroquiUltimoErro
+      '',                                        // CroquiUltimaExec
+      s.notes||'',                               // Observações
+      String(usedStreetSeq[sk]),                 // SeqPorBairro
+      String(seqGlobalMap[s._docId]||''),        // SeqGlobal
+      (s.address||'').toUpperCase(),             // AddrNorm
+      isDup ? dupGroup[s._docId] : '',           // DupGrupo
+      isDup ? 'PROXIMIDAD_GEOGRAFICA' : '',      // DupMotivo
+      isDup ? 'PENDIENTE_REVISION' : '',         // DupStatus
+      '',                                        // DupResolucao
+      s.userName||'',                            // CriadoPor
+      'APP',                                     // OrigemDado
+      createdAt,                                 // DataCriacao
+      dateVal,                                   // UltimaEdicao
+      'CAMPO',                                   // PerfilCriador
+      'JET',                                     // Operador
+      '',                                        // NomeConcorrente
+      s.city||cidade,                            // Alcaldia
+      s.state||'',                               // Estado
+      ''                                         // Regiao
+    ]);
+  });
+
+  // Build TSV (tab-separated, like the competitor's format)
+  const tsv = rows.map(r =>
+    r.map(v => {
+      const s = String(v==null?'':v);
+      // Wrap in quotes if contains tab/newline/quote
+      return s.includes('\t')||s.includes('\n')||s.includes('"')
+        ? '"'+s.replace(/"/g,'""')+'"' : s;
+    }).join('\t')
+  ).join('\n');
+
+  const bom = '\uFEFF'; // UTF-8 BOM for Excel compatibility
+  download(new Blob([bom+tsv],{type:'text/tab-separated-values;charset=utf-8'}),
+           `jet_oficial_${today()}.csv`);
+  toast('🏛 CSV Oficial exportado');
+  status.innerHTML = `✅ ${stations.length} estaciones exportadas — formato oficial`;
+  setTimeout(()=>{ status.innerHTML=''; closeOverlay('export-overlay'); }, 2000);
+}
+
 // --- EXCEL ---
 async function exportExcel(){
   const btn = document.querySelector('#export-overlay button:nth-of-type(1)');
   const status = document.getElementById('export-status');
-  status.innerHTML = '<span class="spinner"></span>Загрузка библиотеки...';
+  status.innerHTML = `<span class="spinner"></span>${t('loading')}`;
   try {
     // Lazy-load SheetJS
     if(!window.XLSX){
@@ -2842,7 +3625,7 @@ async function exportExcel(){
         document.head.appendChild(s);
       });
     }
-    status.innerHTML = '<span class="spinner"></span>Формирование Excel...';
+    status.innerHTML = `<span class="spinner"></span>${t('exp_building')}`;
 
     const L = LANGS[lang]||LANGS.es;
     const headers = {
@@ -2878,11 +3661,11 @@ async function exportExcel(){
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
     XLSX.writeFile(wb, `jet_${today()}.xlsx`);
 
-    toast('📊 Excel скачан');
+    toast(t('exp_excel_done'));
     status.innerHTML = '';
     closeOverlay('export-overlay');
   } catch(e){
-    status.innerHTML = `<span style="color:#dc3545">❌ Ошибка: ${e.message}</span>`;
+    status.innerHTML = `<span style="color:#dc3545">${t('exp_err')} ${e.message}</span>`;
   }
 }
 
@@ -2926,7 +3709,7 @@ function mapWithOverlay(s, w, h){
   const r   = s.radius || 20;
   const col = s.ownership === 'competencia' ? '#dc3545' : '#005bff';
   const uid = 'lm' + (++mapOverlayCounter);
-  return `<div class="lmap" id="${uid}" data-lat="${lat}" data-lng="${lng}" data-r="${r}" data-col="${col}" style="width:${w}px;height:${h}px;background:#e8edf8;border-radius:6px"></div>`;
+  return `<div class="lmap" id="${uid}" data-lat="${lat}" data-lng="${lng}" data-r="${r}" data-col="${col}" style="width:100%;height:${h}px;background:#e8edf8;border-radius:6px"></div>`;
 }
 let mapOverlayCounter = 0;
 
@@ -3025,7 +3808,7 @@ function exportCroquiMulti(list){
     const addrParts = (s.address||'').split(',');
     const municipio = addrParts.length>1 ? addrParts[addrParts.length-1].trim() : '';
     const photoBlock = s.photo
-      ? `<img src="${s.photo}" style="width:100%;height:160px;object-fit:cover;display:block">`
+      ? `<img id="jetphoto_${s._docId}" style="width:100%;height:160px;object-fit:contain;background:#f0f3fa;display:block">`
       : `<div style="width:100%;height:160px;background:#f0f3fa;display:flex;align-items:center;justify-content:center;font-size:36px;color:#ccc">📷</div>`;
     const notesRow = s.notes?`<tr><td>${T.notes}</td><td style="font-style:italic;color:#555">${s.notes}</td></tr>`:'';
     const ts = s.createdAt?.toDate
@@ -3120,8 +3903,19 @@ ${LEAFLET_MAP_INIT}
 </body></html>`;
 
   const win = window.open('','_blank');
-  if(win){ win.document.write(html); win.document.close(); }
-  else toast('⚠️ ' + (lang==='ru'?'Разрешите всплывающие окна':'Permite ventanas emergentes'));
+  if(win){
+    win.document.write(html);
+    win.document.close();
+    // Inject photos via DOM — Chrome blocks data: URIs embedded in document.write HTML
+    setTimeout(() => {
+      list.forEach(s => {
+        if(s.photo){
+          const img = win.document.getElementById('jetphoto_' + s._docId);
+          if(img) img.src = s.photo;
+        }
+      });
+    }, 50);
+  } else toast('⚠️ ' + (lang==='ru'?'Разрешите всплывающие окна':'Permite ventanas emergentes'));
 }
 
 // --- CROQUI (single station, one-page PDF) ---
@@ -3145,7 +3939,7 @@ function exportCroqui(docId){
   const dateStr = new Date().toLocaleDateString(lang==='ru'?'ru-RU':lang==='pt'?'pt-BR':'es-MX',{year:'numeric',month:'long',day:'numeric'});
 
   const photoBlock = s.photo
-    ? `<img src="${s.photo}" alt="foto" style="width:100%;height:220px;object-fit:cover;border-radius:6px;display:block">`
+    ? `<img id="jetphoto" alt="foto" style="width:100%;height:220px;object-fit:contain;background:#f0f3fa;border-radius:6px;display:block">`
     : `<div style="width:100%;height:220px;background:#f0f3fa;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:48px;color:#ccc">📷</div>`;
 
   const notesRow = s.notes ? `<tr><td>${T.notes}</td><td style="font-style:italic;color:#555">${s.notes}</td></tr>` : '';
@@ -3240,8 +4034,12 @@ ${LEAFLET_MAP_INIT}
 </body></html>`;
 
   const win = window.open('','_blank');
-  if(win){ win.document.write(html); win.document.close(); }
-  else toast('⚠️ ' + (lang==='ru'?'Разрешите всплывающие окна':'Permite ventanas emergentes'));
+  if(win){
+    win.document.write(html);
+    win.document.close();
+    // Inject photo via DOM — Chrome blocks data: URIs embedded in document.write HTML
+    if(s.photo){ setTimeout(() => { const img = win.document.getElementById('jetphoto'); if(img) img.src = s.photo; }, 50); }
+  } else toast('⚠️ ' + (lang==='ru'?'Разрешите всплывающие окна':'Permite ventanas emergentes'));
 }
 
 // --- PDF (HTML Report, opens in new tab → Ctrl+P → Save as PDF) ---
