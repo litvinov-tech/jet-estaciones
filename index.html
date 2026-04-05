@@ -3172,7 +3172,32 @@ function openImport(){
   document.getElementById('import-overlay').classList.add('on');
 }
 
-// Helper: parse TSV/CSV line respecting quoted fields
+// Helper: parse entire CSV/TSV text into array of rows (handles quoted newlines)
+function parseCSVFull(text, sep) {
+  const rows = [];
+  let cur = '', inQ = false, row = [];
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '"') {
+      if (inQ && text[i+1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (ch === sep && !inQ) {
+      row.push(cur.trim()); cur = '';
+    } else if (ch === '\n' && !inQ) {
+      row.push(cur.trim()); cur = '';
+      if (row.some(c => c !== '')) rows.push(row);
+      row = [];
+    } else if (ch === '\r') {
+      // skip \r
+    } else {
+      cur += ch;
+    }
+  }
+  if (cur || row.length) { row.push(cur.trim()); if (row.some(c => c !== '')) rows.push(row); }
+  return rows;
+}
+
+// Helper: parse TSV/CSV line respecting quoted fields (kept for compat)
 function parseTSVLine(line, sep) {
   const cols = [];
   let cur = '', inQ = false;
@@ -3244,12 +3269,15 @@ async function processImportText(rawText, fileName, res){
       if(fileName.endsWith('.json')){
         imported=JSON.parse(text);
       } else {
-        const lines = text.trim().split(/\r?\n/);
-        const rawHdr = lines[0];
+        // Detect separator from first 500 chars
+        const sample = text.slice(0, 500);
+        const sep = sample.includes('\t') ? '\t' : sample.includes(';') ? ';' : ',';
 
-        // Detect separator: tab → TSV official, semicolon → Excel EU, comma → legacy
-        const sep = rawHdr.includes('\t') ? '\t' : rawHdr.includes(';') ? ';' : ',';
-        const hdr = parseTSVLine(rawHdr, sep).map(h => h.toLowerCase().replace(/"/g,'').trim());
+        // Parse entire file at once (handles quoted newlines like "Pais\n")
+        const rows = parseCSVFull(text, sep);
+        if(rows.length < 2){ res.innerHTML='<div class="err">⚠️ Archivo vacío o sin datos.</div>'; return; }
+
+        const hdr = rows[0].map(h => h.toLowerCase().replace(/"/g,'').trim());
 
         const col = (names) => {
           for (const n of names) {
@@ -3316,10 +3344,9 @@ async function processImportText(rawText, fileName, res){
           return;
         }
 
-        for(let i=1;i<lines.length;i++){
-          const line = lines[i];
-          if(!line.trim()) continue;
-          const c = parseTSVLine(line, sep);
+        for(let i=1;i<rows.length;i++){
+          const c = rows[i];
+          if(!c.length) continue;
           const g = (idx) => idx >= 0 ? (c[idx]||'').replace(/^"|"$/g,'').trim() : '';
 
           const latRaw = g(iLat).replace(',','.');
