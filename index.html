@@ -647,8 +647,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     <div id="import-result" style="margin-top:12px;font-size:13px"></div>
 
     <hr style="margin:16px 0;border:none;border-top:1px solid #eee">
-    <div style="font-size:13px;color:#666;margin-bottom:8px">📸 Подгрузить фото с Google Drive для всех станций без фото:</div>
-    <button onclick="fetchAllDrivePhotos()" style="width:100%;padding:10px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer">
+    <div style="font-size:13px;color:#666;margin-bottom:8px" data-i18n="drive_hint">📸 Подгрузить фото с Google Drive для всех станций без фото:</div>
+    <button onclick="fetchAllDrivePhotos()" style="width:100%;padding:10px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer" data-i18n="drive_btn">
       🖼 Загрузить фото из Drive
     </button>
     <div id="drive-photo-result" style="margin-top:8px;font-size:13px"></div>
@@ -781,6 +781,7 @@ const LANGS = {
     ai_location_btn:'🤖 Analizar ubicación', ai_location_analyzing:'🤖 Analizando ubicación...',
     import_processing:'Procesando...', import_drive_fetch:'Descargando fotos de Drive...',
     import_drive_ok:'✅ Foto importada', import_drive_err:'⚠️ Foto no disponible',
+    drive_hint:'📸 Cargar fotos de Google Drive para estaciones sin foto:', drive_btn:'🖼 Cargar fotos de Drive',
     ap_title:'🛡 Panel Administrador', ap_close:'✕ Cerrar', ap_tab_dash:'📊 Reporte', ap_tab_emp:'👥 Empleados', ap_tab_req:'📋 Solicitudes', ap_tab_act:'⚡ Actividad',
     ap_total_st:'📍 Total estaciones', ap_employees:'👤 Empleados', ap_pending:'⏳ Pendientes aprob.', ap_del_reqs:'🗑 Solicitudes borrado', ap_own_vs_comp:'✅ Propias JET vs 🔴 Competencia', ap_ours:'propias', ap_by_city:'📍 Estaciones por ciudad', ap_no_data:'Sin datos', ap_by_type:'🏢 Por tipo de lugar', ap_emp_act:'👥 Actividad empleados', ap_load_err:'❌ Error de carga:',
     role_admin:'Admin', role_user:'Empleado', role_disabled:'Bloqueado', role_pending:'Pendiente',
@@ -857,6 +858,7 @@ const LANGS = {
     ai_location_btn:'🤖 Анализировать место', ai_location_analyzing:'🤖 Анализирую место...',
     import_processing:'Обработка...', import_drive_fetch:'Загрузка фото с Drive...',
     import_drive_ok:'✅ Фото загружено', import_drive_err:'⚠️ Фото недоступно',
+    drive_hint:'📸 Загрузить фото с Google Drive для всех станций без фото:', drive_btn:'🖼 Загрузить фото из Drive',
     ap_title:'🛡 Панель администратора', ap_close:'✕ Закрыть', ap_tab_dash:'📊 Отчёт', ap_tab_emp:'👥 Сотрудники', ap_tab_req:'📋 Заявки', ap_tab_act:'⚡ Активность',
     ap_total_st:'📍 Всего парковок', ap_employees:'👤 Сотрудников', ap_pending:'⏳ Ждут одобрения', ap_del_reqs:'🗑 Заявки на удаление', ap_own_vs_comp:'✅ Наши JET vs 🔴 Конкуренты', ap_ours:'наших', ap_by_city:'📍 Парковки по городам', ap_no_data:'Нет данных', ap_by_type:'🏢 По типу объекта', ap_emp_act:'👥 Активность сотрудников', ap_load_err:'❌ Ошибка загрузки:',
     role_admin:'Admin', role_user:'Сотрудник', role_disabled:'Заблокирован', role_pending:'Ожидает',
@@ -933,6 +935,7 @@ const LANGS = {
     ai_location_btn:'🤖 Analisar localização', ai_location_analyzing:'🤖 Analisando local...',
     import_processing:'Processando...', import_drive_fetch:'Baixando fotos do Drive...',
     import_drive_ok:'✅ Foto importada', import_drive_err:'⚠️ Foto indisponível',
+    drive_hint:'📸 Carregar fotos do Google Drive para estações sem foto:', drive_btn:'🖼 Carregar fotos do Drive',
     ap_title:'🛡 Painel Administrador', ap_close:'✕ Fechar', ap_tab_dash:'📊 Relatório', ap_tab_emp:'👥 Funcionários', ap_tab_req:'📋 Solicitações', ap_tab_act:'⚡ Atividade',
     ap_total_st:'📍 Total de estações', ap_employees:'👤 Funcionários', ap_pending:'⏳ Aguardando aprob.', ap_del_reqs:'🗑 Solicitações de exclusão', ap_own_vs_comp:'✅ Próprias JET vs 🔴 Concorrência', ap_ours:'próprias', ap_by_city:'📍 Estações por cidade', ap_no_data:'Sem dados', ap_by_type:'🏢 Por tipo de local', ap_emp_act:'👥 Atividade dos funcionários', ap_load_err:'❌ Erro de carregamento:',
     role_admin:'Admin', role_user:'Funcionário', role_disabled:'Bloqueado', role_pending:'Aguardando',
@@ -3295,8 +3298,8 @@ async function fetchAllDrivePhotos() {
     const url = s.drivePhotoUrl || (s.photo && s.photo.includes('drive.google.com') ? s.photo : '');
     return url && url.includes('drive.google.com') && (!s.photo || s.photo.includes('drive.google.com'));
   });
-  if(!targets.length){ res.innerHTML='<div class="ok">✅ Нет станций с фото Drive для обновления.</div>'; return; }
-  res.innerHTML=`<span class="spinner"></span> Обрабатываю ${targets.length} станций...`;
+  if(!targets.length){ res.innerHTML='<div class="ok">✅ ' + (lang==='ru'?'Нет станций с фото Drive.':lang==='pt'?'Sem estações com foto Drive.':'Sin estaciones con foto Drive.') + '</div>'; return; }
+  res.innerHTML=`<span class="spinner"></span> ${targets.length}...`;
   let done=0, failed=0;
   for(const s of targets){
     const url = s.drivePhotoUrl || s.photo;
@@ -3307,9 +3310,11 @@ async function fetchAllDrivePhotos() {
         done++;
       } else { failed++; }
     }catch{ failed++; }
-    res.innerHTML=`<span class="spinner"></span> ${done}/${targets.length} загружено...`;
+    res.innerHTML=`<span class="spinner"></span> ${done}/${targets.length}...`;
   }
-  res.innerHTML=`<div class="ok">✅ Загружено: ${done}${failed?` · ❌ Ошибок: ${failed}`:''}.</div>`;
+  const okWord = lang==='ru'?'Загружено':lang==='pt'?'Carregadas':'Cargadas';
+  const errWord = lang==='ru'?'Ошибок':lang==='pt'?'Erros':'Errores';
+  res.innerHTML=`<div class="ok">✅ ${okWord}: ${done}${failed?` · ❌ ${errWord}: ${failed}`:''}.</div>`;
 }
 
 async function fetchDrivePhoto(url) {
