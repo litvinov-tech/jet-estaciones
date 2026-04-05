@@ -1422,6 +1422,7 @@ async function saveStation(){
 function openEdit(docId){
   const s = stations.find(st=>st._docId===docId);
   if(!s) return;
+  if(currentRole !== 'admin' && s.userId !== currentUser.uid){ toast('❌ ' + t('conn_err')); return; }
   map.closePopup();
   editingId = docId;
   addMode = false;
@@ -1476,7 +1477,9 @@ function renderAll(){
         <span style="font-size:11px;color:#aaa"> · ${s.date}</span>
         ${s.notes?`<br><span style="font-size:12px;color:#555">${s.notes}</span>`:''}
         <div class="popup-actions">
-          <button class="pa-btn" style="background:#e8f0ff;color:#005bff" onclick="openEdit('${s._docId}')">✏️ Editar</button>
+          ${(currentRole==='admin' || s.userId===currentUser.uid)
+            ? `<button class="pa-btn" style="background:#e8f0ff;color:#005bff" onclick="openEdit('${s._docId}')">✏️ Editar</button>`
+            : ''}
           <button class="pa-btn" style="background:#e8f5e9;color:#28a745" onclick="toggleRadius('${s._docId}',${s.lat},${s.lng})">⭕ Radio</button>
           <button class="pa-btn" style="background:#f5f5f5;color:#333" onclick="openStreetView(${s.lat},${s.lng})">🌐 Street</button>
           ${currentRole==='admin'
@@ -1490,6 +1493,7 @@ function renderAll(){
 }
 
 async function delStation(docId){
+  if(currentRole !== 'admin'){ toast('❌ ' + t('conn_err')); return; }
   if(!confirm(t('del_confirm'))) return;
   try{
     await db.collection('stations').doc(docId).delete();
@@ -1552,6 +1556,7 @@ function closeOverlay(id){
 
 // ==================== ADMIN PANEL ====================
 function openAdminPanel(){
+  if(currentRole !== 'admin') return;
   document.getElementById('admin-panel-overlay').classList.add('on');
   showApTab('dash');
 }
@@ -1719,6 +1724,7 @@ async function renderApEmployees(){
 }
 
 async function apSetRole(uid, role, btn){
+  if(currentRole !== 'admin'){ toast('❌ Нет доступа'); return; }
   const labels = {admin:'администратором',user:'сотрудником',disabled:'заблокирован'};
   if(!confirm(`Изменить пользователя: ${labels[role]}?`)) return;
   btn.disabled = true; btn.textContent = '...';
@@ -1731,6 +1737,7 @@ async function apSetRole(uid, role, btn){
 }
 
 async function apDeleteUser(uid, name){
+  if(currentRole !== 'admin'){ toast('❌ Нет доступа'); return; }
   if(!confirm(`Удалить пользователя «${name}»?\n\nЕго парковки останутся в базе. Это действие нельзя отменить.`)) return;
   try {
     await db.collection('users').doc(uid).delete();
@@ -1800,6 +1807,7 @@ async function renderApRequests(){
 }
 
 async function apApproveDelete(reqId, stationId, btn){
+  if(currentRole !== 'admin'){ toast('❌ Нет доступа'); return; }
   if(!confirm('Удалить эту парковку?')) return;
   btn.disabled=true; btn.textContent='...';
   try {
@@ -1811,6 +1819,7 @@ async function apApproveDelete(reqId, stationId, btn){
 }
 
 async function apRejectDelete(reqId, btn){
+  if(currentRole !== 'admin'){ toast('❌ Нет доступа'); return; }
   btn.disabled=true; btn.textContent='...';
   try {
     await db.collection('deleteRequests').doc(reqId).update({status:'rejected'});
@@ -1862,6 +1871,8 @@ function openTeam(){
 }
 
 function showTeamTab(tab){
+  const adminTabs = ['req','users','stats'];
+  if(adminTabs.includes(tab) && currentRole !== 'admin') return;
   ['team','req','users','stats'].forEach(t=>{
     document.getElementById(`tc-${t}`).style.display = t===tab ? 'block' : 'none';
     document.getElementById(`ttab-${t}`)?.classList.toggle('active', t===tab);
@@ -1952,6 +1963,7 @@ async function renderRequestsTab(){
 }
 
 async function approveDelete(reqId, stationId){
+  if(currentRole !== 'admin'){ toast('❌ Acceso denegado'); return; }
   if(!confirm('¿Confirmar eliminación de esta estación?')) return;
   try{
     await db.collection('stations').doc(stationId).delete();
@@ -1962,6 +1974,7 @@ async function approveDelete(reqId, stationId){
 }
 
 async function rejectDelete(reqId){
+  if(currentRole !== 'admin'){ toast('❌ Acceso denegado'); return; }
   try{
     await db.collection('deleteRequests').doc(reqId).update({status:'rejected'});
     toast('✕ Solicitud rechazada');
