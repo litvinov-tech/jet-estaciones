@@ -239,7 +239,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #pwa-ios-hint .ios-icon{width:48px;height:48px;border-radius:12px;background:#005bff;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0}
 #pwa-ios-hint .ios-title{font-size:15px;font-weight:700;color:#0d0d1a}
 #pwa-ios-hint .ios-steps{font-size:13px;color:#444;line-height:1.8}
-#pwa-ios-hint .ios-close{float:right;background:none;border:none;font-size:20px;color:#aaa;cursor:pointer;margin-top:-36px}
+#pwa-ios-hint{position:relative}
+#pwa-ios-hint .ios-close{position:absolute;top:10px;right:12px;background:none;border:none;font-size:20px;color:#aaa;cursor:pointer;line-height:1}
 </style>
 </head>
 <body>
@@ -260,7 +261,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
   <button class="ios-close" id="pwa-ios-close">✕</button>
   <div class="ios-row">
     <div class="ios-icon">🚲</div>
-    <div class="ios-title" data-i18n="pwa_title">Установить приложение JET</div>
+    <div class="ios-title" data-i18n="pwa_title">Установить приложение</div>
   </div>
   <div class="ios-steps" data-i18n="pwa_ios_steps">Нажмите <strong>«Поделиться»</strong> <span style="font-size:16px">⬆️</span> внизу Safari, затем <strong>«На экран Домой»</strong> 📲</div>
 </div>
@@ -814,6 +815,7 @@ auth.onAuthStateChanged(async (user) => {
     applyLang();
     initRealtime();
     startGPSWatch();
+    if(window._showPWABanner) window._showPWABanner();
   } else {
     currentUser = null;
     document.getElementById('auth-screen').style.display = 'flex';
@@ -2464,48 +2466,52 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
 applyLang();
 
 // ==================== PWA INSTALL BANNER ====================
+// Called after successful login so the banner never overlaps the auth form
+let _pwaBannerReady = false;
+let _deferredInstallPrompt = null;
+
 (function(){
   const isMobile = /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
-  if(!isMobile) return;                          // show only on phones/tablets
-  const isStandalone = window.matchMedia('(display-mode: standalone)').matches
-    || window.navigator.standalone === true;     // already installed
-  if(isStandalone) return;
+  if(!isMobile) return;
+  if(window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) return;
   if(localStorage.getItem('pwa_dismissed')) return;
 
   const isIOS = /iPhone|iPad|iPod/i.test(navigator.userAgent);
   const banner = document.getElementById('pwa-banner');
   const iosBanner = document.getElementById('pwa-ios-hint');
 
-  if(isIOS){
-    // iOS Safari — show manual hint after 3s
-    setTimeout(()=>{ iosBanner.style.display='block'; }, 3000);
-    document.getElementById('pwa-ios-close').onclick = ()=>{
-      iosBanner.style.display='none';
-      localStorage.setItem('pwa_dismissed','1');
-    };
-    return;
-  }
-
-  // Android/Chrome — wait for beforeinstallprompt
-  let deferredPrompt = null;
-  window.addEventListener('beforeinstallprompt', e=>{
-    e.preventDefault();
-    deferredPrompt = e;
-    setTimeout(()=>{ banner.classList.add('show'); }, 2000);
-  });
-
+  document.getElementById('pwa-ios-close').onclick = ()=>{
+    iosBanner.style.display='none';
+    localStorage.setItem('pwa_dismissed','1');
+  };
+  document.getElementById('pwa-close-btn').onclick = ()=>{
+    banner.classList.remove('show');
+    localStorage.setItem('pwa_dismissed','1');
+  };
   document.getElementById('pwa-install-btn').onclick = async ()=>{
-    if(!deferredPrompt) return;
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    deferredPrompt = null;
+    if(!_deferredInstallPrompt) return;
+    _deferredInstallPrompt.prompt();
+    const { outcome } = await _deferredInstallPrompt.userChoice;
+    _deferredInstallPrompt = null;
     banner.classList.remove('show');
     if(outcome === 'accepted') localStorage.setItem('pwa_dismissed','1');
   };
 
-  document.getElementById('pwa-close-btn').onclick = ()=>{
-    banner.classList.remove('show');
-    localStorage.setItem('pwa_dismissed','1');
+  if(!isIOS){
+    window.addEventListener('beforeinstallprompt', e=>{
+      e.preventDefault();
+      _deferredInstallPrompt = e;
+      if(_pwaBannerReady) setTimeout(()=>banner.classList.add('show'), 1500);
+    });
+  }
+
+  window._showPWABanner = function(){
+    _pwaBannerReady = true;
+    if(isIOS){
+      setTimeout(()=>{ iosBanner.style.display='block'; }, 3000);
+    } else if(_deferredInstallPrompt){
+      setTimeout(()=>{ banner.classList.add('show'); }, 1500);
+    }
   };
 })();
 </script>
