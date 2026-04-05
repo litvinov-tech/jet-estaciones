@@ -3290,18 +3290,16 @@ function driveDirectUrl(url) {
 // Helper: fetch Drive photo via server proxy (avoids CORS)
 async function fetchAllDrivePhotos() {
   const res = document.getElementById('drive-photo-result');
-  // Find stations with Drive URL but no photo
-  const targets = stations.filter(s => s._photoUrl && s._photoUrl.includes('drive.google.com') && !s.photo);
-  if(!targets.length){
-    // Also check stations where photo IS a drive URL (not yet converted)
-    const drivePhoto = stations.filter(s => s.photo && s.photo.includes('drive.google.com'));
-    targets.push(...drivePhoto);
-  }
+  // Find stations with drivePhotoUrl saved, or photo that is a Drive URL
+  const targets = stations.filter(s => {
+    const url = s.drivePhotoUrl || (s.photo && s.photo.includes('drive.google.com') ? s.photo : '');
+    return url && url.includes('drive.google.com') && (!s.photo || s.photo.includes('drive.google.com'));
+  });
   if(!targets.length){ res.innerHTML='<div class="ok">✅ Нет станций с фото Drive для обновления.</div>'; return; }
   res.innerHTML=`<span class="spinner"></span> Обрабатываю ${targets.length} станций...`;
   let done=0, failed=0;
   for(const s of targets){
-    const url = s._photoUrl || s.photo;
+    const url = s.drivePhotoUrl || s.photo;
     try{
       const b64 = await fetchDrivePhoto(url);
       if(b64 && b64.startsWith('data:')){
@@ -3500,6 +3498,7 @@ async function processImportText(rawText, fileName, res){
         const { _photoUrl, _photoIsDrive, ...data } = imp;
         const ref = await db.collection('stations').add({
           ...data,
+          drivePhotoUrl: _photoIsDrive ? _photoUrl : '',
           ownership: data.ownership || 'propia',
           userId:    currentUser.uid,
           userName:  data.userName || currentUser.displayName||currentUser.email.split('@')[0],
