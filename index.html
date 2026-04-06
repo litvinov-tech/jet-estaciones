@@ -12,6 +12,7 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
 <script src="./firebase-config.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -664,8 +665,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <script>
 // ==================== FIREBASE INIT ====================
 firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db   = firebase.firestore();
+const auth    = firebase.auth();
+const db      = firebase.firestore();
+const storage = firebase.storage();
 
 // ==================== AI CONFIG ====================
 const _k = (a) => a.map(c=>String.fromCharCode(c)).join('');
@@ -2456,10 +2458,23 @@ async function saveStation(){
   if(!name){ toast(t('no_name')); return; }
   if(!type){ toast(t('no_type')); return; }
   const photoEl = document.getElementById('photo-preview');
-  const photo   = photoEl.style.display!=='none' ? photoEl.src : '';
+  let photoRaw  = photoEl.style.display!=='none' ? photoEl.src : '';
   const btn = document.getElementById('save-btn');
   btn.disabled=true; btn.textContent=t('saving');
   try{
+    // Upload photo to Firebase Storage if it's a new base64 image
+    let photo = photoRaw;
+    if(photoRaw.startsWith('data:')){
+      btn.textContent = lang==='ru' ? '📤 Загружаю фото…' : '📤 Subiendo foto…';
+      const ext  = photoRaw.includes('image/png') ? 'png' : 'jpg';
+      const uid  = currentUser.uid;
+      const name_safe = (document.getElementById('f-name').value.trim()||'photo').replace(/[^a-z0-9]/gi,'_').slice(0,30);
+      const path = `photos/${uid}/${Date.now()}_${name_safe}.${ext}`;
+      const ref  = storage.ref(path);
+      await ref.putString(photoRaw, 'data_url');
+      photo = await ref.getDownloadURL();
+      btn.textContent = t('saving');
+    }
     const data = {
       name, type, ownership: selOwn,
       placement: selPlacement,
@@ -2547,7 +2562,8 @@ function openEdit(docId){
 // ==================== RENDER ====================
 function renderAll(){
   spotsGroup.clearLayers();
-  const byCity = currentCity ? stations.filter(s => !s.city || s.city === currentCity) : stations;
+  let byCity = currentCity ? stations.filter(s => !s.city || s.city === currentCity) : stations;
+  if(currentCity && byCity.length === 0 && stations.length > 0) byCity = stations;
   const visible = filterUser ? byCity.filter(s=>s.userId===filterUser) : byCity;
   visible.forEach((s,i)=>{
     const isComp = s.ownership === 'competencia';
@@ -2862,6 +2878,17 @@ async function renderApDash(){
         <button onclick="migrateCityAssign()" style="width:100%;padding:10px;background:#005bff;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">${lang==='ru'?'Назначить город':'Asignar ciudad'}</button>`;
       el.appendChild(migrDiv);
     }
+    // Photo migration block
+    const base64Count = stations.filter(s => s.photo && s.photo.startsWith('data:')).length;
+    if(base64Count > 0){
+      const photoDiv = document.createElement('div');
+      photoDiv.style.cssText = 'margin-top:12px;padding:12px;background:#e8f0ff;border-radius:10px';
+      photoDiv.innerHTML = `
+        <div style="font-size:13px;font-weight:700;color:#005bff;margin-bottom:6px">📷 ${base64Count} ${lang==='ru'?'фото хранятся в БД (медленно)':'fotos guardadas en DB (lento)'}</div>
+        <div style="font-size:12px;color:#555;margin-bottom:10px">${lang==='ru'?'Перенести в Firebase Storage — ускорит загрузку приложения':'Mover a Firebase Storage — acelera la carga de la app'}</div>
+        <button onclick="migratePhotosToStorage()" style="width:100%;padding:10px;background:#005bff;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">${lang==='ru'?'📤 Перенести фото в Storage':'📤 Migrar fotos a Storage'}</button>`;
+      el.appendChild(photoDiv);
+    }
   } catch(e){
     el.innerHTML = `<div class="err">${t('ap_load_err')} ${e.message}</div>`;
   }
@@ -2900,6 +2927,25 @@ async function migrateCityAssign(){
   await batch.commit();
   toast('✅ ' + noCityStations.length + ' ' + (lang==='ru'?'парковок → '+city:'estaciones → '+city));
 }
+
+async function migratePhotosToStorage(){
+  const base64Stations = stations.filter(s => s.photo && s.photo.startsWith('data:'));
+  if(!base64Stations.length){ toast(lang==='ru'?'✅ Все фото уже в Storage':'✅ Todas las fotos ya están en Storage'); return; }
+  toast((lang==='ru'?'📤 Мигрирую фото: ':'📤 Migrando fotos: ') + base64Stations.length);
+  let done = 0, failed = 0;
+  for(const s of base64Stations){
+    try{
+      const ext  = s.photo.includes('image/png') ? 'png' : 'jpg';
+      const path = `photos/${s.userId||'unknown'}/${s._docId}.${ext}`;
+      const ref  = storage.ref(path);
+      await ref.putString(s.photo, 'data_url');
+      const url = await ref.getDownloadURL();
+      await db.collection('stations').doc(s._docId).update({photo: url});
+      done++;
+      if(done % 10 === 0) toast(`📤 ${done}/${base64Stations.length}…`);
+    } catch(e){ failed++; }
+  }
+  toast(`✅ ${done} ${lang==='ru'?'фото перенесено':'fotos migradas'}${failed?' ⚠️ '+failed+' error':''}`);}
 
 async function renderApEmployees(){
   const el = document.getElementById('apc-emp');
