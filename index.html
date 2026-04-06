@@ -72,7 +72,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .fg input:focus,.fg select:focus,.fg textarea:focus{border-color:#005bff;background:white}
 .fg input[readonly]{background:#f0f0f0;color:#555}
 .photo-btn{width:100%;padding:13px;border:2px dashed #ccc;border-radius:10px;background:#fafafa;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;font-size:14px;color:#555}
-#photo-preview{width:100%;border-radius:8px;margin-top:8px;display:none;max-height:200px;object-fit:cover}
+#photo-preview{width:100%;border-radius:8px;margin-top:8px;display:none;max-height:260px;object-fit:contain;cursor:pointer}
 #f-photo{display:none}
 .cap-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;margin-top:4px}
 .cap-btn{padding:10px 4px;border:1.5px solid #e0e0e0;border-radius:8px;background:#fafafa;font-size:13px;font-weight:600;cursor:pointer;text-align:center}
@@ -426,7 +426,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
         <span id="photo-btn-txt" data-i18n="photo_btn">📷 Tomar foto</span>
       </div>
       <input type="file" accept="image/*" capture="environment" id="f-photo" onchange="previewPic(this)">
-      <img id="photo-preview" src="" alt="">
+      <img id="photo-preview" src="" alt="" onclick="if(this.src&&this.style.display!=='none')openPhotoViewer(this.src)">
       <button id="ai-analyze-btn" onclick="analyzePhotoWithAI()" style="display:none;width:100%;margin-top:8px;padding:10px;background:linear-gradient(135deg,#6366f1,#8b5cf6);color:white;border:none;border-radius:10px;font-size:14px;font-weight:700;cursor:pointer;letter-spacing:0.3px" data-i18n="ai_btn">🤖 Analizar con IA</button>
       <div id="ai-result" style="display:none;margin-top:8px;padding:10px;background:#f0f4ff;border-radius:8px;font-size:12px;color:#333;border-left:3px solid #6366f1"></div>
     </div>
@@ -476,7 +476,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
             <option value="custom">Otro...</option>
           </select>
         </div>
-        <div style="flex:1" id="f-dims-custom-wrap" style="display:none">
+        <div style="flex:1;display:none" id="f-dims-custom-wrap">
           <div style="font-size:11px;color:#888;margin-bottom:2px" data-i18n="lbl_length_custom">Largo exacto</div>
           <input id="f-dims-custom" type="number" step="0.1" min="1" placeholder="m" style="width:100%;box-sizing:border-box">
         </div>
@@ -520,6 +520,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
     </div>
     <button class="city-confirm-btn" id="city-confirm-btn" disabled onclick="cityConfirm()">✓ Confirmar</button>
   </div>
+</div>
+
+<!-- ====== PHOTO VIEWER ====== -->
+<div id="photo-viewer-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:9999;align-items:center;justify-content:center;flex-direction:column" onclick="closePhotoViewer()">
+  <img id="photo-viewer-img" src="" style="max-width:96vw;max-height:88vh;border-radius:8px;object-fit:contain">
+  <div style="color:white;font-size:13px;margin-top:10px;opacity:0.7">Toca para cerrar</div>
 </div>
 
 <!-- ====== LIST MODAL ====== -->
@@ -1243,6 +1249,7 @@ async function loadRestrictedStreets(){
 setTimeout(loadRestrictedStreets, 800);
 
 map.on('click', e => {
+  if(addMode){ placePin(e.latlng); return; }
   if(document.querySelector('.overlay.on') || document.getElementById('admin-panel-overlay').classList.contains('on')) return;
   placePinOnly(e.latlng);
 });
@@ -1361,8 +1368,25 @@ function cityConfirm(){
   // Re-filter stations
   renderAll();
   const openList = document.getElementById('list-overlay');
-  if(openList?.classList.contains('on')) reloadList();
+  if(openList?.classList.contains('on')) renderListItems();
   toast('📍 ' + currentCity);
+  // Fly map to selected city — use own station coords first (instant), fall back to Nominatim
+  const cityStations = stations.filter(s => s.city === currentCity && s.lat && s.lng);
+  if(cityStations.length === 1){
+    map.flyTo([cityStations[0].lat, cityStations[0].lng], 15);
+  } else if(cityStations.length > 1){
+    const lats = cityStations.map(s=>s.lat), lngs = cityStations.map(s=>s.lng);
+    map.flyToBounds([[Math.min(...lats),Math.min(...lngs)],[Math.max(...lats),Math.max(...lngs)]], {padding:[50,50], maxZoom:15});
+  } else {
+    // No local stations — geocode via Nominatim
+    const countryName = GEO_DATA[currentCountry]?.name?.es || currentCountry;
+    const stateName   = currentState ? (GEO_DATA[currentCountry]?.states[currentState]?.n || currentState) : '';
+    const q = [currentCity, stateName, countryName].filter(Boolean).join(', ');
+    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`)
+      .then(r=>r.json())
+      .then(d=>{ if(d && d[0]) map.flyTo([+d[0].lat, +d[0].lon], 13); })
+      .catch(()=>{});
+  }
 }
 
 function updateCityBtn(){
@@ -2483,7 +2507,22 @@ function openEdit(docId){
   document.getElementById('f-addr').value  = s.address||'';
   document.getElementById('f-name').value  = s.name||'';
   document.getElementById('f-notes').value = s.notes||'';
-  const fd=document.getElementById('f-dims'); if(fd) fd.value=s.dimensions||'1.80 m x 4.70 m';
+  // Restore dimensions: parse "W m x L m" string into select + optional custom input
+  if(s.dimensions){
+    const parts = s.dimensions.match(/([\d.]+)\s*m\s*x\s*([\d.]+)\s*m/);
+    if(parts){
+      const fw2 = document.getElementById('f-dims-w');
+      const fl2 = document.getElementById('f-dims-l');
+      const fc2 = document.getElementById('f-dims-custom');
+      const fw2wrap = document.getElementById('f-dims-custom-wrap');
+      if(fw2) fw2.value = parts[1];
+      if(fl2 && fc2 && fw2wrap){
+        const knownLens = ['4.0','4.5','5.0'];
+        if(knownLens.includes(parts[2])){ fl2.value=parts[2]; fw2wrap.style.display='none'; }
+        else { fl2.value='custom'; fc2.value=parts[2]; fw2wrap.style.display='block'; }
+      }
+    }
+  }
   const ff=document.getElementById('f-faixa'); if(ff) ff.value=s.faixaLivre||'';
   document.getElementById('f-type').value  = s.type||'';
   setOwn(document.getElementById(s.ownership==='competencia'?'own-comp':'own-propia'), s.ownership||'propia');
@@ -2504,7 +2543,14 @@ function openEdit(docId){
 // ==================== RENDER ====================
 function renderAll(){
   spotsGroup.clearLayers();
-  const byCity = currentCity ? stations.filter(s => !s.city || s.city === currentCity) : stations;
+  const byCity = currentCity ? stations.filter(s => s.city === currentCity) : stations;
+  // DEBUG — временный баннер на экране
+  {
+    const cityVals = [...new Set(stations.map(s=>s.city))].slice(0,8).join(', ');
+    let dbg = document.getElementById('__debug_banner');
+    if(!dbg){ dbg = document.createElement('div'); dbg.id='__debug_banner'; dbg.style.cssText='position:fixed;bottom:80px;left:8px;right:8px;background:#000d;color:#0f0;font-size:11px;padding:8px;border-radius:8px;z-index:99999;word-break:break-all;white-space:pre-wrap'; document.body.appendChild(dbg); }
+    dbg.textContent = `currentCity: "${currentCity}"\ntotal stations: ${stations.length}\nmatched (byCity): ${byCity.length}\ncity values in DB:\n${cityVals}`;
+  }
   const visible = filterUser ? byCity.filter(s=>s.userId===filterUser) : byCity;
   visible.forEach((s,i)=>{
     const isComp = s.ownership === 'competencia';
@@ -2515,7 +2561,7 @@ function renderAll(){
     const m = L.marker([s.lat,s.lng],{
       icon:L.divIcon({className:'',html:shape,iconSize:[30,30],iconAnchor:[15,15]})
     }).addTo(spotsGroup);
-    const photoHtml = s.photo ? `<img src="${s.photo}" style="width:100%;border-radius:6px;margin:6px 0;max-height:110px;object-fit:cover">` : '';
+    const photoHtml = s.photo ? `<img src="${s.photo}" style="width:100%;border-radius:6px;margin:6px 0;max-height:180px;object-fit:contain;cursor:pointer" onclick="openPhotoViewer(this.src)">` : '';
     const capHtml   = s.capacity ? `<br><span style="font-size:11px;color:#28a745">🛴 ${s.capacity} scooters</span>` : '';
     const ownBadge  = isComp ? `<span style="padding:1px 6px;border-radius:10px;font-size:11px;background:#fde8e8;color:#dc3545;margin-left:4px">Competencia</span>` : '';
     m.bindPopup(`
@@ -2582,7 +2628,7 @@ function openList(){
   selectedDocIds.clear();
   const users = [...new Set(stations.map(s=>s.userId))];
   const filtersEl = document.getElementById('list-filters');
-  filtersEl.innerHTML = `<button class="filter-btn${!filterUser?' active':''}" onclick="setFilter(null)">Todos (${(currentCity ? stations.filter(s=>!s.city||s.city===currentCity) : stations).length})</button>`
+  filtersEl.innerHTML = `<button class="filter-btn${!filterUser?' active':''}" onclick="setFilter(null)">Todos (${(currentCity ? stations.filter(s=>s.city===currentCity) : stations).length})</button>`
     + users.map(uid => {
         const name = stations.find(s=>s.userId===uid)?.userName||'?';
         const cnt  = stations.filter(s=>s.userId===uid).length;
@@ -2610,7 +2656,8 @@ function listSetSort(mode){
 }
 
 function listGetSorted(){
-  let list = filterUser ? stations.filter(s=>s.userId===filterUser) : [...stations];
+  const byCity = currentCity ? stations.filter(s => s.city === currentCity) : stations;
+  let list = filterUser ? byCity.filter(s=>s.userId===filterUser) : [...byCity];
   if(listSortMode === 'date_asc')  list.sort((a,b)=>(a.createdAt?.seconds||0)-(b.createdAt?.seconds||0));
   else if(listSortMode === 'name_asc') list.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   else list.sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)); // date_desc default
@@ -2662,7 +2709,7 @@ function renderListItems(){
     return `
     <li class="spot-item${isSel?' selected':''}">
       <input type="checkbox" class="spot-check" ${isSel?'checked':''} onchange="listToggleOne('${s._docId}',this.checked)" onclick="event.stopPropagation()">
-      ${s.photo?`<img class="spot-thumb" src="${s.photo}" onclick="flyTo(${s.lat},${s.lng})">`:''}
+      ${s.photo?`<img class="spot-thumb" src="${s.photo}" onclick="event.stopPropagation();openPhotoViewer(this.src)" style="cursor:pointer">`:''}
       <div class="spot-body" onclick="flyTo(${s.lat},${s.lng})">
         <div class="spot-name">${i+1}. ${s.name}
           <span class="spot-badge">${s.type}</span>
@@ -3220,6 +3267,16 @@ function renderStatsTab(){
           <div style="background:#e8f0ff;color:#005bff;border-radius:10px;padding:2px 10px;font-size:12px;font-weight:700">${cnt}</div>
         </div>`).join('')}
     </div>`;
+}
+
+// ==================== PHOTO VIEWER ====================
+function openPhotoViewer(src){
+  const ov = document.getElementById('photo-viewer-overlay');
+  document.getElementById('photo-viewer-img').src = src;
+  ov.style.display = 'flex';
+}
+function closePhotoViewer(){
+  document.getElementById('photo-viewer-overlay').style.display = 'none';
 }
 
 // ==================== PHOTO ====================
@@ -4056,14 +4113,18 @@ ${LEAFLET_MAP_INIT}
     win.document.write(html);
     win.document.close();
     // Inject photos via DOM — Chrome blocks data: URIs embedded in document.write HTML
-    setTimeout(() => {
+    // Use load event with fallback timeout to ensure DOM is ready before injecting
+    const injectPhotos = () => {
       list.forEach(s => {
         if(s.photo){
           const img = win.document.getElementById('jetphoto_' + s._docId);
           if(img) img.src = s.photo;
         }
       });
-    }, 50);
+    };
+    if(win.document.readyState === 'complete') injectPhotos();
+    else win.addEventListener('load', injectPhotos);
+    setTimeout(injectPhotos, 800); // fallback for browsers that miss the load event
   } else toast('⚠️ ' + (lang==='ru'?'Разрешите всплывающие окна':'Permite ventanas emergentes'));
 }
 
@@ -4187,7 +4248,12 @@ ${LEAFLET_MAP_INIT}
     win.document.write(html);
     win.document.close();
     // Inject photo via DOM — Chrome blocks data: URIs embedded in document.write HTML
-    if(s.photo){ setTimeout(() => { const img = win.document.getElementById('jetphoto'); if(img) img.src = s.photo; }, 50); }
+    if(s.photo){
+      const injectSingle = () => { const img = win.document.getElementById('jetphoto'); if(img) img.src = s.photo; };
+      if(win.document.readyState === 'complete') injectSingle();
+      else win.addEventListener('load', injectSingle);
+      setTimeout(injectSingle, 800);
+    }
   } else toast('⚠️ ' + (lang==='ru'?'Разрешите всплывающие окна':'Permite ventanas emergentes'));
 }
 
