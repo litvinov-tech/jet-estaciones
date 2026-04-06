@@ -3884,9 +3884,9 @@ async function exportExcel(){
 
     const L = LANGS[lang]||LANGS.es;
     const headers = {
-      es:['#','Nombre','Tipo','Ownership','Dirección','Ciudad','Latitud','Longitud','Coordenadas','Capacidad','Radio (m)','Registrado por','Fecha','Notas'],
-      ru:['#','Название','Тип','Принадлежность','Адрес','Город','Широта','Долгота','Координаты','Вместимость','Радиус (м)','Добавил','Дата','Примечания'],
-      pt:['#','Nome','Tipo','Propriedade','Endereço','Cidade','Latitude','Longitude','Coordenadas','Capacidade','Raio (m)','Registrado por','Data','Notas'],
+      es:['#','Nombre','Tipo','Ownership','Dirección','Ciudad','Latitud','Longitud','Capacidad','Radio (m)','Registrado por','Fecha','Notas'],
+      ru:['#','Название','Тип','Принадлежность','Адрес','Город','Широта','Долгота','Вместимость','Радиус (м)','Добавил','Дата','Примечания'],
+      pt:['#','Nome','Tipo','Propriedade','Endereço','Cidade','Latitude','Longitude','Capacidade','Raio (m)','Registrado por','Data','Notas'],
     };
     const hdr = headers[lang]||headers.es;
     const ownLabel = (v) => ({propia:{es:'JET',ru:'JET',pt:'JET'},competencia:{es:'Competencia',ru:'Конкурент',pt:'Concorrente'}}[v]||{});
@@ -3899,7 +3899,6 @@ async function exportExcel(){
         (ownLabel(s.ownership)||{})[lang]||s.ownership||'',
         s.address||'', city,
         s.lat, s.lng,
-        `${(s.lat||0).toFixed(6)}, ${(s.lng||0).toFixed(6)}`,
         s.capacity||'', s.radius||'',
         s.userName||'', s.date||'', s.notes||''
       ];
@@ -3907,7 +3906,7 @@ async function exportExcel(){
 
     const ws = XLSX.utils.aoa_to_sheet([hdr, ...rows]);
     // Column widths
-    ws['!cols'] = [4,25,18,14,35,18,12,12,24,12,10,20,12,30].map(w=>({wch:w}));
+    ws['!cols'] = [4,25,18,14,35,18,12,12,12,10,20,12,30].map(w=>({wch:w}));
     // Style header row (bold simulation via freeze)
     ws['!freeze'] = {xSplit:0, ySplit:1};
 
