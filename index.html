@@ -2565,7 +2565,11 @@ function renderAll(){
   let byCity = currentCity ? stations.filter(s => !s.city || s.city === currentCity) : stations;
   if(currentCity && byCity.length === 0 && stations.length > 0) byCity = stations;
   const visible = filterUser ? byCity.filter(s=>s.userId===filterUser) : byCity;
-  visible.forEach((s,i)=>{
+  const CHUNK = 40;
+  const addChunk = (start) => {
+    const end = Math.min(start + CHUNK, visible.length);
+    for(let i = start; i < end; i++){
+      const s = visible[i];
     const isComp = s.ownership === 'competencia';
     const color = isComp ? '#dc3545' : (s.userId===currentUser?.uid ? '#28a745' : (userColorMap[s.userId]||'#28a745'));
     const shape = isComp
@@ -2574,10 +2578,13 @@ function renderAll(){
     const m = L.marker([s.lat,s.lng],{
       icon:L.divIcon({className:'',html:shape,iconSize:[30,30],iconAnchor:[15,15]})
     }).addTo(spotsGroup);
-    const photoHtml = s.photo ? `<img src="${s.photo}" style="width:100%;border-radius:6px;margin:6px 0;max-height:180px;object-fit:contain;cursor:pointer" onclick="openPhotoViewer(this.src)">` : '';
-    const capHtml   = s.capacity ? `<br><span style="font-size:11px;color:#28a745">🛴 ${s.capacity} scooters</span>` : '';
-    const ownBadge  = isComp ? `<span style="padding:1px 6px;border-radius:10px;font-size:11px;background:#fde8e8;color:#dc3545;margin-left:4px">Competencia</span>` : '';
-    m.bindPopup(`
+    // Lazy popup — built only when opened
+    m.bindPopup(()=>{
+      const isComp2 = s.ownership === 'competencia';
+      const photoHtml = s.photo ? `<img src="${s.photo}" style="width:100%;border-radius:6px;margin:6px 0;max-height:180px;object-fit:contain;cursor:pointer" onclick="openPhotoViewer(this.src)">` : '';
+      const capHtml   = s.capacity ? `<br><span style="font-size:11px;color:#28a745">🛴 ${s.capacity} scooters</span>` : '';
+      const ownBadge  = isComp2 ? `<span style="padding:1px 6px;border-radius:10px;font-size:11px;background:#fde8e8;color:#dc3545;margin-left:4px">Competencia</span>` : '';
+      return `
       <div style="min-width:190px;font-family:system-ui">
         <b style="font-size:14px">${s.name}</b>${ownBadge}
         <span style="display:inline-block;padding:1px 6px;border-radius:10px;font-size:11px;background:#e8f0ff;color:#005bff;margin-left:4px">${s.type}</span>
@@ -2600,8 +2607,11 @@ function renderAll(){
           }
         </div>
       </div>
-    `);
-  });
+    `; },{maxWidth:280});
+    }
+    if(end < visible.length) setTimeout(()=>addChunk(end), 0);
+  };
+  addChunk(0);
 }
 
 async function delStation(docId){
