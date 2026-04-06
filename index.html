@@ -2842,12 +2842,13 @@ async function renderApDash(){
         </div>`;
       }).join('')}
     `;
-    ${(()=>{
-      const noCityCount = stations.filter(s=>!s.city).length;
-      return noCityCount > 0 ? `
-      <div style="margin-top:16px;padding:12px;background:#fff3cd;border-radius:10px">
+    const noCityCount = stations.filter(s=>!s.city).length;
+    if(noCityCount > 0){
+      const migrDiv = document.createElement('div');
+      migrDiv.style.cssText = 'margin-top:16px;padding:12px;background:#fff3cd;border-radius:10px';
+      migrDiv.innerHTML = `
         <div style="font-size:13px;font-weight:700;color:#856404;margin-bottom:8px">⚠️ ${noCityCount} ${lang==='ru'?'парковок без города':'estaciones sin ciudad'}</div>
-        <div style="font-size:12px;color:#555;margin-bottom:10px">${lang==='ru'?'Эти парковки не видны при выборе города. Назначить им город:':'Estas estaciones no se ven al filtrar por ciudad. Asignarles ciudad:'}</div>
+        <div style="font-size:12px;color:#555;margin-bottom:10px">${lang==='ru'?'Не видны при фильтре по городу. Назначить им город:':'No visibles al filtrar por ciudad. Asignarles ciudad:'}</div>
         <select id="migrate-city-country" style="width:100%;padding:7px;border-radius:7px;border:1px solid #ccc;font-size:13px;margin-bottom:6px" onchange="migrateCityFillState(this.value)">
           <option value="">— ${lang==='ru'?'Страна':'País'} —</option>
           ${Object.entries(GEO_DATA).map(([k,v])=>`<option value="${k}">${v.name?.es||k}</option>`).join('')}
@@ -2858,9 +2859,9 @@ async function renderApDash(){
         <select id="migrate-city-city" style="width:100%;padding:7px;border-radius:7px;border:1px solid #ccc;font-size:13px;margin-bottom:10px">
           <option value="">— ${lang==='ru'?'Город':'Ciudad'} —</option>
         </select>
-        <button onclick="migrateCityAssign()" style="width:100%;padding:10px;background:#005bff;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">${lang==='ru'?'Назначить город':'Asignar ciudad'}</button>
-      </div>` : '';
-    })()}
+        <button onclick="migrateCityAssign()" style="width:100%;padding:10px;background:#005bff;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">${lang==='ru'?'Назначить город':'Asignar ciudad'}</button>`;
+      el.appendChild(migrDiv);
+    }
   } catch(e){
     el.innerHTML = `<div class="err">${t('ap_load_err')} ${e.message}</div>`;
   }
