@@ -1382,10 +1382,14 @@ function cityConfirm(){
     const countryName = GEO_DATA[currentCountry]?.name?.es || currentCountry;
     const stateName   = currentState ? (GEO_DATA[currentCountry]?.states[currentState]?.n || currentState) : '';
     const q = [currentCity, stateName, countryName].filter(Boolean).join(', ');
+    toast('🗺 ' + (lang==='ru'?'Ищу город на карте…':'Buscando ciudad en mapa…'));
     fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`)
       .then(r=>r.json())
-      .then(d=>{ if(d && d[0]) map.flyTo([+d[0].lat, +d[0].lon], 13); })
-      .catch(()=>{});
+      .then(d=>{
+        if(d && d[0]) map.flyTo([+d[0].lat, +d[0].lon], 13);
+        else toast('⚠️ ' + (lang==='ru'?'Город не найден':'Ciudad no encontrada'));
+      })
+      .catch(()=>toast('⚠️ ' + (lang==='ru'?'Ошибка геокодинга':'Error de geocodificación')));
   }
 }
 
@@ -2544,13 +2548,6 @@ function openEdit(docId){
 function renderAll(){
   spotsGroup.clearLayers();
   const byCity = currentCity ? stations.filter(s => s.city === currentCity) : stations;
-  // DEBUG — временный баннер на экране
-  {
-    const cityVals = [...new Set(stations.map(s=>s.city))].slice(0,8).join(', ');
-    let dbg = document.getElementById('__debug_banner');
-    if(!dbg){ dbg = document.createElement('div'); dbg.id='__debug_banner'; dbg.style.cssText='position:fixed;bottom:80px;left:8px;right:8px;background:#000d;color:#0f0;font-size:11px;padding:8px;border-radius:8px;z-index:99999;word-break:break-all;white-space:pre-wrap'; document.body.appendChild(dbg); }
-    dbg.textContent = `currentCity: "${currentCity}"\ntotal stations: ${stations.length}\nmatched (byCity): ${byCity.length}\ncity values in DB:\n${cityVals}`;
-  }
   const visible = filterUser ? byCity.filter(s=>s.userId===filterUser) : byCity;
   visible.forEach((s,i)=>{
     const isComp = s.ownership === 'competencia';
@@ -2845,9 +2842,62 @@ async function renderApDash(){
         </div>`;
       }).join('')}
     `;
+    ${(()=>{
+      const noCityCount = stations.filter(s=>!s.city).length;
+      return noCityCount > 0 ? `
+      <div style="margin-top:16px;padding:12px;background:#fff3cd;border-radius:10px">
+        <div style="font-size:13px;font-weight:700;color:#856404;margin-bottom:8px">⚠️ ${noCityCount} ${lang==='ru'?'парковок без города':'estaciones sin ciudad'}</div>
+        <div style="font-size:12px;color:#555;margin-bottom:10px">${lang==='ru'?'Эти парковки не видны при выборе города. Назначить им город:':'Estas estaciones no se ven al filtrar por ciudad. Asignarles ciudad:'}</div>
+        <select id="migrate-city-country" style="width:100%;padding:7px;border-radius:7px;border:1px solid #ccc;font-size:13px;margin-bottom:6px" onchange="migrateCityFillState(this.value)">
+          <option value="">— ${lang==='ru'?'Страна':'País'} —</option>
+          ${Object.entries(GEO_DATA).map(([k,v])=>`<option value="${k}">${v.name?.es||k}</option>`).join('')}
+        </select>
+        <select id="migrate-city-state" style="width:100%;padding:7px;border-radius:7px;border:1px solid #ccc;font-size:13px;margin-bottom:6px" onchange="migrateCityFillCity(this.value)">
+          <option value="">— ${lang==='ru'?'Регион':'Estado'} —</option>
+        </select>
+        <select id="migrate-city-city" style="width:100%;padding:7px;border-radius:7px;border:1px solid #ccc;font-size:13px;margin-bottom:10px">
+          <option value="">— ${lang==='ru'?'Город':'Ciudad'} —</option>
+        </select>
+        <button onclick="migrateCityAssign()" style="width:100%;padding:10px;background:#005bff;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">${lang==='ru'?'Назначить город':'Asignar ciudad'}</button>
+      </div>` : '';
+    })()}
   } catch(e){
     el.innerHTML = `<div class="err">${t('ap_load_err')} ${e.message}</div>`;
   }
+}
+
+function migrateCityFillState(countryCode){
+  const stateEl = document.getElementById('migrate-city-state');
+  const cityEl  = document.getElementById('migrate-city-city');
+  stateEl.innerHTML = `<option value="">— ${lang==='ru'?'Регион':'Estado'} —</option>`;
+  cityEl.innerHTML  = `<option value="">— ${lang==='ru'?'Город':'Ciudad'} —</option>`;
+  if(!countryCode) return;
+  Object.entries(GEO_DATA[countryCode]?.states||{}).sort((a,b)=>a[1].n.localeCompare(b[1].n))
+    .forEach(([k,v])=>{ const o=document.createElement('option'); o.value=k; o.textContent=v.n; stateEl.appendChild(o); });
+}
+
+function migrateCityFillCity(stateCode){
+  const countryCode = document.getElementById('migrate-city-country').value;
+  const cityEl = document.getElementById('migrate-city-city');
+  cityEl.innerHTML = `<option value="">— ${lang==='ru'?'Город':'Ciudad'} —</option>`;
+  if(!stateCode) return;
+  (GEO_DATA[countryCode]?.states[stateCode]?.c||[]).forEach(c=>{ const o=document.createElement('option'); o.value=c; o.textContent=c; cityEl.appendChild(o); });
+}
+
+async function migrateCityAssign(){
+  const country = document.getElementById('migrate-city-country').value;
+  const state   = document.getElementById('migrate-city-state').value;
+  const city    = document.getElementById('migrate-city-city').value;
+  if(!city){ toast('⚠️ ' + (lang==='ru'?'Выберите город':'Elige una ciudad')); return; }
+  const noCityStations = stations.filter(s=>!s.city);
+  if(!noCityStations.length){ toast(lang==='ru'?'Нет парковок без города':'No hay estaciones sin ciudad'); return; }
+  toast((lang==='ru'?'Обновляю':'Actualizando') + ' ' + noCityStations.length + '…');
+  const batch = db.batch();
+  noCityStations.forEach(s=>{
+    batch.update(db.collection('stations').doc(s._docId), {city, country: country||null, state: state||null});
+  });
+  await batch.commit();
+  toast('✅ ' + noCityStations.length + ' ' + (lang==='ru'?'парковок → '+city:'estaciones → '+city));
 }
 
 async function renderApEmployees(){
