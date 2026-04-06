@@ -2547,7 +2547,7 @@ function openEdit(docId){
 // ==================== RENDER ====================
 function renderAll(){
   spotsGroup.clearLayers();
-  const byCity = currentCity ? stations.filter(s => s.city === currentCity) : stations;
+  const byCity = currentCity ? stations.filter(s => !s.city || s.city === currentCity) : stations;
   const visible = filterUser ? byCity.filter(s=>s.userId===filterUser) : byCity;
   visible.forEach((s,i)=>{
     const isComp = s.ownership === 'competencia';
@@ -2653,7 +2653,7 @@ function listSetSort(mode){
 }
 
 function listGetSorted(){
-  const byCity = currentCity ? stations.filter(s => s.city === currentCity) : stations;
+  const byCity = currentCity ? stations.filter(s => !s.city || s.city === currentCity) : stations;
   let list = filterUser ? byCity.filter(s=>s.userId===filterUser) : [...byCity];
   if(listSortMode === 'date_asc')  list.sort((a,b)=>(a.createdAt?.seconds||0)-(b.createdAt?.seconds||0));
   else if(listSortMode === 'name_asc') list.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
