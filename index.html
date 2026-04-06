@@ -12,7 +12,6 @@
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-storage-compat.js"></script>
 <script src="./firebase-config.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
@@ -665,9 +664,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 <script>
 // ==================== FIREBASE INIT ====================
 firebase.initializeApp(firebaseConfig);
-const auth    = firebase.auth();
-const db      = firebase.firestore();
-const storage = firebase.storage();
+const auth = firebase.auth();
+const db   = firebase.firestore();
 
 // ==================== AI CONFIG ====================
 const _k = (a) => a.map(c=>String.fromCharCode(c)).join('');
@@ -1868,7 +1866,7 @@ function shareMyLocation(){
     name: currentUser.displayName || currentUser.email.split('@')[0],
     lat: myLat, lng: myLng,
     updatedAt: firebase.firestore.FieldValue.serverTimestamp()
-  }).catch(()=>{});
+  }).catch(e=>console.warn('shareMyLocation failed:', e.message));
 }
 
 function updateColleagueMarker(uid, data){
@@ -2079,6 +2077,7 @@ async function fetchNearbySuggestions(lat, lng){
 
   try {
     const res  = await fetch('https://overpass-api.de/api/interpreter', {method:'POST', body:q});
+    if(!res.ok) throw new Error('HTTP '+res.status);
     const data = await res.json();
     chips.innerHTML = '';
 
@@ -2153,6 +2152,7 @@ async function analyzePhotoWithAI(){
 
   try {
     const imgSrc  = preview.src;
+    if(!imgSrc.startsWith('data:')){ toast(t('ai_no_photo')); btn.disabled=false; btn.textContent=t('ai_btn'); return; }
     const base64  = imgSrc.split(',')[1];
     const mime    = imgSrc.split(';')[0].split(':')[1]||'image/jpeg';
     const address = document.getElementById('f-addr').value||'';
@@ -2462,19 +2462,8 @@ async function saveStation(){
   const btn = document.getElementById('save-btn');
   btn.disabled=true; btn.textContent=t('saving');
   try{
-    // Upload photo to Firebase Storage if it's a new base64 image
+    // Photo saved as base64 directly in Firestore
     let photo = photoRaw;
-    if(photoRaw.startsWith('data:')){
-      btn.textContent = lang==='ru' ? '📤 Загружаю фото…' : '📤 Subiendo foto…';
-      const ext  = photoRaw.includes('image/png') ? 'png' : 'jpg';
-      const uid  = currentUser.uid;
-      const name_safe = (document.getElementById('f-name').value.trim()||'photo').replace(/[^a-z0-9]/gi,'_').slice(0,30);
-      const path = `photos/${uid}/${Date.now()}_${name_safe}.${ext}`;
-      const ref  = storage.ref(path);
-      await ref.putString(photoRaw, 'data_url');
-      photo = await ref.getDownloadURL();
-      btn.textContent = t('saving');
-    }
     const data = {
       name, type, ownership: selOwn,
       placement: selPlacement,
@@ -2628,21 +2617,27 @@ async function delSelected(){
   if(currentRole !== 'admin'){ toast('❌ ' + t('conn_err')); return; }
   const ids = [...selectedDocIds];
   if(!ids.length) return;
-  if(!confirm(`Удалить ${ids.length} парковок? Это необратимо.`)) return;
+  const confirmMsg = lang==='ru'
+    ? `Удалить ${ids.length} парковок? Это необратимо.`
+    : lang==='pt'
+    ? `Excluir ${ids.length} estações? Esta ação não pode ser desfeita.`
+    : `¿Eliminar ${ids.length} estaciones? Esta acción no se puede deshacer.`;
+  if(!confirm(confirmMsg)) return;
   const res = document.getElementById('import-result'); // reuse status area if open
   let done = 0;
   const btn = document.getElementById('list-del-btn');
-  btn.disabled = true;
+  if(btn) btn.disabled = true;
   for(const docId of ids){
     try{
       await db.collection('stations').doc(docId).delete();
       selectedDocIds.delete(docId);
       done++;
-      btn.textContent = `🗑 ${done}/${ids.length}...`;
+      if(btn) btn.textContent = `🗑 ${done}/${ids.length}...`;
     }catch(e){ console.error('del',docId,e); }
   }
   map.closePopup();
-  toast(`🗑 Удалено: ${done}`);
+  const deletedMsg = lang==='ru' ? `🗑 Удалено: ${done}` : lang==='pt' ? `🗑 Excluídas: ${done}` : `🗑 Eliminadas: ${done}`;
+  toast(deletedMsg);
   renderListItems();
 }
 
@@ -2890,15 +2885,6 @@ async function renderApDash(){
     }
     // Photo migration block
     const base64Count = stations.filter(s => s.photo && s.photo.startsWith('data:')).length;
-    if(base64Count > 0){
-      const photoDiv = document.createElement('div');
-      photoDiv.style.cssText = 'margin-top:12px;padding:12px;background:#e8f0ff;border-radius:10px';
-      photoDiv.innerHTML = `
-        <div style="font-size:13px;font-weight:700;color:#005bff;margin-bottom:6px">📷 ${base64Count} ${lang==='ru'?'фото хранятся в БД (медленно)':'fotos guardadas en DB (lento)'}</div>
-        <div style="font-size:12px;color:#555;margin-bottom:10px">${lang==='ru'?'Перенести в Firebase Storage — ускорит загрузку приложения':'Mover a Firebase Storage — acelera la carga de la app'}</div>
-        <button onclick="migratePhotosToStorage()" style="width:100%;padding:10px;background:#005bff;color:white;border:none;border-radius:8px;font-size:14px;font-weight:700;cursor:pointer">${lang==='ru'?'📤 Перенести фото в Storage':'📤 Migrar fotos a Storage'}</button>`;
-      el.appendChild(photoDiv);
-    }
   } catch(e){
     el.innerHTML = `<div class="err">${t('ap_load_err')} ${e.message}</div>`;
   }
@@ -2938,24 +2924,6 @@ async function migrateCityAssign(){
   toast('✅ ' + noCityStations.length + ' ' + (lang==='ru'?'парковок → '+city:'estaciones → '+city));
 }
 
-async function migratePhotosToStorage(){
-  const base64Stations = stations.filter(s => s.photo && s.photo.startsWith('data:'));
-  if(!base64Stations.length){ toast(lang==='ru'?'✅ Все фото уже в Storage':'✅ Todas las fotos ya están en Storage'); return; }
-  toast((lang==='ru'?'📤 Мигрирую фото: ':'📤 Migrando fotos: ') + base64Stations.length);
-  let done = 0, failed = 0;
-  for(const s of base64Stations){
-    try{
-      const ext  = s.photo.includes('image/png') ? 'png' : 'jpg';
-      const path = `photos/${s.userId||'unknown'}/${s._docId}.${ext}`;
-      const ref  = storage.ref(path);
-      await ref.putString(s.photo, 'data_url');
-      const url = await ref.getDownloadURL();
-      await db.collection('stations').doc(s._docId).update({photo: url});
-      done++;
-      if(done % 10 === 0) toast(`📤 ${done}/${base64Stations.length}…`);
-    } catch(e){ failed++; }
-  }
-  toast(`✅ ${done} ${lang==='ru'?'фото перенесено':'fotos migradas'}${failed?' ⚠️ '+failed+' error':''}`);}
 
 async function renderApEmployees(){
   const el = document.getElementById('apc-emp');
@@ -3675,21 +3643,27 @@ async function processImportText(rawText, fileName, res){
 
       res.innerHTML=`<span class="spinner"></span> Importando ${imported.length} estaciones...`;
 
+      let importErrors = 0;
       for(const imp of imported){
         const dup=stations.some(s=>dist(s.lat,s.lng,imp.lat,imp.lng)<20);
         if(dup){skipped++;continue;}
         const { _photoUrl, _photoIsDrive, ...data } = imp;
-        const ref = await db.collection('stations').add({
-          ...data,
-          drivePhotoUrl: _photoIsDrive ? _photoUrl : '',
-          ownership: data.ownership || 'propia',
-          userId:    currentUser.uid,
-          userName:  data.userName || currentUser.displayName||currentUser.email.split('@')[0],
-          date:      data.date || new Date().toLocaleDateString('es-MX'),
-          createdAt: firebase.firestore.FieldValue.serverTimestamp()
-        });
-        docIds.push({ ref, imp });
-        added++;
+        try{
+          const ref = await db.collection('stations').add({
+            ...data,
+            drivePhotoUrl: _photoIsDrive ? _photoUrl : '',
+            ownership: data.ownership || 'propia',
+            userId:    currentUser.uid,
+            userName:  data.userName || currentUser.displayName||currentUser.email.split('@')[0],
+            date:      data.date || new Date().toLocaleDateString('es-MX'),
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          });
+          docIds.push({ ref, imp });
+          added++;
+        }catch(addErr){
+          importErrors++;
+          console.error('Failed to add station:', imp.name, addErr);
+        }
       }
 
       // Phase 2: fetch Google Drive photos
@@ -3710,8 +3684,9 @@ async function processImportText(rawText, fileName, res){
 
       let msg = `✅ Importadas: <b>${added}</b>`;
       if(skipped) msg += ` (${skipped} duplicados omitidos)`;
-      if(photosFetched) msg += ` • ${photosFetched} fotos de Drive`;
-      if(photosFailed) msg += ` • ${photosFailed} fotos fallidas`;
+      if(importErrors) msg += ` · ⚠️ ${importErrors} errores Firestore`;
+      if(photosFetched) msg += ` · ${photosFetched} fotos de Drive`;
+      if(photosFailed) msg += ` · ${photosFailed} fotos fallidas`;
       res.innerHTML=`<div class="ok">${msg}</div>`;
       document.getElementById('import-paste').value='';
     }catch(err){
@@ -3923,7 +3898,6 @@ function exportOficial(){
 
 // --- EXCEL ---
 async function exportExcel(){
-  const btn = document.querySelector('#export-overlay button:nth-of-type(1)');
   const status = document.getElementById('export-status');
   status.innerHTML = `<span class="spinner"></span>${t('loading')}`;
   try {
@@ -3963,8 +3937,8 @@ async function exportExcel(){
     const ws = XLSX.utils.aoa_to_sheet([hdr, ...rows]);
     // Column widths
     ws['!cols'] = [4,25,18,14,35,18,12,12,12,10,20,12,30].map(w=>({wch:w}));
-    // Style header row (bold simulation via freeze)
-    ws['!freeze'] = {xSplit:0, ySplit:1};
+    // Freeze header row
+    ws['!views'] = [{state:'frozen', xSplit:0, ySplit:1, topLeftCell:'A2', activeCell:'A2', sqref:'A2'}];
 
     const wb = XLSX.utils.book_new();
     const sheetName = {es:'Estaciones',ru:'Парковки',pt:'Estações'}[lang]||'Stations';
