@@ -810,9 +810,9 @@ body{background:var(--bg-deep)!important}
         <div style="font-weight:700;color:#3b82f6;margin-bottom:8px">🗺 Карта</div>
         <div style="display:flex;flex-direction:column;gap:5px">
           <div><b style="color:#fff">GPS (синяя кнопка ▸)</b> — центрировать карту на вашей позиции. Нажмите ещё раз — следить за движением.</div>
-          <div><b style="color:#fff">Слои карты 🗺</b> — переключение между обычной картой и спутником.</div>
+          <div><b style="color:#fff">🛰 Satélite</b> — переключение между обычной картой OSM и спутниковым снимком.</div>
           <div><b style="color:#fff">Добавить здесь (GPS)</b> — быстро добавить парковку прямо на вашем GPS-месте.</div>
-          <div><b style="color:#fff">Mostrar todas</b> — показать все парковки города на карте.</div>
+          <div><b style="color:#fff">🗺 Mostrar todas</b> — центрировать карту чтобы были видны все ваши JET-парковки.</div>
         </div>
       </div>
 
@@ -2211,9 +2211,7 @@ function resubscribeStations(){
           stations = snap2.docs.map(d => ({...d.data(), _docId: d.id}));
           renderAll();
           document.getElementById('cnt').textContent = stations.length;
-          const bounds = stations.map(s=>[s.lat,s.lng]).filter(p=>p[0]&&p[1]);
-          if(bounds.length === 1) map.setView(bounds[0], 16);
-          else if(bounds.length > 1) map.fitBounds(bounds, {padding:[40,40]});
+          // Do NOT pan map here — city navigation already handled by Nominatim
         }
       }).catch(()=>{});
       return;
@@ -5461,7 +5459,7 @@ window.addEventListener('online', ()=>{badge.style.background='#28a745';badge.te
 window.addEventListener('offline',()=>{badge.style.background='#dc3545';badge.textContent='● Offline';});
 
 // ==================== ANALYTICS HEATMAP ====================
-const AN_PROXY = 'https://brussels-radius-intake-barrier.trycloudflare.com';
+const AN_PROXY = 'https://tradition-pine-village-complexity.trycloudflare.com';
 const AN_GAS   = atob('aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J5YkFiLXZXcWRnZ3VEMHA5Q2xIajM1YTMyamZFOGw3SE0wVzNZZmR0QVE2R3RnRVNZTHYweXJPM2dNVGJFVlliUzkvZXhlYw==');
 let _anHeatLayer = null;
 let _anMarkersLayer = null;
