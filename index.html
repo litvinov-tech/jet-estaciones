@@ -968,6 +968,9 @@ body{background:var(--bg-deep)!important}
     <button onclick="fetchAllDrivePhotos()" style="width:100%;padding:10px;background:#16a34a;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer" data-i18n="drive_btn">
       🖼 Загрузить фото из Drive
     </button>
+    <button onclick="convertAllBrokenPhotos()" style="width:100%;padding:10px;background:#7c3aed;color:#fff;border:none;border-radius:8px;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px">
+      🔄 Исправить перевёрнутые/HEIC фото
+    </button>
     <div id="drive-photo-result" style="margin-top:8px;font-size:13px"></div>
   </div>
 </div>
@@ -3821,6 +3824,31 @@ function driveDirectUrl(url) {
 }
 
 // Helper: fetch Drive photo via server proxy (avoids CORS)
+async function convertAllBrokenPhotos() {
+  const res = document.getElementById('drive-photo-result');
+  const PROXY = 'https://survival-michigan-transmitted-travelers.trycloudflare.com';
+  const broken = stations.filter(s => s.photo && s.photo.startsWith('data:') && !s.photo.startsWith('data:image/'));
+  if (!broken.length) { res.innerHTML='<div class="ok">✅ Нет битых HEIC фото</div>'; return; }
+  let done=0, failed=0;
+  for (const s of broken) {
+    const idx = broken.indexOf(s)+1;
+    res.innerHTML=`<span class="spinner"></span> ${idx}/${broken.length} — ${s.name||''}...`;
+    try {
+      const resp = await fetch(`${PROXY}/convert-base64`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({data: s.photo})
+      });
+      const d = await resp.json();
+      if (d.data && d.data.startsWith('data:image/')) {
+        await db.collection('stations').doc(s._docId).update({photo: d.data});
+        s.photo = d.data;
+        done++;
+      } else { failed++; }
+    } catch(e) { failed++; }
+  }
+  res.innerHTML=`<div class="ok">✅ Конвертировано: ${done}${failed?` · ❌ Ошибок: ${failed}`:''}</div>`;
+}
+
 async function fetchAllDrivePhotos() {
   const res = document.getElementById('drive-photo-result');
   // Find stations with drivePhotoUrl saved, or photo that is Drive URL, or photo that is broken HEIC base64
