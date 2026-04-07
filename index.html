@@ -8,6 +8,7 @@
 <title>JET Estaciones</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
@@ -660,6 +661,7 @@ body{background:var(--bg-deep)!important}
     <button class="tbtn" id="tb-suggest" onclick="toggleSuggestions()">🎯 Sugerencias</button>
     <button class="tbtn" id="tb-import" onclick="openImport()">📥 Importar</button>
     <button class="tbtn" id="tb-export" onclick="exportData()">📤 Exportar</button>
+    <button class="tbtn" id="tb-analytics" onclick="openAnalytics()">🔥 Analytics</button>
     <button class="tbtn" id="tb-admin" onclick="openAdminPanel()" style="display:none;position:relative">🛡 Admin<span id="tb-admin-badge" style="position:absolute;top:2px;right:2px;background:#dc3545;color:white;border-radius:8px;font-size:9px;padding:1px 4px;font-weight:700;display:none">0</span></button>
   </div>
 </div>
@@ -787,6 +789,37 @@ body{background:var(--bg-deep)!important}
       <div class="city-list" id="city-list"></div>
     </div>
     <button class="city-confirm-btn" id="city-confirm-btn" disabled onclick="cityConfirm()">✓ Confirmar</button>
+  </div>
+</div>
+
+<!-- ====== ANALYTICS PANEL ====== -->
+<div id="analytics-panel" style="display:none;position:absolute;top:0;left:0;right:0;bottom:0;z-index:800;pointer-events:none">
+  <!-- Controls card -->
+  <div style="position:absolute;top:12px;left:50%;transform:translateX(-50%);background:var(--bg-card,#0f1420);border:1px solid var(--border,rgba(255,255,255,0.07));border-radius:16px;padding:14px 18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;pointer-events:all;box-shadow:0 8px 32px rgba(0,0,0,0.5);max-width:96vw">
+    <span style="font-size:14px;font-weight:700;color:var(--text-primary,#f0f4ff)">🔥 Heatmap</span>
+    <select id="an-days" style="background:var(--bg-surface,#161c2d);border:1px solid var(--border,rgba(255,255,255,0.07));color:var(--text-primary,#f0f4ff);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer">
+      <option value="1">Hoje</option>
+      <option value="3">3 dias</option>
+      <option value="7" selected>7 dias</option>
+      <option value="14">14 dias</option>
+    </select>
+    <div style="display:flex;border:1px solid var(--border,rgba(255,255,255,0.07));border-radius:8px;overflow:hidden">
+      <button id="an-btn-free" onclick="anSetMode('free')" style="background:#3b82f6;color:#fff;border:none;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer">Fora de estação</button>
+      <button id="an-btn-all" onclick="anSetMode('all')" style="background:var(--bg-surface,#161c2d);color:var(--text-secondary,#8892aa);border:none;padding:6px 10px;font-size:11px;cursor:pointer">Todos</button>
+    </div>
+    <button onclick="anLoadNow()" style="background:#10b981;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">⚡ Agora</button>
+    <button onclick="anLoadGAS()" style="background:#7c3aed;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">📊 Histórico</button>
+    <button onclick="closeAnalytics()" style="background:var(--danger,#ef4444);color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-weight:700;cursor:pointer">✕ Fechar</button>
+  </div>
+  <!-- Info card -->
+  <div id="an-info" style="position:absolute;bottom:90px;left:12px;background:var(--bg-card,#0f1420);border:1px solid var(--border,rgba(255,255,255,0.07));border-radius:12px;padding:10px 14px;font-size:12px;pointer-events:all;min-width:200px;display:none">
+    <div id="an-info-content"></div>
+  </div>
+  <!-- Legend -->
+  <div style="position:absolute;bottom:90px;right:12px;background:var(--bg-card,#0f1420);border:1px solid var(--border,rgba(255,255,255,0.07));border-radius:10px;padding:8px 12px;pointer-events:all">
+    <div style="font-size:10px;font-weight:700;color:var(--text-secondary,#8892aa);margin-bottom:5px;text-transform:uppercase;letter-spacing:.5px">Densidade</div>
+    <div style="width:140px;height:6px;border-radius:3px;background:linear-gradient(90deg,#0000ff,#00ffff,#00ff00,#ffff00,#ff0000);margin-bottom:4px"></div>
+    <div style="display:flex;justify-content:space-between;font-size:10px;color:var(--text-secondary,#8892aa)"><span>Baixa</span><span>Alta</span></div>
   </div>
 </div>
 
@@ -5048,6 +5081,107 @@ function toast(msg){
 const badge=document.getElementById('badge');
 window.addEventListener('online', ()=>{badge.style.background='#28a745';badge.textContent='● Online';});
 window.addEventListener('offline',()=>{badge.style.background='#dc3545';badge.textContent='● Offline';});
+
+// ==================== ANALYTICS HEATMAP ====================
+const AN_PROXY = 'https://survival-michigan-transmitted-travelers.trycloudflare.com';
+const AN_GAS   = atob('aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J5YkFiLXZXcWRnZ3VEMHA5Q2xIajM1YTMyamZFOGw3SE0wVzNZZmR0QVE2R3RnRVNZTHYweXJPM2dNVGJFVlliUzkvZXhlYw==');
+let _anHeatLayer = null;
+let _anMode = 'free';
+let _anOpen = false;
+
+function openAnalytics() {
+  _anOpen = true;
+  document.getElementById('analytics-panel').style.display = 'block';
+  if (!_anHeatLayer && window.L && window.L.heatLayer) {
+    _anHeatLayer = L.heatLayer([], {
+      radius: 28, blur: 22, maxZoom: 17,
+      gradient: {0.0:'#0000ff', 0.3:'#00ffff', 0.5:'#00ff00', 0.7:'#ffff00', 1.0:'#ff0000'}
+    }).addTo(map);
+  }
+  toast('🔥 Heatmap ativo — clique em ⚡ Agora ou 📊 Histórico');
+}
+
+function closeAnalytics() {
+  _anOpen = false;
+  document.getElementById('analytics-panel').style.display = 'none';
+  if (_anHeatLayer) { _anHeatLayer.setLatLngs([]); }
+  document.getElementById('an-info').style.display = 'none';
+}
+
+function anSetMode(m) {
+  _anMode = m;
+  document.getElementById('an-btn-free').style.background = m==='free'?'#3b82f6':'var(--bg-surface,#161c2d)';
+  document.getElementById('an-btn-free').style.color = m==='free'?'#fff':'var(--text-secondary,#8892aa)';
+  document.getElementById('an-btn-all').style.background = m==='all'?'#3b82f6':'var(--bg-surface,#161c2d)';
+  document.getElementById('an-btn-all').style.color = m==='all'?'#fff':'var(--text-secondary,#8892aa)';
+}
+
+async function anLoadNow() {
+  const city = currentCity;
+  if (!city) { toast('Selecione uma cidade primeiro'); return; }
+  toast('⚡ Buscando patinetes...');
+  try {
+    const citiesResp = await fetch(`${AN_PROXY}/gojet/cities`);
+    const cities = await citiesResp.json();
+    const cityEntry = cities.find(c => c.name === city);
+    if (!cityEntry) { toast('Cidade não encontrada na GoJet API'); return; }
+
+    const parkResp = await fetch(`${AN_PROXY}/gojet/parkings?city_id=${cityEntry.id}`);
+    const data = await parkResp.json();
+    const entries = data.entries || [];
+
+    const pts = [];
+    entries.forEach(e => {
+      const lat = e.latitude || e.location_lat || (e.location||{}).lat;
+      const lng = e.longitude || e.location_lng || (e.location||{}).lng;
+      const count = e.bikes_count || 0;
+      if (lat && lng && count > 0) {
+        for (let i = 0; i < Math.min(count, 8); i++) {
+          pts.push([lat + (Math.random()-.5)*0.0008, lng + (Math.random()-.5)*0.0008, 1]);
+        }
+      }
+    });
+
+    if (!pts.length) { toast('Nenhum patinete encontrado agora'); return; }
+    _anHeatLayer.setLatLngs(pts);
+    _anShowInfo(`⚡ Tempo real • ${entries.length} estações • ${pts.length} pontos`);
+    toast(`✅ ${pts.length} posições carregadas`);
+  } catch(e) {
+    toast('Erro: ' + e.message);
+  }
+}
+
+async function anLoadGAS() {
+  const city = currentCity;
+  if (!city) { toast('Selecione uma cidade primeiro'); return; }
+  const days = parseInt(document.getElementById('an-days').value);
+  toast('📊 Carregando histórico...');
+  try {
+    const resp = await fetch(AN_GAS, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({acao:'getOccupancyHeatmap', city, days})
+    });
+    const d = await resp.json();
+    if (!d.ok || !d.points?.length) {
+      toast('Sem dados históricos no GAS');
+      return;
+    }
+    _anHeatLayer.setLatLngs(d.points);
+    const stList = (d.stations||[]).sort((a,b)=>b.fill-a.fill).slice(0,5);
+    const rows = stList.map(s=>`<div style="display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px solid rgba(255,255,255,0.05);font-size:11px"><span style="color:var(--text-secondary,#8892aa)">${s.name.substring(0,22)}</span><span style="font-weight:700;color:${s.fill>70?'#ef4444':s.fill>40?'#f59e0b':'#10b981'}">${s.fill}%</span></div>`).join('');
+    _anShowInfo(`<div style="font-weight:700;margin-bottom:6px;font-size:12px">📊 Top ocupação • ${days}d</div>${rows}`);
+    toast(`✅ ${d.points.length} estações com histórico`);
+  } catch(e) {
+    toast('Erro GAS: ' + e.message);
+  }
+}
+
+function _anShowInfo(html) {
+  const el = document.getElementById('an-info');
+  document.getElementById('an-info-content').innerHTML = html;
+  el.style.display = 'block';
+}
 
 // ==================== SERVICE WORKER ====================
 if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
