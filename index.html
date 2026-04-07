@@ -645,6 +645,10 @@ body{background:var(--bg-deep)!important}
         <button id="fab-gps" onclick="startAddGPS()">＋</button>
       </div>
       <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+        <div class="fab-lbl" id="fab-layer-lbl">Satélite</div>
+        <button id="fab-layer" onclick="toggleMapLayer()" title="Cambiar capa del mapa" style="width:42px;height:42px;background:white;color:#0d0d1a;border:none;border-radius:50%;font-size:19px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center">🛰</button>
+      </div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
         <div class="fab-lbl">Mostrar todas</div>
         <button id="fab-map" onclick="fitAllMarkers()" title="Mostrar todas las estaciones">🗺</button>
       </div>
@@ -1622,8 +1626,29 @@ const GEO_DATA = {
 // ==================== MAP ====================
 const renderer = L.canvas({ padding: 0.5 });
 const map = L.map('map',{zoomControl:false, preferCanvas:true}).setView(CENTER,15);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxZoom:19,keepBuffer:2}).addTo(map);
+const _layerOSM = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxZoom:19,keepBuffer:2});
+const _layerSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:19,keepBuffer:2});
+let _currentLayer = 'osm';
+_layerOSM.addTo(map);
 L.control.zoom({position:'bottomleft'}).addTo(map);
+
+function toggleMapLayer() {
+  const btn = document.getElementById('fab-layer');
+  const lbl = document.getElementById('fab-layer-lbl');
+  if (_currentLayer === 'osm') {
+    map.removeLayer(_layerOSM);
+    _layerSat.addTo(map);
+    _currentLayer = 'sat';
+    if (btn) btn.textContent = '🗺';
+    if (lbl) lbl.textContent = 'Mapa';
+  } else {
+    map.removeLayer(_layerSat);
+    _layerOSM.addTo(map);
+    _currentLayer = 'osm';
+    if (btn) btn.textContent = '🛰';
+    if (lbl) lbl.textContent = 'Satélite';
+  }
+}
 const spotsGroup = L.layerGroup().addTo(map);
 
 // ==================== RESTRICTED STREETS (KML) ====================
