@@ -3967,7 +3967,7 @@ function showMissingPhotos() {
 
 async function convertAllBrokenPhotos() {
   const res = document.getElementById('drive-photo-result');
-  const PROXY = 'https://survival-michigan-transmitted-travelers.trycloudflare.com';
+  const PROXY = 'https://brussels-radius-intake-barrier.trycloudflare.com';
   const broken = stations.filter(s => s.photo && s.photo.startsWith('data:') && !s.photo.startsWith('data:image/'));
   if (!broken.length) { res.innerHTML='<div class="ok">✅ Нет битых HEIC фото</div>'; return; }
   let done=0, failed=0;
@@ -4028,7 +4028,7 @@ async function fetchAllDrivePhotos() {
 async function fetchDrivePhoto(url) {
   if (!url || !url.includes('drive.google.com')) return url;
   try {
-    const proxyUrl = `https://survival-michigan-transmitted-travelers.trycloudflare.com/proxy-photo?url=${encodeURIComponent(url)}`;
+    const proxyUrl = `https://brussels-radius-intake-barrier.trycloudflare.com/proxy-photo?url=${encodeURIComponent(url)}`;
     const resp = await fetch(proxyUrl);
     if (!resp.ok) return url;
     const d = await resp.json();
@@ -5336,7 +5336,7 @@ window.addEventListener('online', ()=>{badge.style.background='#28a745';badge.te
 window.addEventListener('offline',()=>{badge.style.background='#dc3545';badge.textContent='● Offline';});
 
 // ==================== ANALYTICS HEATMAP ====================
-const AN_PROXY = 'https://survival-michigan-transmitted-travelers.trycloudflare.com';
+const AN_PROXY = 'https://brussels-radius-intake-barrier.trycloudflare.com';
 const AN_GAS   = atob('aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J5YkFiLXZXcWRnZ3VEMHA5Q2xIajM1YTMyamZFOGw3SE0wVzNZZmR0QVE2R3RnRVNZTHYweXJPM2dNVGJFVlliUzkvZXhlYw==');
 let _anHeatLayer = null;
 let _anMode = 'free';
