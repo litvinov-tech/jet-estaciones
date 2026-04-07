@@ -797,6 +797,9 @@ body{background:var(--bg-deep)!important}
   <!-- Main controls bar -->
   <div style="margin:0 8px 6px;background:var(--bg-card,#0f1420);border:1px solid rgba(59,130,246,0.3);border-radius:14px;padding:10px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;pointer-events:all;box-shadow:0 -4px 24px rgba(0,0,0,0.6)">
     <span style="font-size:13px;font-weight:800;color:#3b82f6;letter-spacing:-.3px">🔥 Analytics</span>
+    <select id="an-city" style="background:#0f1525;border:1px solid rgba(255,255,255,0.1);color:#e8edf5;border-radius:8px;padding:5px 8px;font-size:12px;cursor:pointer;max-width:140px">
+      <option value="">Carregando...</option>
+    </select>
     <select id="an-days" style="background:#0f1525;border:1px solid rgba(255,255,255,0.1);color:#e8edf5;border-radius:8px;padding:5px 8px;font-size:12px;cursor:pointer">
       <option value="1">Hoje</option>
       <option value="3">3 dias</option>
@@ -5108,7 +5111,24 @@ let _anHeatLayer = null;
 let _anMode = 'free';
 let _anOpen = false;
 
-const AN_GOJET_CITIES = ['Guaratuba','Londrina','Matinhos','Belem','Itajai','Torres','Gramado','Blumenau','Brasilia','Campinas','Sorocaba','Fortaleza','Joinville','Tramandai','Navegantes','Porto Alegre','Florianopolis','Balneario-Camboriu','Sao Jose dos Campos','Palhoça','Novo Hamburgo','Capão de Canoa','Campos do Jordão'];
+let _anCities = []; // loaded from GoJet API
+
+async function _anLoadCities() {
+  const sel = document.getElementById('an-city');
+  if (!sel) return;
+  try {
+    const resp = await fetch(`${AN_PROXY}/gojet/cities`);
+    const cities = await resp.json();
+    _anCities = cities.map(c => c.name).sort();
+    sel.innerHTML = _anCities.map(c =>
+      `<option value="${c}" ${c===currentCity?'selected':''}>${c}</option>`
+    ).join('');
+    // If currentCity is in list — preselect it
+    if (currentCity && _anCities.includes(currentCity)) sel.value = currentCity;
+  } catch(e) {
+    sel.innerHTML = '<option value="">Erro ao carregar</option>';
+  }
+}
 
 function openAnalytics() {
   _anOpen = true;
@@ -5119,15 +5139,9 @@ function openAnalytics() {
       gradient: {0.0:'#0000ff', 0.3:'#00ffff', 0.5:'#00ff00', 0.7:'#ffff00', 1.0:'#ff0000'}
     }).addTo(map);
   }
-  const cityOk = AN_GOJET_CITIES.includes(currentCity);
+  _anLoadCities();
   const st = document.getElementById('an-status');
-  if (!cityOk) {
-    if(st) st.textContent = currentCity ? `⚠️ "${currentCity}" sem dados GoJet` : '⚠️ Selecione Guaratuba, Londrina ou Matinhos';
-    if(st) st.style.color = '#f59e0b';
-  } else {
-    if(st) st.textContent = `📍 ${currentCity} — clique ⚡ ou 📊`;
-    if(st) st.style.color = '#10b981';
-  }
+  if(st) { st.textContent = 'Selecione cidade e clique ⚡ ou 📊'; st.style.color='#607d9b'; }
 }
 
 function closeAnalytics() {
@@ -5146,8 +5160,8 @@ function anSetMode(m) {
 }
 
 async function anLoadNow() {
-  const city = currentCity;
-  if (!city) { toast('Selecione uma cidade primeiro'); return; }
+  const city = (document.getElementById('an-city')||{}).value || currentCity;
+  if (!city) { toast('Selecione uma cidade'); return; }
   toast('⚡ Buscando patinetes...');
   try {
     const citiesResp = await fetch(`${AN_PROXY}/gojet/cities`);
@@ -5181,8 +5195,8 @@ async function anLoadNow() {
 }
 
 async function anLoadGAS() {
-  const city = currentCity;
-  if (!city) { toast('Selecione uma cidade primeiro'); return; }
+  const city = (document.getElementById('an-city')||{}).value || currentCity;
+  if (!city) { toast('Selecione uma cidade'); return; }
   const days = parseInt(document.getElementById('an-days').value);
   toast('📊 Carregando histórico...');
   try {
