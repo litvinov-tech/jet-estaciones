@@ -663,6 +663,7 @@ body{background:var(--bg-deep)!important}
     <button class="tbtn" id="tb-export" onclick="exportData()">📤 Export</button>
     <button class="tbtn" id="tb-analytics" onclick="openAnalytics()">🔥 Analytics</button>
     <button class="tbtn" id="tb-admin" onclick="openAdminPanel()" style="display:none;position:relative">🛡 Admin<span id="tb-admin-badge" style="position:absolute;top:2px;right:2px;background:#dc3545;color:white;border-radius:8px;font-size:9px;padding:1px 4px;font-weight:700;display:none">0</span></button>
+    <button class="tbtn" onclick="openHelp()" style="background:#1e293b;color:#94a3b8;min-width:36px">❓</button>
   </div>
 </div>
 
@@ -789,6 +790,91 @@ body{background:var(--bg-deep)!important}
       <div class="city-list" id="city-list"></div>
     </div>
     <button class="city-confirm-btn" id="city-confirm-btn" disabled onclick="cityConfirm()">✓ Confirmar</button>
+  </div>
+</div>
+
+<!-- ====== HELP MODAL ====== -->
+<div id="help-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9500;align-items:center;justify-content:center;padding:16px">
+  <div style="background:#0f1420;border:1px solid rgba(255,255,255,0.1);border-radius:20px;width:100%;max-width:520px;max-height:88vh;overflow-y:auto;padding:20px 18px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div style="font-size:17px;font-weight:800;color:#fff">❓ Справочник функций</div>
+      <button onclick="closeHelp()" style="background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:4px 12px;font-size:14px;cursor:pointer">✕</button>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:14px;font-size:13px;color:#c8d0df">
+
+      <div style="background:#161c2d;border-radius:12px;padding:14px">
+        <div style="font-weight:700;color:#3b82f6;margin-bottom:8px">🗺 Карта</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div><b style="color:#fff">GPS (синяя кнопка ▸)</b> — центрировать карту на вашей позиции. Нажмите ещё раз — следить за движением.</div>
+          <div><b style="color:#fff">Слои карты 🗺</b> — переключение между обычной картой и спутником.</div>
+          <div><b style="color:#fff">Добавить здесь (GPS)</b> — быстро добавить парковку прямо на вашем GPS-месте.</div>
+          <div><b style="color:#fff">Mostrar todas</b> — показать все парковки города на карте.</div>
+        </div>
+      </div>
+
+      <div style="background:#161c2d;border-radius:12px;padding:14px">
+        <div style="font-weight:700;color:#10b981;margin-bottom:8px">📍 Парковки (JET станции)</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div><b style="color:#fff">+ (голубая кнопка)</b> — добавить новую парковку. Нажмите на карте чтобы выбрать место, затем заполните форму.</div>
+          <div><b style="color:#fff">Маркер на карте</b> — нажмите чтобы увидеть детали, фото, редактировать.</div>
+          <div><b style="color:#fff">Фото</b> — добавьте фото парковки. HEIC (iPhone) конвертируются автоматически.</div>
+          <div><b style="color:#fff">Ёмкость (1–20)</b> — кол-во самокатов, которые помещаются.</div>
+          <div><b style="color:#fff">Тип</b> — торговый центр, ресторан, офис и т.д.</div>
+          <div><b style="color:#fff">Наша JET / Конкурент</b> — тип парковки.</div>
+        </div>
+      </div>
+
+      <div style="background:#161c2d;border-radius:12px;padding:14px">
+        <div style="font-weight:700;color:#a78bfa;margin-bottom:8px">🧭 Панель навигации (нижняя)</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div><b style="color:#fff">Yo</b> — ваша онлайн-метка на карте (видна коллегам).</div>
+          <div><b style="color:#fff">Список</b> — список всех парковок с поиском и фильтром.</div>
+          <div><b style="color:#fff">Команда</b> — активность коллег: кто онлайн и где.</div>
+          <div><b style="color:#fff">Велодорожки 🚴</b> — показать/скрыть велодорожки на карте.</div>
+          <div><b style="color:#fff">📍 Ciudad (город)</b> — выбор города. Фильтрует парковки по городу.</div>
+          <div><b style="color:#fff">Предложения 🎯</b> — AI-рекомендации мест для новых парковок (рестораны, ТЦ и т.д.).</div>
+          <div><b style="color:#fff">Import 📥</b> — импорт парковок из Excel/CSV файла.</div>
+          <div><b style="color:#fff">Export 📤</b> — выгрузить все парковки в Excel или CSV.</div>
+          <div><b style="color:#fff">Analytics 🔥</b> — тепловая карта самокатов GoJet.</div>
+          <div><b style="color:#fff">Admin 🛡</b> — панель администратора (только для adminов).</div>
+        </div>
+      </div>
+
+      <div style="background:#161c2d;border-radius:12px;padding:14px">
+        <div style="font-weight:700;color:#f59e0b;margin-bottom:8px">🔥 Analytics — GoJet самокаты</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div><b style="color:#fff">Город</b> — выберите город из списка GoJet (60+ городов).</div>
+          <div><b style="color:#fff">⚡ Agora (Сейчас)</b> — загрузить ТЕКУЩЕЕ расположение самокатов. Показывает тепловую карту + маркеры каждой парковки с кол-вом самокатов.</div>
+          <div><b style="color:#fff">📊 Histórico</b> — исторические данные из Google Sheets (требует настройки).</div>
+          <div><b style="color:#fff">Fora estação</b> — только самокаты вне парковки (свободные).</div>
+          <div><b style="color:#fff">Todos</b> — все самокаты.</div>
+          <div><b style="color:#fff">Маркеры на карте</b> — кружок = парковка GoJet, цвет: 🟢 много самокатов, 🟡 мало, ⚫ пусто. Нажмите на кружок — увидите адрес и кол-во.</div>
+        </div>
+      </div>
+
+      <div style="background:#161c2d;border-radius:12px;padding:14px">
+        <div style="font-weight:700;color:#ef4444;margin-bottom:8px">🛡 Панель администратора</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div><b style="color:#fff">Отчёт</b> — HTML отчёт по всем парковкам с фото.</div>
+          <div><b style="color:#fff">Сотрудники</b> — управление ролями пользователей.</div>
+          <div><b style="color:#fff">Заявки</b> — запросы на регистрацию новых пользователей.</div>
+          <div><b style="color:#fff">Фото из Drive 🖼</b> — загрузить фото с Google Drive для станций без фото.</div>
+          <div><b style="color:#fff">Исправить повёрнутые 🔄</b> — редактор для массового поворота фото.</div>
+          <div><b style="color:#fff">Без фото ❌</b> — список станций без фото.</div>
+        </div>
+      </div>
+
+      <div style="background:#161c2d;border-radius:12px;padding:14px">
+        <div style="font-weight:700;color:#64748b;margin-bottom:8px">💡 Советы</div>
+        <div style="display:flex;flex-direction:column;gap:5px">
+          <div>• Работает офлайн — установите как PWA (добавьте на экран).</div>
+          <div>• Фото с iPhone (HEIC) конвертируются автоматически при загрузке.</div>
+          <div>• Если парковок 0 — проверьте выбранный город (кнопка 📍 в панели).</div>
+          <div>• Коллеги видят вас на карте только пока приложение открыто.</div>
+        </div>
+      </div>
+
+    </div>
   </div>
 </div>
 
@@ -2093,6 +2179,20 @@ function resubscribeStations(){
   const onSnap = snap => {
     const wasEmpty = stations.length === 0;
     stations = snap.docs.map(d => ({...d.data(), _docId: d.id}));
+    // If city filter returned 0, fall back to all stations (handles legacy data without city field)
+    if (stations.length === 0 && currentCity) {
+      db.collection('stations').orderBy('createdAt','desc').get().then(snap2 => {
+        if (snap2.docs.length > 0) {
+          stations = snap2.docs.map(d => ({...d.data(), _docId: d.id}));
+          renderAll();
+          document.getElementById('cnt').textContent = stations.length;
+          const bounds = stations.map(s=>[s.lat,s.lng]).filter(p=>p[0]&&p[1]);
+          if(bounds.length === 1) map.setView(bounds[0], 16);
+          else if(bounds.length > 1) map.fitBounds(bounds, {padding:[40,40]});
+        }
+      }).catch(()=>{});
+      return;
+    }
     renderAll();
     document.getElementById('cnt').textContent = stations.length;
     if(wasEmpty && stations.length > 0){
@@ -5339,6 +5439,7 @@ window.addEventListener('offline',()=>{badge.style.background='#dc3545';badge.te
 const AN_PROXY = 'https://brussels-radius-intake-barrier.trycloudflare.com';
 const AN_GAS   = atob('aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J5YkFiLXZXcWRnZ3VEMHA5Q2xIajM1YTMyamZFOGw3SE0wVzNZZmR0QVE2R3RnRVNZTHYweXJPM2dNVGJFVlliUzkvZXhlYw==');
 let _anHeatLayer = null;
+let _anMarkersLayer = null;
 let _anMode = 'free';
 let _anOpen = false;
 
@@ -5370,15 +5471,28 @@ function openAnalytics() {
       gradient: {0.0:'#0000ff', 0.3:'#00ffff', 0.5:'#00ff00', 0.7:'#ffff00', 1.0:'#ff0000'}
     }).addTo(map);
   }
+  if (!_anMarkersLayer) {
+    _anMarkersLayer = L.layerGroup().addTo(map);
+  }
   _anLoadCities();
   const st = document.getElementById('an-status');
   if(st) { st.textContent = 'Selecione cidade e clique ⚡ ou 📊'; st.style.color='#607d9b'; }
+}
+
+function openHelp() {
+  const m = document.getElementById('help-modal');
+  if (m) { m.style.display = 'flex'; }
+}
+function closeHelp() {
+  const m = document.getElementById('help-modal');
+  if (m) { m.style.display = 'none'; }
 }
 
 function closeAnalytics() {
   _anOpen = false;
   document.getElementById('analytics-panel').style.display = 'none';
   if (_anHeatLayer) { _anHeatLayer.setLatLngs([]); }
+  if (_anMarkersLayer) { _anMarkersLayer.clearLayers(); }
   document.getElementById('an-info').style.display = 'none';
 }
 
@@ -5404,22 +5518,46 @@ async function anLoadNow() {
     const data = await parkResp.json();
     const entries = data.entries || [];
 
+    // Clear previous markers
+    if (_anMarkersLayer) _anMarkersLayer.clearLayers();
+
     const pts = [];
+    let totalBikes = 0;
     entries.forEach(e => {
       const lat = e.latitude || e.location_lat || (e.location||{}).lat;
       const lng = e.longitude || e.location_lng || (e.location||{}).lng;
       const count = e.bikes_count || 0;
-      if (lat && lng && count > 0) {
+      const name = e.name || e.address || '';
+      if (!lat || !lng) return;
+      totalBikes += count;
+      // Add to heatmap
+      if (count > 0) {
         for (let i = 0; i < Math.min(count, 8); i++) {
           pts.push([lat + (Math.random()-.5)*0.0008, lng + (Math.random()-.5)*0.0008, 1]);
         }
       }
+      // Add individual marker
+      const color = count === 0 ? '#6b7280' : count < 3 ? '#f59e0b' : '#10b981';
+      const marker = L.circleMarker([lat, lng], {
+        radius: count > 0 ? Math.min(6 + count, 18) : 5,
+        fillColor: color,
+        color: '#fff',
+        weight: 1.5,
+        fillOpacity: count > 0 ? 0.85 : 0.4,
+      });
+      marker.bindPopup(`<b>${name||'Estação GoJet'}</b><br>🛴 ${count} patinetes`);
+      if (_anMarkersLayer) marker.addTo(_anMarkersLayer);
     });
 
-    if (!pts.length) { toast('Nenhum patinete encontrado agora'); return; }
-    _anHeatLayer.setLatLngs(pts);
-    _anShowInfo(`⚡ Tempo real • ${entries.length} estações • ${pts.length} pontos`);
-    const st2=document.getElementById('an-status'); if(st2){st2.textContent=`✅ ${pts.length} pontos`;st2.style.color='#10b981';}
+    if (_anHeatLayer) _anHeatLayer.setLatLngs(pts);
+    _anShowInfo(`⚡ Tempo real • ${entries.length} estações • ${totalBikes} patinetes`);
+    const st2=document.getElementById('an-status'); if(st2){st2.textContent=`✅ ${entries.length} estações`;st2.style.color='#10b981';}
+    // Fit map to city
+    if (entries.length > 0) {
+      const validPts = entries.map(e => [e.latitude||e.location_lat||(e.location||{}).lat, e.longitude||e.location_lng||(e.location||{}).lng]).filter(p=>p[0]&&p[1]);
+      if (validPts.length > 1) map.fitBounds(validPts, {padding:[40,40]});
+      else if (validPts.length === 1) map.setView(validPts[0], 15);
+    }
   } catch(e) {
     toast('Erro: ' + e.message);
   }
@@ -5431,10 +5569,10 @@ async function anLoadGAS() {
   const days = parseInt(document.getElementById('an-days').value);
   toast('📊 Carregando histórico...');
   try {
-    const resp = await fetch(AN_GAS, {
+    const resp = await fetch(`${AN_PROXY}/gas-proxy`, {
       method:'POST',
       headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({acao:'getOccupancyHeatmap', city, days})
+      body: JSON.stringify({url: AN_GAS, payload:{acao:'getOccupancyHeatmap', city, days}})
     });
     const d = await resp.json();
     if (!d.ok || !d.points?.length) {
