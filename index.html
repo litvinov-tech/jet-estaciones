@@ -4371,40 +4371,40 @@ function exportCroquiMulti(list){
     return `
 <div class="station-block">
   <div class="sb-header">
-    <div>
-      <span style="font-size:14px;font-weight:700;color:#1a1a2e">${s.name}</span>
-      <span class="badge" style="background:${isComp?'#fde8e8':'#e8f0ff'};color:${col}">${ownLabel}</span>
-      ${municipio?`<span style="font-size:10px;color:#888;margin-left:6px">${municipio}</span>`:''}
+    <div style="display:flex;align-items:center;gap:0">
+      <span class="sb-name">${s.name}</span>
+      <span class="badge ${isComp?'badge-comp':'badge-jet'}">${ownLabel}</span>
+      ${municipio?`<span style="font-size:9px;color:#9ca3af;margin-left:8px;font-weight:500">${municipio}</span>`:''}
     </div>
-    <div style="font-size:10px;color:#aaa">🕐 ${ts}</div>
+    <div class="sb-meta">
+      <span>${ts}</span>
+      ${s.userId?`<span style="color:#1a56db;font-weight:600">${s.userName||''}</span>`:''}
+    </div>
   </div>
   <div class="sb-grid">
     <div class="sb-col">
-      <div class="box-lbl">📷 ${T.photo}</div>
-      <div style="border-radius:6px;overflow:hidden;border:1px solid #e8edf8">${photoBlock}</div>
+      <div class="box-lbl">${T.photo}</div>
+      <div class="media-box">${photoBlock}</div>
     </div>
     <div class="sb-col">
-      <div class="box-lbl">🗺 ${T.mapview}</div>
-      <div style="border-radius:6px;overflow:hidden;border:1px solid #e8edf8">${mapWithOverlay(s,320,160)}</div>
+      <div class="box-lbl">${T.mapview}</div>
+      <div class="media-box">${mapWithOverlay(s,320,160)}</div>
     </div>
     <div class="sb-col">
-      <div class="box-lbl">📋 ${T.name}</div>
+      <div class="box-lbl">${T.name}</div>
       <table class="info-tbl">
         <tr><td>${T.addr}</td><td>${s.address||'—'}</td></tr>
-        <tr><td>${T.coords}</td><td>${(s.lat||0).toFixed(5)}, ${(s.lng||0).toFixed(5)}</td></tr>
+        <tr><td>${T.coords}</td><td style="font-family:monospace;font-size:8.5px">${(s.lat||0).toFixed(6)}, ${(s.lng||0).toFixed(6)}</td></tr>
         <tr><td>${T.type}</td><td>${s.type||'—'}</td></tr>
-        <tr><td>${T.cap}</td><td>${s.capacity||'—'} &nbsp; ${T.radius}: ${s.radius?s.radius+'m':'—'}</td></tr>
+        <tr><td>${T.cap}</td><td>${s.capacity||'—'} · ${T.radius}: ${s.radius?s.radius+'m':'—'}</td></tr>
         ${s.dimensions?`<tr><td>${T.dims}</td><td>${s.dimensions}</td></tr>`:''}
         ${s.faixaLivre&&s.placement!=='road'?`<tr><td>${T.faixa}</td><td>${s.faixaLivre} m</td></tr>`:''}
-        <tr><td>${T.by}</td><td>${s.userName||'—'} · ${s.date||'—'}</td></tr>
         ${notesRow}
       </table>
     </div>
-    <div class="sb-col" style="display:flex;align-items:center;justify-content:center">
-      <div>
-        <div class="box-lbl">📐 ${T.scheme}</div>
-        ${makeCroqui(s)}
-      </div>
+    <div class="sb-col" style="display:flex;flex-direction:column;align-items:center">
+      <div class="box-lbl" style="width:100%">${T.scheme}</div>
+      ${makeCroqui(s)}
     </div>
   </div>
 </div>`;
@@ -4419,10 +4419,26 @@ function exportCroquiMulti(list){
   const pagesHtml = pages.map((pair,pi)=>`
 <div class="page${pi>0?' page-break':''}">
   <div class="page-hdr">
-    <div><span class="logo">JET</span><span class="hdr-title">${T.title}</span></div>
-    <div style="text-align:right;font-size:10px;color:#888">${T.generated}: ${dateStr} &nbsp;·&nbsp; ${pi+1}/${pages.length}</div>
+    <div class="hdr-left">
+      <div class="logo">JET</div>
+      <div class="hdr-divider"></div>
+      <div class="hdr-doc">
+        <div class="hdr-doc-title">${T.title}</div>
+        <div class="hdr-doc-sub">${currentCity||''} · ${list.length} ${lang==='ru'?'объектов':lang==='pt'?'locais':'ubicaciones'}</div>
+      </div>
+    </div>
+    <div class="hdr-right">
+      <div class="page-num">${pi+1} / ${pages.length}</div>
+      <div class="gen-date">${T.generated}: ${dateStr}</div>
+      <div class="doc-stamp">JET Movilidad © ${new Date().getFullYear()}</div>
+    </div>
   </div>
-  ${pair.map(s=>stationBlock(s)).join('<div class="divider"></div>')}
+  ${pair.map(s=>stationBlock(s)).join('<hr class="divider">')}
+  <div class="page-footer">
+    <div class="footer-brand">JET ESTACIONES · SISTEMA DE GESTIÓN</div>
+    <div class="footer-legal">${lang==='ru'?'Конфиденциально — только для внутреннего использования':lang==='pt'?'Confidencial — uso interno':'Confidencial — uso interno'}</div>
+    <div class="footer-coords">v2.0 · ${dateStr}</div>
+  </div>
 </div>`).join('');
 
   mapOverlayCounter = 0;
@@ -4432,27 +4448,75 @@ ${LEAFLET_HEAD}
 <style>
 .leaflet-tile-pane{opacity:1!important}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,Helvetica,sans-serif;background:#f5f5f5;color:#1a1a2e;font-size:11px}
-.page{width:210mm;min-height:297mm;background:white;padding:10mm 12mm;margin:0 auto 12px}
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+body{font-family:'Inter',Arial,sans-serif;background:#eef0f5;color:#1a1f36;font-size:11px}
+.page{width:210mm;min-height:297mm;background:white;padding:12mm 14mm 10mm;margin:0 auto 16px;box-shadow:0 2px 12px rgba(0,0,0,0.12)}
 .page-break{page-break-before:always;margin-top:0}
-.page-hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #005bff;padding-bottom:8px;margin-bottom:10px}
-.logo{font-size:28px;font-weight:900;color:#005bff;letter-spacing:-1.5px;margin-right:10px}
-.hdr-title{font-size:11px;font-weight:700;color:#1a1a2e;letter-spacing:0.3px}
-.station-block{margin-bottom:8px}
-.sb-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;padding-bottom:5px;border-bottom:1px solid #e8edf8}
-.badge{display:inline-block;padding:1px 7px;border-radius:10px;font-size:10px;font-weight:700;margin-left:5px}
-.sb-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px}
-.sb-col{}
-.box-lbl{font-size:8px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:4px}
+
+/* HEADER */
+.page-hdr{display:flex;align-items:stretch;justify-content:space-between;margin-bottom:14px;border-bottom:3px solid #1a56db;padding-bottom:10px}
+.hdr-left{display:flex;align-items:center;gap:12px}
+.logo{font-size:32px;font-weight:800;color:#1a56db;letter-spacing:-2px;line-height:1}
+.hdr-divider{width:2px;background:#e5e7eb;border-radius:2px;align-self:stretch}
+.hdr-doc{display:flex;flex-direction:column;justify-content:center}
+.hdr-doc-title{font-size:12px;font-weight:700;color:#1a1f36;text-transform:uppercase;letter-spacing:0.6px}
+.hdr-doc-sub{font-size:9px;color:#6b7280;margin-top:2px}
+.hdr-right{text-align:right;display:flex;flex-direction:column;justify-content:center;gap:3px}
+.hdr-right .page-num{font-size:11px;font-weight:700;color:#1a56db}
+.hdr-right .gen-date{font-size:9px;color:#9ca3af}
+.hdr-right .doc-stamp{font-size:8px;color:#d1d5db;border:1px solid #e5e7eb;border-radius:4px;padding:2px 6px;display:inline-block;margin-top:2px}
+
+/* STATION BLOCK */
+.station-block{margin-bottom:12px;border:1px solid #e5e7eb;border-radius:10px;overflow:hidden}
+.sb-header{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:linear-gradient(135deg,#f8faff 0%,#eef2ff 100%);border-bottom:1px solid #e5e7eb}
+.sb-name{font-size:13px;font-weight:700;color:#1a1f36}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:9px;font-weight:700;letter-spacing:0.3px;margin-left:6px}
+.badge-jet{background:#dbeafe;color:#1d4ed8}
+.badge-comp{background:#fee2e2;color:#dc2626}
+.sb-meta{font-size:9px;color:#9ca3af;display:flex;align-items:center;gap:8px}
+.sb-meta span{display:flex;align-items:center;gap:3px}
+
+/* GRID */
+.sb-grid{display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:0;border-top:1px solid #f0f0f0}
+.sb-col{padding:10px;border-right:1px solid #f0f0f0}
+.sb-col:last-child{border-right:none}
+
+/* SECTION LABELS */
+.box-lbl{font-size:8px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.8px;margin-bottom:6px;display:flex;align-items:center;gap:4px}
+.box-lbl::before{content:'';display:block;width:3px;height:10px;background:#1a56db;border-radius:2px;flex-shrink:0}
+
+/* INFO TABLE */
 .info-tbl{width:100%;border-collapse:collapse}
-.info-tbl td{padding:2px 4px;vertical-align:top;font-size:10px;line-height:1.35}
-.info-tbl td:first-child{font-weight:700;color:#444;white-space:nowrap;min-width:50px}
-.info-tbl tr:nth-child(even) td{background:#f8f9ff}
-.divider{border-top:1px dashed #d0d8f0;margin:10px 0}
-.print-btn{display:block;margin:12px auto;padding:10px 28px;background:#005bff;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
-@media print{.print-btn{display:none}.leaflet-tile-pane{opacity:1!important}body{background:white}html{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+.info-tbl tr{border-bottom:1px solid #f3f4f6}
+.info-tbl tr:last-child{border-bottom:none}
+.info-tbl td{padding:3px 5px;vertical-align:top;font-size:9.5px;line-height:1.4}
+.info-tbl td:first-child{font-weight:600;color:#6b7280;white-space:nowrap;width:55px;font-size:8.5px;text-transform:uppercase;letter-spacing:0.3px}
+.info-tbl td:last-child{color:#1a1f36;font-weight:500}
+
+/* PHOTO & MAP */
+.media-box{border-radius:6px;overflow:hidden;border:1px solid #e5e7eb;background:#f8faff}
+
+/* DIVIDER */
+.divider{border:none;border-top:2px dashed #e5e7eb;margin:12px 0}
+
+/* FOOTER */
+.page-footer{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #e5e7eb;padding-top:8px;margin-top:10px}
+.footer-brand{font-size:8px;color:#9ca3af;font-weight:600;letter-spacing:0.5px}
+.footer-legal{font-size:7.5px;color:#d1d5db;text-align:center}
+.footer-coords{font-size:8px;color:#9ca3af;font-family:monospace}
+
+/* PRINT BUTTON */
+.print-btn{display:flex;align-items:center;gap:8px;margin:14px auto;padding:11px 32px;background:linear-gradient(135deg,#1a56db,#1e40af);color:white;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(26,86,219,0.35);letter-spacing:0.2px}
+.print-btn:disabled{background:#9ca3af;box-shadow:none}
+@media print{
+  .print-btn{display:none}
+  .leaflet-tile-pane{opacity:1!important}
+  body{background:white}
+  .page{box-shadow:none;margin:0}
+  html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
 </style></head><body>
-<button class="print-btn" id="print-btn" data-label="${T.print}" disabled onclick="window.print()">⏳ Cargando mapas...</button>
+<button class="print-btn" id="print-btn" data-label="${T.print}" disabled onclick="window.print()">⏳ ${lang==='ru'?'Загрузка карт...':lang==='pt'?'Carregando mapas...':'Cargando mapas...'}</button>
 ${pagesHtml}
 ${LEAFLET_MAP_INIT}
 </body></html>`;
@@ -4508,68 +4572,112 @@ function exportCroqui(docId){
 <title>Croqui — ${s.name}</title>
 ${LEAFLET_HEAD}
 <style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
 .leaflet-tile-pane{opacity:1!important}
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:Arial,Helvetica,sans-serif;background:#fff;color:#1a1a2e;font-size:12px}
-.page{width:210mm;min-height:297mm;padding:12mm 14mm;margin:0 auto}
-/* Header */
-.hdr{display:flex;align-items:center;justify-content:space-between;border-bottom:3px solid #005bff;padding-bottom:10px;margin-bottom:14px}
-.logo{font-size:38px;font-weight:900;color:#005bff;letter-spacing:-2px;line-height:1}
-.hdr-title{font-size:13px;font-weight:700;color:#1a1a2e;margin-top:3px;letter-spacing:0.3px}
-.hdr-right{text-align:right;font-size:10px;color:#888}
-.municipio{font-size:12px;font-weight:700;color:#005bff}
-/* Grid */
-.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
-.box{border:1px solid #d8e0f0;border-radius:8px;overflow:hidden}
-.box-title{font-size:9px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.5px;padding:6px 10px;background:#f7f9ff;border-bottom:1px solid #e8edf8}
-.box-body{padding:10px}
-/* Info table */
+body{font-family:'Inter',Arial,sans-serif;background:#eef0f5;color:#1a1f36;font-size:12px}
+.page{width:210mm;min-height:297mm;padding:12mm 14mm;margin:0 auto;background:white;box-shadow:0 2px 16px rgba(0,0,0,0.12)}
+
+/* HEADER */
+.hdr{display:flex;align-items:stretch;justify-content:space-between;border-bottom:3px solid #1a56db;padding-bottom:12px;margin-bottom:16px}
+.hdr-left{display:flex;align-items:center;gap:14px}
+.logo{font-size:40px;font-weight:800;color:#1a56db;letter-spacing:-2.5px;line-height:1}
+.hdr-sep{width:2px;background:#e5e7eb;border-radius:2px;align-self:stretch}
+.hdr-info{display:flex;flex-direction:column;justify-content:center}
+.hdr-title{font-size:13px;font-weight:700;color:#1a1f36;text-transform:uppercase;letter-spacing:0.6px}
+.hdr-city{font-size:10px;color:#6b7280;margin-top:3px}
+.hdr-right{text-align:right;display:flex;flex-direction:column;justify-content:center;gap:4px}
+.hdr-date{font-size:10px;color:#6b7280}
+.hdr-stamp{font-size:8px;color:#d1d5db;border:1px solid #e5e7eb;border-radius:4px;padding:2px 8px;display:inline-block}
+
+/* STATION NAME */
+.st-title-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;padding:10px 14px;background:linear-gradient(135deg,#f0f5ff,#e8f0ff);border-radius:10px;border-left:4px solid #1a56db}
+.st-name{font-size:17px;font-weight:700;color:#1a1f36}
+.badge{display:inline-flex;align-items:center;padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;letter-spacing:0.3px;margin-left:8px}
+.badge-jet{background:#dbeafe;color:#1d4ed8}
+.badge-comp{background:#fee2e2;color:#dc2626}
+.st-coords{font-size:9px;color:#9ca3af;font-family:monospace;margin-top:4px}
+
+/* GRID */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px}
+.grid2b{display:grid;grid-template-columns:3fr 2fr;gap:12px;margin-bottom:12px}
+.box{border:1px solid #e5e7eb;border-radius:10px;overflow:hidden}
+.box-title{font-size:9px;font-weight:700;color:#6b7280;text-transform:uppercase;letter-spacing:0.8px;padding:7px 12px;background:#f9fafb;border-bottom:1px solid #e5e7eb;display:flex;align-items:center;gap:6px}
+.box-title::before{content:'';display:block;width:3px;height:10px;background:#1a56db;border-radius:2px;flex-shrink:0}
+.box-body{padding:12px}
+
+/* INFO TABLE */
 table{width:100%;border-collapse:collapse}
-td{padding:4px 8px;vertical-align:top;font-size:11px;line-height:1.4}
-td:first-child{font-weight:700;color:#444;width:130px;white-space:nowrap}
-tr:nth-child(even) td{background:#f8f9ff}
-/* Badge */
-.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;background:${isComp?'#fde8e8':'#e8f0ff'};color:${isComp?'#dc3545':'#005bff'}}
-/* Footer */
-.footer{border-top:1px solid #e0e0e0;padding-top:8px;margin-top:8px;font-size:9px;color:#aaa;text-align:center}
-/* Print */
-.print-btn{display:block;margin:0 auto 14px;padding:10px 28px;background:#005bff;color:white;border:none;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer}
-@media print{.print-btn{display:none}.leaflet-tile-pane{opacity:1!important}html{-webkit-print-color-adjust:exact;print-color-adjust:exact}}
+td{padding:5px 8px;vertical-align:top;font-size:11px;line-height:1.45}
+td:first-child{font-weight:600;color:#6b7280;width:140px;white-space:nowrap;font-size:10px;text-transform:uppercase;letter-spacing:0.3px}
+td:last-child{color:#1a1f36;font-weight:500}
+tr{border-bottom:1px solid #f3f4f6}
+tr:last-child{border-bottom:none}
+
+/* FOOTER */
+.footer{display:flex;justify-content:space-between;align-items:center;border-top:1px solid #e5e7eb;padding-top:10px;margin-top:14px}
+.footer-brand{font-size:8.5px;font-weight:700;color:#9ca3af;letter-spacing:0.5px}
+.footer-legal{font-size:8px;color:#d1d5db;text-align:center}
+.footer-doc{font-size:8px;color:#9ca3af;font-family:monospace}
+
+/* PRINT */
+.print-btn{display:flex;align-items:center;gap:8px;margin:0 auto 16px;padding:11px 32px;background:linear-gradient(135deg,#1a56db,#1e40af);color:white;border:none;border-radius:10px;font-size:13px;font-weight:700;cursor:pointer;box-shadow:0 4px 14px rgba(26,86,219,0.35)}
+.print-btn:disabled{background:#9ca3af;box-shadow:none}
+@media print{
+  .print-btn{display:none}
+  .leaflet-tile-pane{opacity:1!important}
+  body{background:white}
+  .page{box-shadow:none}
+  html{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+}
 </style></head><body>
 <div class="page">
-<button class="print-btn" id="print-btn" data-label="${T.print}" disabled onclick="window.print()">⏳ Cargando mapa...</button>
+<button class="print-btn" id="print-btn" data-label="${T.print}" disabled onclick="window.print()">⏳ ${lang==='ru'?'Загрузка карты...':lang==='pt'?'Carregando mapa...':'Cargando mapa...'}</button>
 
 <div class="hdr">
-  <div>
+  <div class="hdr-left">
     <div class="logo">JET</div>
-    <div class="hdr-title">${T.title}</div>
+    <div class="hdr-sep"></div>
+    <div class="hdr-info">
+      <div class="hdr-title">${T.title}</div>
+      <div class="hdr-city">${municipio}</div>
+    </div>
   </div>
   <div class="hdr-right">
-    <div class="municipio">${municipio}</div>
-    <div style="margin-top:4px">${T.generated}: ${dateStr}</div>
-    <div>${s.lat?.toFixed(6)}, ${s.lng?.toFixed(6)}</div>
+    <div class="hdr-date">${T.generated}: ${dateStr}</div>
+    <div class="hdr-stamp">JET Movilidad © ${new Date().getFullYear()}</div>
   </div>
 </div>
 
-<div class="grid">
+<div class="st-title-row">
+  <div>
+    <div style="display:flex;align-items:center">
+      <span class="st-name">${s.name}</span>
+      <span class="badge ${isComp?'badge-comp':'badge-jet'}">${ownLabel}</span>
+    </div>
+    <div class="st-coords">${(s.lat||0).toFixed(6)}, ${(s.lng||0).toFixed(6)}</div>
+  </div>
+  <div style="text-align:right;font-size:10px;color:#6b7280">${s.userName||''}<br><span style="color:#9ca3af">${s.date||''}</span></div>
+</div>
+
+<div class="grid2">
   <div class="box">
-    <div class="box-title">📷 ${T.photo}</div>
+    <div class="box-title">${T.photo}</div>
     <div class="box-body" style="padding:0">${photoBlock}</div>
   </div>
   <div class="box">
-    <div class="box-title">🗺 ${T.mapview}</div>
+    <div class="box-title">${T.mapview}</div>
     <div class="box-body" style="padding:0">${mapWithOverlay(s,380,220)}</div>
   </div>
 </div>
 
-<div class="grid">
+<div class="grid2b">
   <div class="box">
-    <div class="box-title">📋 ${T.name}</div>
+    <div class="box-title">${T.name}</div>
     <div class="box-body">
-      <div style="font-size:15px;font-weight:700;margin-bottom:8px">${s.name} <span class="badge">${ownLabel}</span></div>
       <table>
         <tr><td>${T.addr}</td><td>${s.address||'—'}</td></tr>
-        <tr><td>${T.coords}</td><td>${(s.lat||0).toFixed(6)}, ${(s.lng||0).toFixed(6)}</td></tr>
+        <tr><td>${T.coords}</td><td style="font-family:monospace;font-size:10px">${(s.lat||0).toFixed(6)}, ${(s.lng||0).toFixed(6)}</td></tr>
         <tr><td>${T.type}</td><td>${s.type||'—'}</td></tr>
         <tr><td>${T.cap}</td><td>${s.capacity||'—'}</td></tr>
         <tr><td>${T.radius}</td><td>${s.radius ? s.radius+' m' : '—'}</td></tr>
@@ -4580,14 +4688,18 @@ tr:nth-child(even) td{background:#f8f9ff}
     </div>
   </div>
   <div class="box">
-    <div class="box-title">📐 ${T.scheme}</div>
-    <div class="box-body" style="display:flex;align-items:center;justify-content:center">
+    <div class="box-title">${T.scheme}</div>
+    <div class="box-body" style="display:flex;align-items:center;justify-content:center;min-height:180px">
       ${makeCroqui(s)}
     </div>
   </div>
 </div>
 
-<div class="footer">JET Estaciones · ${s.lat?.toFixed(6)}, ${s.lng?.toFixed(6)} · ${dateStr}</div>
+<div class="footer">
+  <div class="footer-brand">JET ESTACIONES · SISTEMA DE GESTIÓN</div>
+  <div class="footer-legal">${lang==='ru'?'Конфиденциально':lang==='pt'?'Confidencial':'Confidencial'} — ${lang==='ru'?'только для внутреннего использования':lang==='pt'?'uso interno':'uso interno'}</div>
+  <div class="footer-doc">${s.lat?.toFixed(6)}, ${s.lng?.toFixed(6)}</div>
+</div>
 </div>
 ${LEAFLET_MAP_INIT}
 </body></html>`;
