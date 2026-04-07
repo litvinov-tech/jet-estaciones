@@ -3747,10 +3747,13 @@ function driveDirectUrl(url) {
 // Helper: fetch Drive photo via server proxy (avoids CORS)
 async function fetchAllDrivePhotos() {
   const res = document.getElementById('drive-photo-result');
-  // Find stations with drivePhotoUrl saved, or photo that is a Drive URL
+  // Find stations with drivePhotoUrl saved, or photo that is Drive URL, or photo that is broken HEIC base64
   const targets = stations.filter(s => {
-    const url = s.drivePhotoUrl || (s.photo && s.photo.includes('drive.google.com') ? s.photo : '');
-    return url && url.includes('drive.google.com') && (!s.photo || s.photo.includes('drive.google.com'));
+    const driveUrl = s.drivePhotoUrl || (s.photo && s.photo.includes('drive.google.com') ? s.photo : '');
+    if (driveUrl && driveUrl.includes('drive.google.com') && (!s.photo || s.photo.includes('drive.google.com'))) return true;
+    // Also re-fetch photos saved as base64 HEIC (they start with AAAAG in base64 = ftyp magic)
+    if (s.drivePhotoUrl && s.photo && s.photo.startsWith('data:') && !s.photo.startsWith('data:image/jpeg') && !s.photo.startsWith('data:image/png') && !s.photo.startsWith('data:image/webp')) return true;
+    return false;
   });
   if(!targets.length){ res.innerHTML='<div class="ok">✅ ' + (lang==='ru'?'Нет станций с фото Drive.':lang==='pt'?'Sem estações com foto Drive.':'Sin estaciones con foto Drive.') + '</div>'; return; }
 
@@ -3758,10 +3761,12 @@ async function fetchAllDrivePhotos() {
 
   let done=0, failed=0;
   for(const s of targets){
-    const url = s.drivePhotoUrl || s.photo;
+    // Prefer drivePhotoUrl as source; fallback to photo if it's a Drive URL
+    const url = s.drivePhotoUrl || (s.photo && s.photo.includes('drive.google.com') ? s.photo : null);
     try{
+      if(!url){ failed++; continue; }
       const b64 = await fetchDrivePhoto(url);
-      if(b64 && b64.startsWith('data:')){
+      if(b64 && b64.startsWith('data:image/')){
         await db.collection('stations').doc(s._docId).update({ photo: b64 });
         done++;
       } else { failed++; }
