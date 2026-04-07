@@ -2882,7 +2882,7 @@ function renderAll(){
     // Lazy popup — built only when opened
     m.bindPopup(()=>{
       const isComp2 = s.ownership === 'competencia';
-      const _sp = safePhoto(s); const photoHtml = _sp ? `<img src="${_sp}" style="width:100%;border-radius:6px;margin:6px 0;max-height:180px;object-fit:contain;cursor:pointer" onclick="openPhotoViewer(this.src)">` : '';
+      const _sp = safePhoto(s); const photoHtml = _sp ? `<img src="${_sp}" style="width:100%;border-radius:6px;margin:6px 0;max-height:180px;object-fit:contain;cursor:pointer;image-orientation:from-image" onclick="openPhotoViewer(this.src)">` : '';
       const capHtml   = s.capacity ? `<br><span style="font-size:11px;color:#28a745">🛴 ${s.capacity} scooters</span>` : '';
       const ownBadge  = isComp2 ? `<span style="padding:1px 6px;border-radius:10px;font-size:11px;background:#fde8e8;color:#dc3545;margin-left:4px">Competencia</span>` : '';
       return `
@@ -3039,7 +3039,7 @@ function renderListItems(){
     return `
     <li class="spot-item${isSel?' selected':''}">
       <input type="checkbox" class="spot-check" ${isSel?'checked':''} onchange="listToggleOne('${s._docId}',this.checked)" onclick="event.stopPropagation()">
-      ${safePhoto(s)?`<img class="spot-thumb" src="${safePhoto(s)}" onclick="event.stopPropagation();openPhotoViewer(this.src)" style="cursor:pointer">`:''}
+      ${safePhoto(s)?`<img class="spot-thumb" src="${safePhoto(s)}" onclick="event.stopPropagation();openPhotoViewer(this.src)" style="cursor:pointer;image-orientation:from-image">`:''}
       <div class="spot-body" onclick="flyTo(${s.lat},${s.lng})">
         <div class="spot-name">${i+1}. ${s.name}
           <span class="spot-badge">${s.type}</span>
