@@ -3678,29 +3678,70 @@ function closePhotoViewer(){
 }
 
 // ==================== PHOTO ====================
+function _getExifOrientation(buf){
+  const v=new DataView(buf);
+  if(v.getUint16(0,false)!==0xFFD8) return 1;
+  let o=2;
+  while(o<v.byteLength){
+    const m=v.getUint16(o,false); o+=2;
+    if(m===0xFFE1){
+      if(v.getUint32(o+2,false)!==0x45786966) return 1;
+      const le=v.getUint16(o+8,false)===0x4949;
+      const ifd=v.getUint32(o+14,le);
+      const n=v.getUint16(o+8+ifd,le);
+      for(let i=0;i<n;i++){
+        if(v.getUint16(o+8+ifd+2+i*12,le)===0x0112)
+          return v.getUint16(o+8+ifd+2+i*12+8,le);
+      }
+    } else if((m&0xFF00)!==0xFF00) break;
+    else o+=v.getUint16(o,false);
+  }
+  return 1;
+}
 function previewPic(input){
   if(!input.files||!input.files[0]) return;
-  const reader = new FileReader();
-  reader.onload = e => {
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const MAX=600; let w=img.width, h=img.height;
-      if(w>MAX){h=h*(MAX/w);w=MAX;} if(h>MAX){w=w*(MAX/h);h=MAX;}
-      canvas.width=w; canvas.height=h;
-      canvas.getContext('2d').drawImage(img,0,0,w,h);
-      const data = canvas.toDataURL('image/jpeg',0.65);
-      const p = document.getElementById('photo-preview');
-      p.src=data; p.style.display='block';
-      document.getElementById('photo-btn-txt').textContent='✅ Foto cargada — toca para cambiar';
-      // Show AI analyze button
-      const aiBtn = document.getElementById('ai-analyze-btn');
-      if(aiBtn){ aiBtn.style.display='block'; aiBtn.textContent=t('ai_btn'); }
-      document.getElementById('ai-result').style.display='none';
+  const file=input.files[0];
+  const arrR=new FileReader();
+  arrR.onload=ae=>{
+    const ori=_getExifOrientation(ae.target.result);
+    const reader=new FileReader();
+    reader.onload=e=>{
+      const img=new Image();
+      img.onload=()=>{
+        const MAX=800;
+        const sw=img.width, sh=img.height;
+        const swap=ori>=5&&ori<=8;
+        const dw=swap?sh:sw, dh=swap?sw:sh;
+        const scale=Math.min(1,MAX/Math.max(dw,dh));
+        const cw=Math.round(dw*scale), ch=Math.round(dh*scale);
+        const canvas=document.createElement('canvas');
+        canvas.width=cw; canvas.height=ch;
+        const ctx=canvas.getContext('2d');
+        ctx.translate(cw/2,ch/2);
+        switch(ori){
+          case 2:ctx.scale(-1,1);break;
+          case 3:ctx.rotate(Math.PI);break;
+          case 4:ctx.scale(1,-1);break;
+          case 5:ctx.rotate(-Math.PI/2);ctx.scale(-1,1);break;
+          case 6:ctx.rotate(Math.PI/2);break;
+          case 7:ctx.rotate(Math.PI/2);ctx.scale(-1,1);break;
+          case 8:ctx.rotate(-Math.PI/2);break;
+        }
+        ctx.scale(scale,scale);
+        ctx.drawImage(img,-sw/2,-sh/2,sw,sh);
+        const data=canvas.toDataURL('image/jpeg',0.72);
+        const p=document.getElementById('photo-preview');
+        p.src=data; p.style.display='block';
+        document.getElementById('photo-btn-txt').textContent='✅ Foto cargada — toca para cambiar';
+        const aiBtn=document.getElementById('ai-analyze-btn');
+        if(aiBtn){aiBtn.style.display='block';aiBtn.textContent=t('ai_btn');}
+        document.getElementById('ai-result').style.display='none';
+      };
+      img.src=e.target.result;
     };
-    img.src = e.target.result;
+    reader.readAsDataURL(file);
   };
-  reader.readAsDataURL(input.files[0]);
+  arrR.readAsArrayBuffer(file);
 }
 
 // ==================== IMPORT ====================
