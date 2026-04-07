@@ -801,84 +801,10 @@ body{background:var(--bg-deep)!important}
 <div id="help-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:9500;align-items:center;justify-content:center;padding:16px">
   <div style="background:#0f1420;border:1px solid rgba(255,255,255,0.1);border-radius:20px;width:100%;max-width:520px;max-height:88vh;overflow-y:auto;padding:20px 18px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div style="font-size:17px;font-weight:800;color:#fff">❓ Справочник функций</div>
+      <div id="help-title" style="font-size:17px;font-weight:800;color:#fff">❓ Help</div>
       <button onclick="closeHelp()" style="background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.3);border-radius:8px;padding:4px 12px;font-size:14px;cursor:pointer">✕</button>
     </div>
-    <div style="display:flex;flex-direction:column;gap:14px;font-size:13px;color:#c8d0df">
-
-      <div style="background:#161c2d;border-radius:12px;padding:14px">
-        <div style="font-weight:700;color:#3b82f6;margin-bottom:8px">🗺 Карта</div>
-        <div style="display:flex;flex-direction:column;gap:5px">
-          <div><b style="color:#fff">GPS (синяя кнопка ▸)</b> — центрировать карту на вашей позиции. Нажмите ещё раз — следить за движением.</div>
-          <div><b style="color:#fff">🛰 Satélite</b> — переключение между обычной картой OSM и спутниковым снимком.</div>
-          <div><b style="color:#fff">Добавить здесь (GPS)</b> — быстро добавить парковку прямо на вашем GPS-месте.</div>
-          <div><b style="color:#fff">🗺 Mostrar todas</b> — центрировать карту чтобы были видны все ваши JET-парковки.</div>
-        </div>
-      </div>
-
-      <div style="background:#161c2d;border-radius:12px;padding:14px">
-        <div style="font-weight:700;color:#10b981;margin-bottom:8px">📍 Парковки (JET станции)</div>
-        <div style="display:flex;flex-direction:column;gap:5px">
-          <div><b style="color:#fff">+ (голубая кнопка)</b> — добавить новую парковку. Нажмите на карте чтобы выбрать место, затем заполните форму.</div>
-          <div><b style="color:#fff">Маркер на карте</b> — нажмите чтобы увидеть детали, фото, редактировать.</div>
-          <div><b style="color:#fff">Фото</b> — добавьте фото парковки. HEIC (iPhone) конвертируются автоматически.</div>
-          <div><b style="color:#fff">Ёмкость (1–20)</b> — кол-во самокатов, которые помещаются.</div>
-          <div><b style="color:#fff">Тип</b> — торговый центр, ресторан, офис и т.д.</div>
-          <div><b style="color:#fff">Наша JET / Конкурент</b> — тип парковки.</div>
-        </div>
-      </div>
-
-      <div style="background:#161c2d;border-radius:12px;padding:14px">
-        <div style="font-weight:700;color:#a78bfa;margin-bottom:8px">🧭 Панель навигации (нижняя)</div>
-        <div style="display:flex;flex-direction:column;gap:5px">
-          <div><b style="color:#fff">Yo</b> — ваша онлайн-метка на карте (видна коллегам).</div>
-          <div><b style="color:#fff">Список</b> — список всех парковок с поиском и фильтром.</div>
-          <div><b style="color:#fff">Команда</b> — активность коллег: кто онлайн и где.</div>
-          <div><b style="color:#fff">Велодорожки 🚴</b> — показать/скрыть велодорожки на карте.</div>
-          <div><b style="color:#fff">📍 Ciudad (город)</b> — выбор города. Фильтрует парковки по городу.</div>
-          <div><b style="color:#fff">Предложения 🎯</b> — AI-рекомендации мест для новых парковок (рестораны, ТЦ и т.д.).</div>
-          <div><b style="color:#fff">Import 📥</b> — импорт парковок из Excel/CSV файла.</div>
-          <div><b style="color:#fff">Export 📤</b> — выгрузить все парковки в Excel или CSV.</div>
-          <div><b style="color:#fff">Analytics 🔥</b> — тепловая карта самокатов GoJet.</div>
-          <div><b style="color:#fff">Admin 🛡</b> — панель администратора (только для adminов).</div>
-        </div>
-      </div>
-
-      <div style="background:#161c2d;border-radius:12px;padding:14px">
-        <div style="font-weight:700;color:#f59e0b;margin-bottom:8px">🔥 Analytics — GoJet самокаты</div>
-        <div style="display:flex;flex-direction:column;gap:5px">
-          <div><b style="color:#fff">Город</b> — выберите город из списка GoJet (60+ городов).</div>
-          <div><b style="color:#fff">⚡ Agora (Сейчас)</b> — загрузить ТЕКУЩЕЕ расположение самокатов. Показывает тепловую карту + маркеры каждой парковки с кол-вом самокатов.</div>
-          <div><b style="color:#fff">📊 Histórico</b> — исторические данные из Google Sheets (требует настройки).</div>
-          <div><b style="color:#fff">Fora estação</b> — только самокаты вне парковки (свободные).</div>
-          <div><b style="color:#fff">Todos</b> — все самокаты.</div>
-          <div><b style="color:#fff">Маркеры на карте</b> — кружок = парковка GoJet, цвет: 🟢 много самокатов, 🟡 мало, ⚫ пусто. Нажмите на кружок — увидите адрес и кол-во.</div>
-        </div>
-      </div>
-
-      <div style="background:#161c2d;border-radius:12px;padding:14px">
-        <div style="font-weight:700;color:#ef4444;margin-bottom:8px">🛡 Панель администратора</div>
-        <div style="display:flex;flex-direction:column;gap:5px">
-          <div><b style="color:#fff">Отчёт</b> — HTML отчёт по всем парковкам с фото.</div>
-          <div><b style="color:#fff">Сотрудники</b> — управление ролями пользователей.</div>
-          <div><b style="color:#fff">Заявки</b> — запросы на регистрацию новых пользователей.</div>
-          <div><b style="color:#fff">Фото из Drive 🖼</b> — загрузить фото с Google Drive для станций без фото.</div>
-          <div><b style="color:#fff">Исправить повёрнутые 🔄</b> — редактор для массового поворота фото.</div>
-          <div><b style="color:#fff">Без фото ❌</b> — список станций без фото.</div>
-        </div>
-      </div>
-
-      <div style="background:#161c2d;border-radius:12px;padding:14px">
-        <div style="font-weight:700;color:#64748b;margin-bottom:8px">💡 Советы</div>
-        <div style="display:flex;flex-direction:column;gap:5px">
-          <div>• Работает офлайн — установите как PWA (добавьте на экран).</div>
-          <div>• Фото с iPhone (HEIC) конвертируются автоматически при загрузке.</div>
-          <div>• Если парковок 0 — проверьте выбранный город (кнопка 📍 в панели).</div>
-          <div>• Коллеги видят вас на карте только пока приложение открыто.</div>
-        </div>
-      </div>
-
-    </div>
+    <div id="help-body" style="display:flex;flex-direction:column;gap:14px;font-size:13px;color:#c8d0df"></div>
   </div>
 </div>
 
@@ -1088,6 +1014,15 @@ body{background:var(--bg-deep)!important}
       📋 Список станций без фото
     </button>
     <div id="missing-photos-list" style="margin-top:8px;font-size:12px;max-height:200px;overflow-y:auto"></div>
+
+    <div style="margin-top:16px;border-top:1px solid rgba(255,255,255,0.08);padding-top:12px">
+      <div style="font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:8px">⚙️ Configuração do Proxy</div>
+      <div style="font-size:12px;color:#94a3b8;margin-bottom:6px">URL atual: <span id="proxy-url-display" style="color:#3b82f6;word-break:break-all"></span></div>
+      <button onclick="syncProxyUrl()" id="proxy-sync-btn" style="width:100%;padding:10px;background:#0f172a;color:#3b82f6;border:1px solid #3b82f6;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer">
+        🔄 Sincronizar URL do proxy com servidor
+      </button>
+      <div id="proxy-sync-result" style="margin-top:6px;font-size:12px"></div>
+    </div>
   </div>
 </div>
 
@@ -2086,6 +2021,13 @@ auth.onAuthStateChanged(async (user) => {
     initRealtime();
     startGPSWatch();
     if(window._showPWABanner) window._showPWABanner();
+    // Load proxy URL from Firestore (auto-updated by server when tunnel restarts)
+    db.collection('config').doc('proxy').get().then(snap => {
+      if (snap.exists && snap.data().url) {
+        AN_PROXY = snap.data().url;
+        console.log('[Config] Proxy URL:', AN_PROXY);
+      }
+    }).catch(()=>{});
   } else {
     currentUser = null;
     document.getElementById('auth-screen').style.display = 'flex';
@@ -3222,6 +3164,36 @@ function openAdminPanel(){
   if(currentRole !== 'admin') return;
   document.getElementById('admin-panel-overlay').classList.add('on');
   showApTab('dash');
+  // Show current proxy URL
+  const el = document.getElementById('proxy-url-display');
+  if (el) el.textContent = AN_PROXY;
+}
+
+async function syncProxyUrl() {
+  const btn = document.getElementById('proxy-sync-btn');
+  const res = document.getElementById('proxy-sync-result');
+  btn.disabled = true; btn.textContent = '⏳ Buscando...';
+  try {
+    // Ask the current proxy for the latest URL saved by tunnel_manager
+    const r = await fetch(`${AN_PROXY}/tunnel-url`, {signal: AbortSignal.timeout(8000)});
+    const d = await r.json();
+    const newUrl = d.url || '';
+    if (!newUrl || !newUrl.startsWith('https://')) {
+      res.innerHTML = '<span style="color:#ef4444">❌ Сервер не вернул URL</span>';
+      return;
+    }
+    // Save to Firestore so all clients get it
+    await db.collection('config').doc('proxy').set({url: newUrl, updatedAt: firebase.firestore.FieldValue.serverTimestamp()});
+    AN_PROXY = newUrl;
+    const el = document.getElementById('proxy-url-display');
+    if (el) el.textContent = AN_PROXY;
+    res.innerHTML = `<span style="color:#10b981">✅ Обновлено: ${newUrl}</span>`;
+  } catch(e) {
+    res.innerHTML = `<span style="color:#ef4444">❌ Ошибка: ${e.message}</span>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '🔄 Sincronizar URL do proxy com servidor';
+  }
 }
 
 function closeAdminPanel(){
@@ -5459,7 +5431,7 @@ window.addEventListener('online', ()=>{badge.style.background='#28a745';badge.te
 window.addEventListener('offline',()=>{badge.style.background='#dc3545';badge.textContent='● Offline';});
 
 // ==================== ANALYTICS HEATMAP ====================
-const AN_PROXY = 'https://tradition-pine-village-complexity.trycloudflare.com';
+let AN_PROXY = 'https://consist-enter-physiology-winston.trycloudflare.com'; // updated from Firestore on login
 const AN_GAS   = atob('aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J5YkFiLXZXcWRnZ3VEMHA5Q2xIajM1YTMyamZFOGw3SE0wVzNZZmR0QVE2R3RnRVNZTHYweXJPM2dNVGJFVlliUzkvZXhlYw==');
 let _anHeatLayer = null;
 let _anMarkersLayer = null;
@@ -5502,9 +5474,168 @@ function openAnalytics() {
   if(st) { st.textContent = 'Selecione cidade e clique ⚡ ou 📊'; st.style.color='#607d9b'; }
 }
 
+const HELP_DATA = {
+  ru: {
+    title: '❓ Справочник функций',
+    sections: [
+      { color:'#3b82f6', head:'🗺 Карта', items:[
+        ['GPS (синяя кнопка ＋)', 'Центрировать карту на вашей позиции.'],
+        ['🛰 Satélite', 'Переключение между обычной картой и спутниковым снимком.'],
+        ['Добавить здесь (GPS)', 'Быстро добавить парковку на вашем GPS-месте.'],
+        ['🗺 Mostrar todas', 'Показать все ваши JET-парковки на карте.'],
+      ]},
+      { color:'#10b981', head:'📍 Парковки (JET станции)', items:[
+        ['+ (голубая кнопка)', 'Добавить новую парковку. Нажмите на карте → выберите место → заполните форму.'],
+        ['Маркер на карте', 'Нажмите чтобы увидеть детали, фото, редактировать.'],
+        ['Фото', 'Добавьте фото парковки. HEIC (iPhone) конвертируются автоматически.'],
+        ['Ёмкость (1–20)', 'Количество самокатов, которые помещаются.'],
+        ['Наша JET / Конкурент', 'Тип парковки.'],
+      ]},
+      { color:'#a78bfa', head:'🧭 Нижняя панель', items:[
+        ['📍 Yo', 'Ваша онлайн-метка на карте (видна коллегам).'],
+        ['📋 Lista', 'Список всех парковок с поиском и фильтром.'],
+        ['👥 Equipo', 'Активность коллег: кто онлайн и где.'],
+        ['🚴 Ciclovías', 'Показать/скрыть велодорожки.'],
+        ['🌎 Ciudad (город)', 'Выбор города — фильтрует парковки.'],
+        ['🎯 Suger.', 'AI-рекомендации мест для новых парковок.'],
+        ['📥 Import / 📤 Export', 'Импорт/экспорт парковок (Excel/CSV).'],
+        ['🔥 Analytics', 'Тепловая карта самокатов GoJet.'],
+        ['🛡 Admin', 'Панель администратора (только для adminов).'],
+      ]},
+      { color:'#f59e0b', head:'🔥 Analytics — самокаты GoJet', items:[
+        ['⚡ Agora', 'Текущее расположение самокатов: тепловая карта + маркеры парковок с количеством.'],
+        ['📊 Histórico', 'Исторические данные из Google Sheets.'],
+        ['Маркеры 🟢🟡⚫', 'Кружок = парковка GoJet. Цвет: зелёный — много, жёлтый — мало, серый — пусто. Нажмите — адрес и количество.'],
+      ]},
+      { color:'#ef4444', head:'🛡 Панель администратора', items:[
+        ['Отчёт', 'HTML-отчёт по всем парковкам с фото.'],
+        ['Сотрудники', 'Управление ролями пользователей.'],
+        ['Заявки', 'Запросы на регистрацию новых пользователей.'],
+        ['Фото из Drive 🖼', 'Загрузить фото с Google Drive для станций без фото.'],
+        ['Исправить повёрнутые 🔄', 'Редактор массового поворота фото.'],
+        ['Без фото ❌', 'Список станций без фото.'],
+      ]},
+      { color:'#64748b', head:'💡 Советы', tips:[
+        'Работает офлайн — установите как PWA (добавьте на экран).',
+        'Фото с iPhone (HEIC) конвертируются автоматически.',
+        'Если парковок 0 — проверьте выбранный город (кнопка 🌎 в панели).',
+        'Коллеги видят вас на карте только пока приложение открыто.',
+      ]},
+    ]
+  },
+  pt: {
+    title: '❓ Guia de Funções',
+    sections: [
+      { color:'#3b82f6', head:'🗺 Mapa', items:[
+        ['GPS (botão azul ＋)', 'Centralizar mapa na sua posição.'],
+        ['🛰 Satélite', 'Alternar entre mapa normal e imagem de satélite.'],
+        ['Adicionar aqui (GPS)', 'Adicionar vaga rapidamente na sua posição GPS.'],
+        ['🗺 Mostrar todas', 'Mostrar todas as suas vagas JET no mapa.'],
+      ]},
+      { color:'#10b981', head:'📍 Vagas (estações JET)', items:[
+        ['+ (botão azul)', 'Adicionar nova vaga. Toque no mapa → escolha local → preencha o formulário.'],
+        ['Marcador no mapa', 'Toque para ver detalhes, foto, editar.'],
+        ['Foto', 'Adicione foto da vaga. HEIC (iPhone) convertidos automaticamente.'],
+        ['Capacidade (1–20)', 'Quantidade de patinetes que cabem.'],
+        ['Nossa JET / Concorrente', 'Tipo de vaga.'],
+      ]},
+      { color:'#a78bfa', head:'🧭 Barra inferior', items:[
+        ['📍 Yo', 'Sua localização online (visível para colegas).'],
+        ['📋 Lista', 'Lista de todas as vagas com busca e filtro.'],
+        ['👥 Equipo', 'Atividade dos colegas: quem está online e onde.'],
+        ['🚴 Ciclovías', 'Mostrar/ocultar ciclovias no mapa.'],
+        ['🌎 Ciudad (cidade)', 'Selecionar cidade — filtra as vagas.'],
+        ['🎯 Suger.', 'Recomendações de IA para novas vagas.'],
+        ['📥 Import / 📤 Export', 'Importar/exportar vagas (Excel/CSV).'],
+        ['🔥 Analytics', 'Mapa de calor de patinetes GoJet.'],
+        ['🛡 Admin', 'Painel de administrador (somente admins).'],
+      ]},
+      { color:'#f59e0b', head:'🔥 Analytics — patinetes GoJet', items:[
+        ['⚡ Agora', 'Localização atual dos patinetes: mapa de calor + marcadores com contagem.'],
+        ['📊 Histórico', 'Dados históricos do Google Sheets.'],
+        ['Marcadores 🟢🟡⚫', 'Círculo = estação GoJet. Cor: verde — cheio, amarelo — pouco, cinza — vazio. Toque para ver endereço e contagem.'],
+      ]},
+      { color:'#ef4444', head:'🛡 Painel de administrador', items:[
+        ['Relatório', 'Relatório HTML de todas as vagas com fotos.'],
+        ['Funcionários', 'Gerenciar funções dos usuários.'],
+        ['Solicitações', 'Pedidos de registro de novos usuários.'],
+        ['Fotos do Drive 🖼', 'Carregar fotos do Google Drive para vagas sem foto.'],
+        ['Corrigir rotação 🔄', 'Editor de rotação em massa de fotos.'],
+        ['Sem foto ❌', 'Lista de vagas sem foto.'],
+      ]},
+      { color:'#64748b', head:'💡 Dicas', tips:[
+        'Funciona offline — instale como PWA (adicione à tela inicial).',
+        'Fotos do iPhone (HEIC) são convertidas automaticamente.',
+        'Se aparecer 0 vagas — verifique a cidade selecionada (botão 🌎).',
+        'Colegas te veem no mapa apenas enquanto o app está aberto.',
+      ]},
+    ]
+  },
+  es: {
+    title: '❓ Guía de Funciones',
+    sections: [
+      { color:'#3b82f6', head:'🗺 Mapa', items:[
+        ['GPS (botón azul ＋)', 'Centrar mapa en tu ubicación.'],
+        ['🛰 Satélite', 'Cambiar entre mapa normal e imagen satelital.'],
+        ['Agregar aquí (GPS)', 'Agregar estacionamiento en tu posición GPS.'],
+        ['🗺 Mostrar todas', 'Mostrar todas tus estaciones JET en el mapa.'],
+      ]},
+      { color:'#10b981', head:'📍 Estacionamientos (estaciones JET)', items:[
+        ['+ (botón azul)', 'Agregar nueva estación. Toca el mapa → elige lugar → llena el formulario.'],
+        ['Marcador en el mapa', 'Toca para ver detalles, foto, editar.'],
+        ['Foto', 'Agrega foto. Las fotos HEIC (iPhone) se convierten automáticamente.'],
+        ['Capacidad (1–20)', 'Cantidad de patinetes que caben.'],
+        ['Nuestra JET / Competidor', 'Tipo de estación.'],
+      ]},
+      { color:'#a78bfa', head:'🧭 Barra inferior', items:[
+        ['📍 Yo', 'Tu marcador online en el mapa (visible para colegas).'],
+        ['📋 Lista', 'Lista de todas las estaciones con búsqueda y filtro.'],
+        ['👥 Equipo', 'Actividad de colegas: quién está online y dónde.'],
+        ['🚴 Ciclovías', 'Mostrar/ocultar ciclovías en el mapa.'],
+        ['🌎 Ciudad', 'Seleccionar ciudad — filtra las estaciones.'],
+        ['🎯 Suger.', 'Recomendaciones de IA para nuevas estaciones.'],
+        ['📥 Import / 📤 Export', 'Importar/exportar estaciones (Excel/CSV).'],
+        ['🔥 Analytics', 'Mapa de calor de patinetes GoJet.'],
+        ['🛡 Admin', 'Panel de administrador (solo admins).'],
+      ]},
+      { color:'#f59e0b', head:'🔥 Analytics — patinetes GoJet', items:[
+        ['⚡ Agora', 'Ubicación actual de patinetes: mapa de calor + marcadores con conteo.'],
+        ['📊 Histórico', 'Datos históricos desde Google Sheets.'],
+        ['Marcadores 🟢🟡⚫', 'Círculo = estación GoJet. Color: verde — llena, amarillo — poco, gris — vacía. Toca para ver dirección y conteo.'],
+      ]},
+      { color:'#ef4444', head:'🛡 Panel de administrador', items:[
+        ['Informe', 'Informe HTML de todas las estaciones con fotos.'],
+        ['Empleados', 'Gestionar roles de usuarios.'],
+        ['Solicitudes', 'Peticiones de registro de nuevos usuarios.'],
+        ['Fotos de Drive 🖼', 'Cargar fotos de Google Drive para estaciones sin foto.'],
+        ['Corregir rotación 🔄', 'Editor de rotación masiva de fotos.'],
+        ['Sin foto ❌', 'Lista de estaciones sin foto.'],
+      ]},
+      { color:'#64748b', head:'💡 Consejos', tips:[
+        'Funciona sin internet — instala como PWA (agrega a pantalla de inicio).',
+        'Fotos de iPhone (HEIC) se convierten automáticamente.',
+        'Si aparecen 0 estaciones — verifica la ciudad seleccionada (botón 🌎).',
+        'Los colegas te ven en el mapa solo mientras la app está abierta.',
+      ]},
+    ]
+  }
+};
+
 function openHelp() {
-  const m = document.getElementById('help-modal');
-  if (m) { m.style.display = 'flex'; }
+  const lang = (typeof currentLang !== 'undefined' ? currentLang : null) || localStorage.getItem('jet_lang') || 'pt';
+  const d = HELP_DATA[lang] || HELP_DATA.pt;
+  document.getElementById('help-title').textContent = d.title;
+  const body = document.getElementById('help-body');
+  body.innerHTML = d.sections.map(s => {
+    const rows = s.tips
+      ? s.tips.map(tip => `<div>• ${tip}</div>`).join('')
+      : s.items.map(([k,v]) => `<div><b style="color:#fff">${k}</b> — ${v}</div>`).join('');
+    return `<div style="background:#161c2d;border-radius:12px;padding:14px">
+      <div style="font-weight:700;color:${s.color};margin-bottom:8px">${s.head}</div>
+      <div style="display:flex;flex-direction:column;gap:5px">${rows}</div>
+    </div>`;
+  }).join('');
+  document.getElementById('help-modal').style.display = 'flex';
 }
 function closeHelp() {
   const m = document.getElementById('help-modal');
