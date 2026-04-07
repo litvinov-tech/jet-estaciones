@@ -3467,18 +3467,11 @@ async function fetchAllDrivePhotos() {
 async function fetchDrivePhoto(url) {
   if (!url || !url.includes('drive.google.com')) return url;
   try {
-    const m = url.match(/\/d\/([-\w]+)/);
-    const directUrl = m ? `https://drive.google.com/uc?export=download&id=${m[1]}` : url;
-    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(directUrl)}`;
+    const proxyUrl = `http://163.176.250.160:8765/proxy-photo?url=${encodeURIComponent(url)}`;
     const resp = await fetch(proxyUrl);
     if (!resp.ok) return url;
-    const blob = await resp.blob();
-    return await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result);
-      reader.onerror = () => resolve(url);
-      reader.readAsDataURL(blob);
-    });
+    const d = await resp.json();
+    return d.data || url;
   } catch {
     return url; // keep URL as fallback
   }
