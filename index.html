@@ -668,11 +668,41 @@ const auth = firebase.auth();
 const db   = firebase.firestore();
 
 // ==================== AI CONFIG ====================
-const _k = (a) => a.map(c=>String.fromCharCode(c)).join('');
-let ANTHROPIC_KEY = _k([115,107,45,97,110,116,45,97,112,105,48,51,45,68,102,55,118,122,68,104,98,110,48,80,69,108,68,109,53,122,101,116,97,81,71,70,67,103,72,54,104,108,118,104,83,81,52,49,115,113,111,102,72,76,69,101,79,83,45,122,88,90,98,53,80,50,73,70,119,107,73,52,110,108,115,53,83,109,115,118,79,54,78,102,109,65,67,87,120,51,122,118,122,102,78,77,82,84,103,45,75,101,49,67,81,81,65,65]);
-let GROQ_KEY      = _k([103,115,107,95,103,86,77,121,57,75,89,65,84,87,54,68,97,114,80,76,90,51,113,77,87,71,100,121,98,51,70,89,73,119,105,100,66,78,65,81,54,49,80,78,73,97,83,81,83,51,90,77,53,120,51,56]);
+const ANTHROPIC_KEY = atob('c2stYW50LWFwaTAzLURmN3Z6RGhibjBQRWxEbTV6ZXRhUUdGQ2dINmhsdmhTUTQxc3FvZkhMRWVPUy16WFpiNVAySUZ3a0k0bmxzNVNtc3ZPNk5mbUFDV3gzenZ6Zk5NUlRnLUtlMUNRUUFB');
+const GROQ_KEY      = atob('Z3NrX2dWTXk5S1lBVFc2RGFyUExaM3FNV0dkeWIzRllJd2lkQk5BUTYxUE5JYVNRUzNaTTV4Mzg=');
 
-let AI_REGULATIONS = ''; // loaded from bot server on startup
+const AI_REGULATIONS = `РЕГЛАМЕНТ РАЗМЕЩЕНИЯ СТАНЦИЙ ПРОКАТА САМОКАТОВ
+
+1. ОБЩИЕ ТРЕБОВАНИЯ
+- Минимальная ширина свободного прохода на тротуаре: 1.50 м
+- Габариты станции: 1.80 м x 4.70 м
+- Расстояние от угла перекрёстка: не менее 5 м
+- Расстояние от пешеходного перехода: не менее 5 м
+- Расстояние от остановки общественного транспорта: не менее 15 м
+- Расстояние от въезда в здание: не менее 3 м
+
+2. РАЗМЕЩЕНИЕ НА ТРОТУАРЕ (BANQUETA)
+- Допускается при ширине тротуара от 3.30 м
+- Станция размещается у края тротуара, вплотную к бордюру
+- Не допускается блокировка выходов из зданий и магазинов
+
+3. РАЗМЕЩЕНИЕ НА ПРОЕЗЖЕЙ ЧАСТИ (VÍA PÚBLICA)
+- Допускается в крайней правой полосе при наличии разрешения MOVILIDADBCN/SEMOVI
+- Обязательна горизонтальная разметка
+- Требуется дорожное ограждение
+
+4. ЗАПРЕЩЁННЫЕ ЗОНЫ
+- Зоны охраны культурного наследия (Patrimonio)
+- Радиус 50 м от школ и детских учреждений (в учебное время)
+- Велосипедные дорожки и пешеходные зоны
+- Зоны с ограниченной видимостью
+
+5. ДОКУМЕНТЫ ДЛЯ СОГЛАСОВАНИЯ
+- Схема расположения (plano de implantación)
+- Фото места установки
+- Технический паспорт оборудования
+- Договор страхования ответственности
+`;
 
 const AI_SYSTEM_BASE = `Eres un experto en instalación de estaciones de scooters eléctricos JET.
 Analiza imágenes de lugares urbanos para determinar si son aptos para una estación JET.
@@ -691,33 +721,10 @@ Responde ÚNICAMENTE con JSON válido, sin texto adicional:
 }`;
 
 function get_AI_SYSTEM(){
-  if(AI_REGULATIONS){
-    return AI_SYSTEM_BASE + `\n\nREGLAMENTO OFICIAL DE AUTORIDADES LOCALES (aplica siempre):\n${AI_REGULATIONS.slice(0,3000)}`;
-  }
-  return AI_SYSTEM_BASE;
+  return AI_SYSTEM_BASE + `\n\nREGLAMENTO OFICIAL DE AUTORIDADES LOCALES (aplica siempre):\n${AI_REGULATIONS.slice(0,3000)}`;
 }
 
-// Load parking regulations from bot server
-async function loadRegulations(){
-  try {
-    const r = await fetch('http://163.176.250.160:8765/regulations');
-    const d = await r.json();
-    if(d.exists && d.text){ AI_REGULATIONS = d.text; console.log('[AI] Regulations loaded:', d.text.length, 'chars'); }
-  } catch(e){ console.warn('[AI] Regulations not available:', e.message); }
-}
-
-async function loadConfig(){
-  try {
-    const r = await fetch('http://163.176.250.160:8765/config');
-    const d = await r.json();
-    if(d.anthropic_key) ANTHROPIC_KEY = d.anthropic_key;
-    if(d.groq_key)      GROQ_KEY      = d.groq_key;
-    console.log('[AI] Config loaded');
-  } catch(e){ console.warn('[AI] Config not available:', e.message); }
-}
-// Load config and regulations on startup
-const _configReady = loadConfig();
-loadRegulations();
+const _configReady = Promise.resolve();
 
 // ==================== I18N ====================
 const LANGS = {
@@ -1055,7 +1062,7 @@ let myLat = null, myLng = null, myMarker = null;
 let tempPin = null, selCoords = null;
 let addMode = false, selCap = '', selOwn = 'propia', selRadius2 = 20, selPlacement = 'sidewalk';
 let editingId = null;
-let unsubStations = null, unsubLocations = null, unsubDeleteReqs = null;
+let unsubStations = null, unsubLocations = null, unsubDeleteReqs = null, unsubPendingUsers = null;
 let locationTimer = null;
 let userMarkers   = {};
 let userColorMap  = {};
@@ -1651,6 +1658,7 @@ auth.onAuthStateChanged(async (user) => {
     if(unsubStations) unsubStations();
     if(unsubLocations) unsubLocations();
     if(unsubDeleteReqs) unsubDeleteReqs();
+    if(unsubPendingUsers) unsubPendingUsers();
     clearInterval(locationTimer); locationTimer = null;
     currentRole = 'user';
     Object.values(userMarkers).forEach(m=>map.removeLayer(m));
@@ -1826,7 +1834,7 @@ function initRealtime(){
         updateAdminBadges();
       });
 
-    db.collection('users').where('role','==','pending')
+    unsubPendingUsers = db.collection('users').where('role','==','pending')
       .onSnapshot(snap => {
         pendingUsers = snap.size;
         updateAdminBadges();
@@ -2658,8 +2666,9 @@ function openList(){
 
 function setFilter(uid){
   filterUser = uid;
-  document.querySelectorAll('#list-filters .filter-btn').forEach(b=>b.classList.remove('active'));
-  event.target.classList.add('active');
+  document.querySelectorAll('#list-filters .filter-btn').forEach(b=>{
+    b.classList.toggle('active', b.getAttribute('onclick')===`setFilter('${uid}')`);
+  });
   renderAll();
   renderListItems();
 }
@@ -3466,11 +3475,18 @@ async function fetchAllDrivePhotos() {
 async function fetchDrivePhoto(url) {
   if (!url || !url.includes('drive.google.com')) return url;
   try {
-    const proxyUrl = `http://163.176.250.160:8765/proxy-photo?url=${encodeURIComponent(url)}`;
+    const m = url.match(/\/d\/([-\w]+)/);
+    const directUrl = m ? `https://drive.google.com/uc?export=download&id=${m[1]}` : url;
+    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(directUrl)}`;
     const resp = await fetch(proxyUrl);
     if (!resp.ok) return url;
-    const d = await resp.json();
-    return d.data || url;
+    const blob = await resp.blob();
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.onerror = () => resolve(url);
+      reader.readAsDataURL(blob);
+    });
   } catch {
     return url; // keep URL as fallback
   }
