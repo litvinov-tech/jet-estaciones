@@ -795,7 +795,7 @@ body{background:var(--bg-deep)!important}
 <!-- ====== ANALYTICS PANEL ====== -->
 <div id="analytics-panel" style="display:none;position:absolute;top:0;left:0;right:0;bottom:0;z-index:800;pointer-events:none">
   <!-- Controls card -->
-  <div style="position:absolute;top:12px;left:50%;transform:translateX(-50%);background:var(--bg-card,#0f1420);border:1px solid var(--border,rgba(255,255,255,0.07));border-radius:16px;padding:14px 18px;display:flex;align-items:center;gap:10px;flex-wrap:wrap;pointer-events:all;box-shadow:0 8px 32px rgba(0,0,0,0.5);max-width:96vw">
+  <div style="position:absolute;top:8px;left:50%;transform:translateX(-50%);background:var(--bg-card,#0f1420);border:1px solid var(--border,rgba(255,255,255,0.07));border-radius:16px;padding:10px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;pointer-events:all;box-shadow:0 8px 32px rgba(0,0,0,0.5);max-width:96vw;z-index:1001">
     <span style="font-size:14px;font-weight:700;color:var(--text-primary,#f0f4ff)">🔥 Heatmap</span>
     <select id="an-days" style="background:var(--bg-surface,#161c2d);border:1px solid var(--border,rgba(255,255,255,0.07));color:var(--text-primary,#f0f4ff);border-radius:8px;padding:6px 10px;font-size:12px;cursor:pointer">
       <option value="1">Hoje</option>
@@ -5094,6 +5094,8 @@ let _anHeatLayer = null;
 let _anMode = 'free';
 let _anOpen = false;
 
+const AN_GOJET_CITIES = ['Guaratuba','Londrina','Matinhos','Belem','Itajai','Torres','Gramado','Blumenau','Brasilia','Campinas','Sorocaba','Fortaleza','Joinville','Tramandai','Navegantes','Porto Alegre','Florianopolis','Balneario-Camboriu','Sao Jose dos Campos','Palhoça','Novo Hamburgo','Capão de Canoa','Campos do Jordão'];
+
 function openAnalytics() {
   _anOpen = true;
   document.getElementById('analytics-panel').style.display = 'block';
@@ -5103,7 +5105,12 @@ function openAnalytics() {
       gradient: {0.0:'#0000ff', 0.3:'#00ffff', 0.5:'#00ff00', 0.7:'#ffff00', 1.0:'#ff0000'}
     }).addTo(map);
   }
-  toast('🔥 Heatmap ativo — clique em ⚡ Agora ou 📊 Histórico');
+  const cityOk = AN_GOJET_CITIES.includes(currentCity);
+  if (!cityOk) {
+    toast('⚠️ ' + (currentCity ? `"${currentCity}" não tem dados GoJet. Selecione: Guaratuba, Londrina ou Matinhos` : 'Selecione uma cidade GoJet primeiro'));
+  } else {
+    toast('🔥 Heatmap ativo — clique em ⚡ Agora ou 📊 Histórico');
+  }
 }
 
 function closeAnalytics() {
