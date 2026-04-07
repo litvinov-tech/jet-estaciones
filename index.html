@@ -3785,6 +3785,7 @@ async function fetchAllDrivePhotos() {
       const b64 = await fetchDrivePhoto(url);
       if(b64 && b64.startsWith('data:image/')){
         await db.collection('stations').doc(s._docId).update({ photo: b64 });
+        s.photo = b64; // update in-memory so popup shows immediately
         done++;
       } else { failed++; }
     }catch(e){ failed++; }
