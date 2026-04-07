@@ -865,6 +865,9 @@ body{background:var(--bg-deep)!important}
     <button onclick="exportPDF()" style="width:100%;padding:14px;background:#dc3545;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
       <span data-i18n="exp_btn_pdf">📋 PDF resumen — lista consolidada</span>
     </button>
+    <button onclick="exportHTMLReport()" style="width:100%;padding:14px;background:linear-gradient(135deg,#7c3aed,#4f46e5);color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
+      <span data-i18n="exp_btn_html">🌐 HTML — reporte interactivo</span>
+    </button>
     <button onclick="exportJSON()" style="width:100%;padding:14px;background:#005bff;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
       <span data-i18n="exp_btn_json">📋 JSON — datos completos</span>
     </button>
@@ -1071,7 +1074,7 @@ const LANGS = {
     ap_reg_reqs:'⏳ Solicitudes de registro', ap_no_reqs:'Sin solicitudes pendientes ✅', ap_reg_date:'Fecha de registro:', ap_reject:'🚫 Rechazar', ap_del_st_reqs:'🗑 Solicitudes de borrado', ap_no_del_reqs:'Sin solicitudes de borrado ✅', ap_del_station:'✅ Eliminar estación', ap_req_rejected:'✕ Solicitud rechazada',
     ap_no_stations:'No hay estaciones registradas', ap_last_of:'Últimas {n} de {total} estaciones', ap_competitor_short:'🔴 competencia',
     exp_title:'📤 Exportar estaciones', exp_sub:'Seleccione formato para descargar {n} estaciones:', exp_building:'Generando Excel...', exp_excel_done:'📊 Excel descargado', exp_err:'❌ Error:', loading:'Cargando...',
-    exp_btn_excel:'📊 Excel (.xlsx) — tabla con coordenadas', exp_btn_croqui:'📄 Croqui PDF — todas (2 por página)', exp_btn_pdf:'📋 PDF resumen — lista consolidada', exp_btn_json:'📋 JSON — datos completos', exp_btn_oficial:'🏛 CSV Formato Oficial (57 campos)',
+    exp_btn_excel:'📊 Excel (.xlsx) — tabla con coordenadas', exp_btn_croqui:'📄 Croqui PDF — todas (2 por página)', exp_btn_pdf:'📋 PDF resumen — lista consolidada', exp_btn_html:'🌐 HTML — reporte interactivo', exp_btn_json:'📋 JSON — datos completos', exp_btn_oficial:'🏛 CSV Formato Oficial (57 campos)',
   },
   ru: {
     login:'Войти', register:'Регистрация',
@@ -1148,7 +1151,7 @@ const LANGS = {
     ap_reg_reqs:'⏳ Заявки на регистрацию', ap_no_reqs:'Нет ожидающих заявок ✅', ap_reg_date:'Дата регистрации:', ap_reject:'🚫 Отклонить', ap_del_st_reqs:'🗑 Заявки на удаление парковок', ap_no_del_reqs:'Нет заявок на удаление ✅', ap_del_station:'✅ Удалить станцию', ap_req_rejected:'✕ Заявка отклонена',
     ap_no_stations:'Нет добавленных парковок', ap_last_of:'Последние {n} из {total} парковок', ap_competitor_short:'🔴 конкурент',
     exp_title:'📤 Экспорт парковок', exp_sub:'Выберите формат для скачивания {n} парковок:', exp_building:'Формирование Excel...', exp_excel_done:'📊 Excel скачан', exp_err:'❌ Ошибка:', loading:'Загрузка...',
-    exp_btn_excel:'📊 Excel (.xlsx) — таблица с координатами', exp_btn_croqui:'📄 Croqui PDF — все парковки (2 на странице)', exp_btn_pdf:'📋 PDF-отчёт — сводный список', exp_btn_json:'📋 JSON — полные данные', exp_btn_oficial:'🏛 CSV Формат Официальный (57 полей)',
+    exp_btn_excel:'📊 Excel (.xlsx) — таблица с координатами', exp_btn_croqui:'📄 Croqui PDF — все парковки (2 на странице)', exp_btn_pdf:'📋 PDF-отчёт — сводный список', exp_btn_html:'🌐 HTML — красивый интерактивный отчёт', exp_btn_json:'📋 JSON — полные данные', exp_btn_oficial:'🏛 CSV Формат Официальный (57 полей)',
   },
   pt: {
     login:'Entrar', register:'Cadastrar',
@@ -1225,7 +1228,7 @@ const LANGS = {
     ap_reg_reqs:'⏳ Solicitações de cadastro', ap_no_reqs:'Sem solicitações pendentes ✅', ap_reg_date:'Data de cadastro:', ap_reject:'🚫 Rejeitar', ap_del_st_reqs:'🗑 Solicitações de exclusão', ap_no_del_reqs:'Sem solicitações de exclusão ✅', ap_del_station:'✅ Excluir estação', ap_req_rejected:'✕ Solicitação rejeitada',
     ap_no_stations:'Nenhuma estação registrada', ap_last_of:'Últimas {n} de {total} estações', ap_competitor_short:'🔴 concorrência',
     exp_title:'📤 Exportar estações', exp_sub:'Selecione o formato para baixar {n} estações:', exp_building:'Gerando Excel...', exp_excel_done:'📊 Excel baixado', exp_err:'❌ Erro:', loading:'Carregando...',
-    exp_btn_excel:'📊 Excel (.xlsx) — tabela com coordenadas', exp_btn_croqui:'📄 Croqui PDF — todas (2 por página)', exp_btn_pdf:'📋 PDF resumo — lista consolidada', exp_btn_json:'📋 JSON — dados completos', exp_btn_oficial:'🏛 CSV Formato Oficial (57 campos)',
+    exp_btn_excel:'📊 Excel (.xlsx) — tabela com coordenadas', exp_btn_croqui:'📄 Croqui PDF — todas (2 por página)', exp_btn_pdf:'📋 PDF resumo — lista consolidada', exp_btn_html:'🌐 HTML — relatório interativo', exp_btn_json:'📋 JSON — dados completos', exp_btn_oficial:'🏛 CSV Formato Oficial (57 campos)',
   }
 };
 
@@ -4826,6 +4829,128 @@ ${stationsHtml}
   if(!win) toast('⚠️ ' + (lang==='ru'?'Разрешите всплывающие окна':'Permite ventanas emergentes'));
   setTimeout(()=>URL.revokeObjectURL(url), 60000);
   closeOverlay('export-overlay');
+}
+
+function exportHTMLReport(){
+  const cityName = currentCity || (lang==='ru'?'Все города':lang==='pt'?'Todas as cidades':'Todas las ciudades');
+  const dateStr = new Date().toLocaleDateString(lang==='ru'?'ru-RU':lang==='pt'?'pt-BR':'es-MX',{year:'numeric',month:'long',day:'numeric'});
+  const ownCount = stations.filter(s=>s.ownership!=='competencia').length;
+  const compCount = stations.filter(s=>s.ownership==='competencia').length;
+
+  const cards = stations.map((s,i)=>{
+    const isComp = s.ownership==='competencia';
+    const photoHtml = s.photo
+      ? `<div class="card-photo"><img src="${s.photo}" alt=""></div>`
+      : `<div class="card-photo card-photo--empty">📷</div>`;
+    const badge = isComp
+      ? `<span class="badge badge--comp">${lang==='ru'?'Конкурент':lang==='pt'?'Concorrente':'Competencia'}</span>`
+      : `<span class="badge badge--jet">JET</span>`;
+    return `<div class="card ${isComp?'card--comp':''}">
+  ${photoHtml}
+  <div class="card-body">
+    <div class="card-num">${i+1}</div>
+    <div class="card-name">${s.name||'—'} ${badge}</div>
+    <div class="card-type">${s.type||''}</div>
+    <div class="card-meta">
+      ${s.address?`<div class="meta-row"><span class="meta-icon">📍</span>${s.address}</div>`:''}
+      <div class="meta-row"><span class="meta-icon">🌐</span>${(s.lat||0).toFixed(6)}, ${(s.lng||0).toFixed(6)}</div>
+      ${s.capacity?`<div class="meta-row"><span class="meta-icon">🛴</span>${lang==='ru'?'Вместимость':lang==='pt'?'Capacidade':'Capacidad'}: <b>${s.capacity}</b></div>`:''}
+      ${s.radius?`<div class="meta-row"><span class="meta-icon">📏</span>${lang==='ru'?'Радиус':lang==='pt'?'Raio':'Radio'}: <b>${s.radius} m</b></div>`:''}
+      ${s.userName?`<div class="meta-row"><span class="meta-icon">👤</span>${s.userName}</div>`:''}
+      ${s.notes?`<div class="meta-notes">${s.notes}</div>`:''}
+    </div>
+  </div>
+</div>`;
+  }).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="${lang}">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JET — ${cityName} — ${dateStr}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#0a0e1a;color:#e8edf5;min-height:100vh}
+.top-bar{background:linear-gradient(135deg,#1a237e,#0d47a1,#1565c0);padding:28px 40px;display:flex;align-items:center;justify-content:space-between;gap:20px}
+.top-logo{font-size:42px;font-weight:900;color:#fff;letter-spacing:-3px;line-height:1}
+.top-logo span{color:#64b5f6}
+.top-title{font-size:18px;font-weight:700;color:#fff;margin-top:4px;opacity:.9}
+.top-city{font-size:13px;color:#90caf9;margin-top:2px}
+.top-right{text-align:right;font-size:12px;color:#90caf9}
+.stats{display:flex;gap:16px;padding:24px 40px;background:#0f1525;border-bottom:1px solid rgba(255,255,255,.06)}
+.stat{background:linear-gradient(135deg,#141b2d,#1a2238);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:16px 24px;text-align:center;flex:1}
+.stat-n{font-size:32px;font-weight:900;line-height:1}
+.stat-n--blue{color:#64b5f6}
+.stat-n--green{color:#4caf50}
+.stat-n--red{color:#ef5350}
+.stat-l{font-size:11px;color:#607d9b;margin-top:4px;text-transform:uppercase;letter-spacing:.5px;font-weight:600}
+.search-bar{padding:16px 40px;background:#0a0e1a;position:sticky;top:0;z-index:10;border-bottom:1px solid rgba(255,255,255,.05)}
+.search-bar input{width:100%;max-width:480px;padding:10px 16px;background:#141b2d;border:1px solid rgba(255,255,255,.1);border-radius:10px;color:#e8edf5;font-size:14px;font-family:inherit;outline:none}
+.search-bar input::placeholder{color:#4a5568}
+.search-bar input:focus{border-color:#64b5f6}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:20px;padding:24px 40px 40px}
+.card{background:#141b2d;border:1px solid rgba(255,255,255,.07);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;transition:transform .15s,box-shadow .15s}
+.card:hover{transform:translateY(-3px);box-shadow:0 12px 40px rgba(0,0,0,.4)}
+.card--comp{border-color:rgba(239,83,80,.2);background:#1a1015}
+.card-photo{width:100%;height:180px;overflow:hidden;background:#0f1525;flex-shrink:0}
+.card-photo img{width:100%;height:100%;object-fit:cover}
+.card-photo--empty{display:flex;align-items:center;justify-content:center;font-size:40px;color:#2a3550}
+.card-body{padding:16px;flex:1;position:relative}
+.card-num{position:absolute;top:12px;right:12px;width:26px;height:26px;background:rgba(100,181,246,.15);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#64b5f6}
+.card-name{font-size:15px;font-weight:700;margin-bottom:4px;padding-right:32px;line-height:1.3}
+.card-type{font-size:11px;color:#607d9b;margin-bottom:12px;text-transform:uppercase;letter-spacing:.4px}
+.badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;vertical-align:middle;margin-left:4px}
+.badge--jet{background:rgba(100,181,246,.15);color:#64b5f6}
+.badge--comp{background:rgba(239,83,80,.15);color:#ef5350}
+.meta-row{display:flex;align-items:flex-start;gap:6px;font-size:12px;color:#8899aa;margin-bottom:5px;line-height:1.4}
+.meta-icon{flex-shrink:0;font-size:12px}
+.meta-row b{color:#c5d3e8;font-weight:600}
+.meta-notes{margin-top:8px;padding:8px 10px;background:rgba(255,255,255,.04);border-radius:8px;font-size:11px;color:#7a8fa6;font-style:italic;line-height:1.5}
+.footer{text-align:center;padding:20px;font-size:11px;color:#2a3550;border-top:1px solid rgba(255,255,255,.04)}
+@media(max-width:600px){.top-bar,.stats,.search-bar,.grid{padding-left:16px;padding-right:16px}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="top-bar">
+  <div>
+    <div class="top-logo">J<span>E</span>T</div>
+    <div class="top-title">${lang==='ru'?'Отчёт о станциях':lang==='pt'?'Relatório de Estações':'Reporte de Estaciones'}</div>
+    <div class="top-city">${cityName}</div>
+  </div>
+  <div class="top-right">${dateStr}<br><b style="color:#fff;font-size:16px">${stations.length}</b> ${lang==='ru'?'парковок':lang==='pt'?'estações':'estaciones'}</div>
+</div>
+<div class="stats">
+  <div class="stat"><div class="stat-n stat-n--blue">${stations.length}</div><div class="stat-l">${lang==='ru'?'Всего':lang==='pt'?'Total':'Total'}</div></div>
+  <div class="stat"><div class="stat-n stat-n--green">${ownCount}</div><div class="stat-l">JET ${lang==='ru'?'Наши':lang==='pt'?'Próprias':'Propias'}</div></div>
+  <div class="stat"><div class="stat-n stat-n--red">${compCount}</div><div class="stat-l">${lang==='ru'?'Конкуренты':lang==='pt'?'Concorrentes':'Competencia'}</div></div>
+</div>
+<div class="search-bar">
+  <input type="search" id="q" placeholder="🔍 ${lang==='ru'?'Поиск по названию или адресу':lang==='pt'?'Buscar por nome ou endereço':'Buscar por nombre o dirección'}..." oninput="filterCards(this.value)">
+</div>
+<div class="grid" id="grid">${cards}</div>
+<div class="footer">JET Movilidad © ${new Date().getFullYear()} · ${dateStr} · ${stations.length} ${lang==='ru'?'станций':lang==='pt'?'estações':'estaciones'}</div>
+<script>
+function filterCards(q){
+  const v=q.toLowerCase();
+  document.querySelectorAll('#grid .card').forEach(c=>{
+    c.style.display=c.textContent.toLowerCase().includes(v)?'':'none';
+  });
+}
+<\/script>
+</body></html>`;
+
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `JET_${cityName.replace(/\s+/g,'_')}_${today()}.html`;
+  a.click();
+  setTimeout(()=>URL.revokeObjectURL(url), 10000);
+  closeOverlay('export-overlay');
+  toast('✅ HTML ' + (lang==='ru'?'скачан':lang==='pt'?'baixado':'descargado'));
 }
 
 function esc(v){return (v||'').replace(/"/g,'""');}
