@@ -2878,7 +2878,7 @@ function renderAll(){
     // Lazy popup — built only when opened
     m.bindPopup(()=>{
       const isComp2 = s.ownership === 'competencia';
-      const photoHtml = s.photo ? `<img src="${s.photo}" style="width:100%;border-radius:6px;margin:6px 0;max-height:180px;object-fit:contain;cursor:pointer" onclick="openPhotoViewer(this.src)">` : '';
+      const _sp = safePhoto(s); const photoHtml = _sp ? `<img src="${_sp}" style="width:100%;border-radius:6px;margin:6px 0;max-height:180px;object-fit:contain;cursor:pointer" onclick="openPhotoViewer(this.src)">` : '';
       const capHtml   = s.capacity ? `<br><span style="font-size:11px;color:#28a745">🛴 ${s.capacity} scooters</span>` : '';
       const ownBadge  = isComp2 ? `<span style="padding:1px 6px;border-radius:10px;font-size:11px;background:#fde8e8;color:#dc3545;margin-left:4px">Competencia</span>` : '';
       return `
@@ -3035,7 +3035,7 @@ function renderListItems(){
     return `
     <li class="spot-item${isSel?' selected':''}">
       <input type="checkbox" class="spot-check" ${isSel?'checked':''} onchange="listToggleOne('${s._docId}',this.checked)" onclick="event.stopPropagation()">
-      ${s.photo?`<img class="spot-thumb" src="${s.photo}" onclick="event.stopPropagation();openPhotoViewer(this.src)" style="cursor:pointer">`:''}
+      ${safePhoto(s)?`<img class="spot-thumb" src="${safePhoto(s)}" onclick="event.stopPropagation();openPhotoViewer(this.src)" style="cursor:pointer">`:''}
       <div class="spot-body" onclick="flyTo(${s.lat},${s.lng})">
         <div class="spot-name">${i+1}. ${s.name}
           <span class="spot-badge">${s.type}</span>
@@ -3652,6 +3652,17 @@ function renderStatsTab(){
     </div>`;
 }
 
+// Returns photo src only if it's a displayable image (not broken HEIC base64)
+function safePhoto(s) {
+  if (!s || !s.photo) return null;
+  const p = s.photo;
+  // Only show if it's a proper image data URL or http URL
+  if (p.startsWith('data:image/')) return p;
+  if (p.startsWith('http')) return p;
+  // data:application/octet-stream = broken HEIC saved before fix — don't show
+  return null;
+}
+
 // ==================== PHOTO VIEWER ====================
 function openPhotoViewer(src){
   const ov = document.getElementById('photo-viewer-overlay');
@@ -3763,6 +3774,8 @@ async function fetchAllDrivePhotos() {
   for(const s of targets){
     // Prefer drivePhotoUrl as source; fallback to photo if it's a Drive URL
     const url = s.drivePhotoUrl || (s.photo && s.photo.includes('drive.google.com') ? s.photo : null);
+    const idx = targets.indexOf(s) + 1;
+    res.innerHTML=`<span class="spinner"></span> ${idx}/${targets.length} — ${s.name||''}...`;
     try{
       if(!url){ failed++; continue; }
       const b64 = await fetchDrivePhoto(url);
@@ -3770,8 +3783,7 @@ async function fetchAllDrivePhotos() {
         await db.collection('stations').doc(s._docId).update({ photo: b64 });
         done++;
       } else { failed++; }
-    }catch{ failed++; }
-    res.innerHTML=`<span class="spinner"></span> ${done}/${targets.length}...`;
+    }catch(e){ failed++; }
   }
   const okWord = lang==='ru'?'Загружено':lang==='pt'?'Carregadas':'Cargadas';
   const errWord = lang==='ru'?'Ошибок':lang==='pt'?'Erros':'Errores';
@@ -4790,7 +4802,7 @@ function exportPDF(){
   const stationsHtml = stations.map((s,i)=>`
 <div class="sc">
   <div class="sc-left">
-    ${s.photo ? `<img class="sp" src="${s.photo}" alt="">` : `<div class="sp-empty">📷</div>`}
+    ${safePhoto(s) ? `<img class="sp" src="${safePhoto(s)}" alt="">` : `<div class="sp-empty">📷</div>`}
     <div class="croqui-wrap">
       <div class="croqui-lbl">${T.croqui}</div>
       ${makeCroqui(s)}
@@ -4880,8 +4892,9 @@ function exportHTMLReport(){
 
   const cards = stations.map((s,i)=>{
     const isComp = s.ownership==='competencia';
-    const photoHtml = s.photo
-      ? `<div class="card-photo"><img src="${s.photo}" alt=""></div>`
+    const _sp2 = safePhoto(s);
+    const photoHtml = _sp2
+      ? `<div class="card-photo"><img src="${_sp2}" alt=""></div>`
       : `<div class="card-photo card-photo--empty">📷</div>`;
     const badge = isComp
       ? `<span class="badge badge--comp">${lang==='ru'?'Конкурент':lang==='pt'?'Concorrente':'Competencia'}</span>`
