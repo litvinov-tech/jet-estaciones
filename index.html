@@ -3714,7 +3714,12 @@ async function fetchAllDrivePhotos() {
     return url && url.includes('drive.google.com') && (!s.photo || s.photo.includes('drive.google.com'));
   });
   if(!targets.length){ res.innerHTML='<div class="ok">✅ ' + (lang==='ru'?'Нет станций с фото Drive.':lang==='pt'?'Sem estações com foto Drive.':'Sin estaciones con foto Drive.') + '</div>'; return; }
-  res.innerHTML=`<span class="spinner"></span> ${targets.length}...`;
+
+  // Debug: show first 3 URLs stored in Firebase
+  const debugUrls = targets.slice(0,3).map(s=>`<div style="font-size:10px;word-break:break-all;margin:2px 0;color:#60a5fa">${s.drivePhotoUrl||s.photo}</div>`).join('');
+  res.innerHTML=`<div style="margin-bottom:8px;padding:8px;background:#1e2640;border-radius:8px;font-size:11px;color:#8892aa">🔍 URLs en Firebase:<br>${debugUrls}</div><span class="spinner"></span> ${targets.length}...`;
+  await new Promise(r=>setTimeout(r,3000)); // pause so user can see URLs
+
   let done=0, failed=0;
   for(const s of targets){
     const url = s.drivePhotoUrl || s.photo;
