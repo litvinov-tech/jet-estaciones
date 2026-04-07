@@ -1372,32 +1372,17 @@ function cityConfirm(){
   localStorage.setItem('jet_city',    currentCity);
   closeCitySelector();
   updateCityBtn();
-  // Re-filter stations
-  renderAll();
-  const openList = document.getElementById('list-overlay');
-  if(openList?.classList.contains('on')) renderListItems();
   toast('📍 ' + currentCity);
-  // Fly map to selected city — use own station coords first (instant), fall back to Nominatim
-  const cityStations = stations.filter(s => s.city === currentCity && s.lat && s.lng);
-  if(cityStations.length === 1){
-    map.flyTo([cityStations[0].lat, cityStations[0].lng], 15);
-  } else if(cityStations.length > 1){
-    const lats = cityStations.map(s=>s.lat), lngs = cityStations.map(s=>s.lng);
-    map.flyToBounds([[Math.min(...lats),Math.min(...lngs)],[Math.max(...lats),Math.max(...lngs)]], {padding:[50,50], maxZoom:15});
-  } else {
-    // No local stations — geocode via Nominatim
-    const countryName = GEO_DATA[currentCountry]?.name?.es || currentCountry;
-    const stateName   = currentState ? (GEO_DATA[currentCountry]?.states[currentState]?.n || currentState) : '';
-    const q = [currentCity, stateName, countryName].filter(Boolean).join(', ');
-    toast('🗺 ' + (lang==='ru'?'Ищу город на карте…':'Buscando ciudad en mapa…'));
-    fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`)
-      .then(r=>r.json())
-      .then(d=>{
-        if(d && d[0]) map.flyTo([+d[0].lat, +d[0].lon], 13);
-        else toast('⚠️ ' + (lang==='ru'?'Город не найден':'Ciudad no encontrada'));
-      })
-      .catch(()=>toast('⚠️ ' + (lang==='ru'?'Ошибка геокодинга':'Error de geocodificación')));
-  }
+  // Reload stations for new city from Firestore
+  resubscribeStations();
+  // Fly map to city via Nominatim (stations not yet loaded)
+  const countryName = GEO_DATA[currentCountry]?.name?.es || currentCountry;
+  const stateName   = currentState ? (GEO_DATA[currentCountry]?.states[currentState]?.n || currentState) : '';
+  const q = [currentCity, stateName, countryName].filter(Boolean).join(', ');
+  fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`)
+    .then(r=>r.json())
+    .then(d=>{ if(d && d[0]) map.flyTo([+d[0].lat, +d[0].lon], 13); })
+    .catch(()=>{});
 }
 
 function updateCityBtn(){
@@ -1755,33 +1740,43 @@ async function loadUserRole(){
 }
 
 // ==================== REALTIME ====================
-function initRealtime(){
-  const stationsQuery = db.collection('stations').orderBy('createdAt','desc');
-  unsubStations = stationsQuery.onSnapshot(snap => {
-      const wasEmpty = stations.length === 0;
-      stations = snap.docs.map(d => ({...d.data(), _docId: d.id}));
+function resubscribeStations(){
+  if(unsubStations){ unsubStations(); unsubStations = null; }
+  stations = [];
+  renderAll();
+  document.getElementById('cnt').textContent = '0';
+
+  const q = currentCity
+    ? db.collection('stations').where('city','==', currentCity)
+    : db.collection('stations').orderBy('createdAt','desc');
+
+  const onSnap = snap => {
+    const wasEmpty = stations.length === 0;
+    stations = snap.docs.map(d => ({...d.data(), _docId: d.id}));
+    renderAll();
+    document.getElementById('cnt').textContent = stations.length;
+    if(wasEmpty && stations.length > 0){
+      const bounds = stations.map(s=>[s.lat,s.lng]).filter(p=>p[0]&&p[1]);
+      if(bounds.length === 1) map.setView(bounds[0], 16);
+      else if(bounds.length > 1) map.fitBounds(bounds, {padding:[40,40]});
+    }
+  };
+
+  unsubStations = q.onSnapshot(onSnap, err => {
+    console.error('Stations error:', err);
+    const fallback = currentCity
+      ? db.collection('stations').where('city','==', currentCity)
+      : db.collection('stations');
+    fallback.get().then(snap2 => {
+      stations = snap2.docs.map(d => ({...d.data(), _docId: d.id}));
       renderAll();
       document.getElementById('cnt').textContent = stations.length;
-      // Auto-fit map when first stations load
-      if(wasEmpty && stations.length > 0){
-        const bounds = stations.map(s=>[s.lat,s.lng]).filter(p=>p[0]&&p[1]);
-        if(bounds.length === 1) map.setView(bounds[0], 16);
-        else if(bounds.length > 1) map.fitBounds(bounds, {padding:[40,40]});
-      }
-    }, err => {
-      console.error('Stations error:', err);
-      // Fallback: try without ordering
-      db.collection('stations').get().then(snap2 => {
-        stations = snap2.docs.map(d => ({...d.data(), _docId: d.id}));
-        renderAll();
-        document.getElementById('cnt').textContent = stations.length;
-        if(stations.length > 0){
-          const bounds = stations.map(s=>[s.lat,s.lng]).filter(p=>p[0]&&p[1]);
-          if(bounds.length === 1) map.setView(bounds[0], 16);
-          else if(bounds.length > 1) map.fitBounds(bounds, {padding:[40,40]});
-        }
-      }).catch(()=>toast('⚠️ Error de conexión — revisa reglas de Firestore'));
-    });
+    }).catch(()=>toast('⚠️ Error de conexión — revisa reglas de Firestore'));
+  });
+}
+
+function initRealtime(){
+  resubscribeStations();
 
   unsubLocations = db.collection('locations').onSnapshot(snap => {
     snap.docChanges().forEach(ch => {
@@ -2559,9 +2554,7 @@ function openEdit(docId){
 // ==================== RENDER ====================
 function renderAll(){
   spotsGroup.clearLayers();
-  let byCity = currentCity ? stations.filter(s => !s.city || s.city === currentCity) : stations;
-  if(currentCity && byCity.length === 0 && stations.length > 0) byCity = stations;
-  const visible = filterUser ? byCity.filter(s=>s.userId===filterUser) : byCity;
+  const visible = filterUser ? stations.filter(s=>s.userId===filterUser) : stations;
   const CHUNK = 40;
   const addChunk = (start) => {
     const end = Math.min(start + CHUNK, visible.length);
@@ -2654,7 +2647,7 @@ function openList(){
   selectedDocIds.clear();
   const users = [...new Set(stations.map(s=>s.userId))];
   const filtersEl = document.getElementById('list-filters');
-  filtersEl.innerHTML = `<button class="filter-btn${!filterUser?' active':''}" onclick="setFilter(null)">Todos (${(currentCity ? stations.filter(s=>s.city===currentCity) : stations).length})</button>`
+  filtersEl.innerHTML = `<button class="filter-btn${!filterUser?' active':''}" onclick="setFilter(null)">Todos (${stations.length})</button>`
     + users.map(uid => {
         const name = stations.find(s=>s.userId===uid)?.userName||'?';
         const cnt  = stations.filter(s=>s.userId===uid).length;
@@ -2683,8 +2676,7 @@ function listSetSort(mode){
 }
 
 function listGetSorted(){
-  const byCity = currentCity ? stations.filter(s => !s.city || s.city === currentCity) : stations;
-  let list = filterUser ? byCity.filter(s=>s.userId===filterUser) : [...byCity];
+  let list = filterUser ? stations.filter(s=>s.userId===filterUser) : [...stations];
   if(listSortMode === 'date_asc')  list.sort((a,b)=>(a.createdAt?.seconds||0)-(b.createdAt?.seconds||0));
   else if(listSortMode === 'name_asc') list.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   else list.sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)); // date_desc default
