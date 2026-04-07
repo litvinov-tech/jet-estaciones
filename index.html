@@ -3689,10 +3689,9 @@ function renderStatsTab(){
 function safePhoto(s) {
   if (!s || !s.photo) return null;
   const p = s.photo;
-  // Only show if it's a proper image data URL or http URL
   if (p.startsWith('data:image/')) return p;
-  if (p.startsWith('http')) return p;
-  // data:application/octet-stream = broken HEIC saved before fix — don't show
+  // Drive URLs can't load directly in browser — need proxy first
+  if (p.startsWith('http') && !p.includes('drive.google.com')) return p;
   return null;
 }
 
