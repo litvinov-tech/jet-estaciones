@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JET Analytics — Mapa de Calor</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#080b14;color:#e8edf5;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+
+/* Top bar */
+.topbar{background:linear-gradient(135deg,#0f1525,#141e35);border-bottom:1px solid rgba(255,255,255,.07);padding:10px 20px;display:flex;align-items:center;gap:16px;flex-shrink:0;flex-wrap:wrap}
+.logo{font-size:22px;font-weight:900;color:#fff;letter-spacing:-1px}
+.logo span{color:#3b82f6}
+.title{font-size:13px;font-weight:600;color:#8892aa}
+.controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-left:auto}
+select,button{background:#1a2238;border:1px solid rgba(255,255,255,.1);color:#e8edf5;border-radius:8px;padding:7px 12px;font-size:13px;font-family:inherit;cursor:pointer;outline:none}
+select:focus,button:focus{border-color:#3b82f6}
+button{background:#3b82f6;border-color:#3b82f6;font-weight:600;padding:7px 16px}
+button:hover{background:#2563eb}
+button.secondary{background:#1a2238;border-color:rgba(255,255,255,.15)}
+button.secondary:hover{border-color:#3b82f6}
+.mode-toggle{display:flex;gap:0;border:1px solid rgba(255,255,255,.1);border-radius:8px;overflow:hidden}
+.mode-toggle button{border-radius:0;border:none;background:#1a2238;padding:7px 14px;font-size:12px}
+.mode-toggle button.active{background:#3b82f6}
+
+/* Stats bar */
+.statsbar{background:#0d1220;border-bottom:1px solid rgba(255,255,255,.05);padding:8px 20px;display:flex;gap:24px;align-items:center;flex-shrink:0;font-size:12px;flex-wrap:wrap}
+.stat{display:flex;align-items:center;gap:6px;color:#8892aa}
+.stat b{color:#e8edf5;font-size:14px}
+.stat-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+
+/* Map */
+#map{flex:1;z-index:1}
+
+/* Side panel */
+.panel{position:absolute;top:110px;right:16px;z-index:1000;width:260px;background:#0f1525cc;backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.08);border-radius:14px;padding:14px;max-height:calc(100vh - 130px);overflow-y:auto}
+.panel h3{font-size:12px;font-weight:700;color:#8892aa;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px}
+.panel-row{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid rgba(255,255,255,.05);font-size:12px}
+.panel-row:last-child{border-bottom:none}
+.panel-label{color:#8892aa}
+.panel-val{color:#e8edf5;font-weight:600}
+
+/* Legend */
+.legend{position:absolute;bottom:28px;left:16px;z-index:1000;background:#0f1525cc;backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:10px 14px;font-size:11px}
+.legend-title{font-weight:700;color:#8892aa;margin-bottom:6px;text-transform:uppercase;letter-spacing:.5px}
+.legend-gradient{width:160px;height:8px;border-radius:4px;background:linear-gradient(90deg,#0000ff,#00ffff,#00ff00,#ffff00,#ff0000);margin-bottom:6px}
+.legend-labels{display:flex;justify-content:space-between;color:#607d9b}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;right:24px;background:#1e2d3d;border:1px solid #3b82f6;color:#e8edf5;padding:10px 16px;border-radius:10px;font-size:13px;z-index:9999;animation:fadeIn .2s}
+@keyframes fadeIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* Spinner */
+.loading{position:absolute;inset:0;background:rgba(8,11,20,.8);z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px}
+.spinner{width:40px;height:40px;border:3px solid rgba(59,130,246,.2);border-top-color:#3b82f6;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{color:#8892aa;font-size:14px}
+
+/* No data */
+.no-data{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;z-index:500;pointer-events:none}
+.no-data h2{font-size:18px;color:#8892aa;margin-bottom:8px}
+.no-data p{font-size:13px;color:#4a5568}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">J<span>E</span>T</div>
+  <div class="title">Analytics — Heatmap de Patinetes</div>
+  <div class="controls">
+    <select id="city-sel" onchange="onCityChange()">
+      <option value="">Selecionar cidade...</option>
+    </select>
+    <select id="days-sel" onchange="reload()">
+      <option value="1">Hoje</option>
+      <option value="3">3 dias</option>
+      <option value="7" selected>7 dias</option>
+      <option value="14">14 dias</option>
+    </select>
+    <div class="mode-toggle">
+      <button id="btn-free" class="active" onclick="setMode('free')">🛴 Fora da estação</button>
+      <button id="btn-all" onclick="setMode('all')">📍 Todos</button>
+    </div>
+    <button onclick="reload()">🔄 Atualizar</button>
+    <button class="secondary" onclick="toggleStations()">🅿️ Estações JET</button>
+    <button class="secondary" onclick="fetchNow()">⚡ Dados agora</button>
+  </div>
+</div>
+
+<div class="statsbar">
+  <div class="stat"><div class="stat-dot" style="background:#ef4444"></div><b id="stat-points">—</b> pontos de calor</div>
+  <div class="stat"><div class="stat-dot" style="background:#3b82f6"></div><b id="stat-stations">—</b> estações JET</div>
+  <div class="stat"><span>📅</span><b id="stat-period">—</b></div>
+  <div class="stat"><span>⏱</span><b id="stat-updated">—</b></div>
+</div>
+
+<div id="map"></div>
+
+<div class="panel" id="panel" style="display:none">
+  <h3>📊 Zonas sem estação</h3>
+  <div id="cluster-list"></div>
+</div>
+
+<div class="legend">
+  <div class="legend-title">Densidade</div>
+  <div class="legend-gradient"></div>
+  <div class="legend-labels"><span>Baixa</span><span>Alta</span></div>
+</div>
+
+<div class="loading" id="loading">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">Carregando dados...</div>
+</div>
+
+<div class="no-data" id="no-data" style="display:none">
+  <h2>Sem dados ainda</h2>
+  <p>O bot coleta posições a cada 30 min.<br>Selecione uma cidade ou clique em "Dados agora".</p>
+</div>
+
+<script>
+// ── Config ──────────────────────────────────────────────────────────────────
+const PROXY = 'https://survival-michigan-transmitted-travelers.trycloudflare.com';
+const FIREBASE_PROJECT = 'jet-estaciones';
+
+// Firebase config (same as main app)
+const FB_CONFIG = {
+  apiKey: atob('QUl6YVN5Q3pheXBRQW5LNzdpcUotaW1rN09IdnpJTHVBbERDdDQ='),
+  authDomain: 'jet-estaciones.firebaseapp.com',
+  projectId: FIREBASE_PROJECT,
+};
+
+// ── State ────────────────────────────────────────────────────────────────────
+let map, heatLayer, stationLayer;
+let mode = 'free'; // 'free' | 'all'
+let showStations = true;
+let stations = [];
+let currentCity = '';
+
+// ── Map init ─────────────────────────────────────────────────────────────────
+function initMap() {
+  map = L.map('map', { zoomControl: true }).setView([-25.88, -48.62], 13);
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap © CARTO',
+    subdomains: 'abcd', maxZoom: 19
+  }).addTo(map);
+
+  heatLayer = L.heatLayer([], {
+    radius: 25, blur: 20, maxZoom: 17,
+    gradient: {0.0: '#0000ff', 0.3: '#00ffff', 0.5: '#00ff00', 0.7: '#ffff00', 1.0: '#ff0000'}
+  }).addTo(map);
+
+  stationLayer = L.layerGroup().addTo(map);
+}
+
+// ── Firebase ─────────────────────────────────────────────────────────────────
+let db;
+async function initFirebase() {
+  if (typeof firebase === 'undefined') return;
+  if (!firebase.apps.length) firebase.initializeApp(FB_CONFIG);
+  db = firebase.firestore();
+}
+
+async function loadStations(city) {
+  if (!db) return [];
+  try {
+    let q = db.collection('stations');
+    if (city) q = q.where('city', '==', city);
+    const snap = await q.get();
+    return snap.docs.map(d => ({...d.data(), _id: d.id}));
+  } catch(e) { return []; }
+}
+
+function renderStations(list) {
+  stationLayer.clearLayers();
+  if (!showStations) return;
+  list.forEach(s => {
+    if (!s.lat || !s.lng) return;
+    const isComp = s.ownership === 'competencia';
+    if (isComp) return; // only JET
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="width:12px;height:12px;background:#3b82f6;border:2px solid #fff;border-radius:50%;box-shadow:0 0 6px #3b82f680"></div>`,
+      iconSize: [12,12], iconAnchor: [6,6]
+    });
+    L.marker([s.lat, s.lng], {icon})
+      .bindPopup(`<b>${s.name}</b><br><small>${s.address||''}</small>`)
+      .addTo(stationLayer);
+  });
+  document.getElementById('stat-stations').textContent = list.filter(s=>s.ownership!=='competencia').length;
+}
+
+// ── Heatmap data ──────────────────────────────────────────────────────────────
+async function loadHeatmap(city, days, freeOnly) {
+  const url = `${PROXY}/api/bike-heatmap?city=${encodeURIComponent(city)}&days=${days}&free=${freeOnly?1:0}`;
+  const resp = await fetch(url);
+  if (!resp.ok) throw new Error('HTTP ' + resp.status);
+  return resp.json();
+}
+
+// ── Current positions from GoJet API ─────────────────────────────────────────
+async function fetchNow() {
+  if (!currentCity) { toast('Selecione uma cidade'); return; }
+  showLoading('Buscando patinetes em tempo real...');
+  try {
+    // Get city_id
+    const citiesResp = await fetch(`${PROXY}/gojet/cities`);
+    const cities = await citiesResp.json();
+    const cityEntry = cities.find(c => c.name === currentCity);
+    if (!cityEntry) { hideLoading(); toast('Cidade não encontrada na API GoJet'); return; }
+
+    const bikesResp = await fetch(`${PROXY}/gojet/parkings?city_id=${cityEntry.id}`);
+    const data = await bikesResp.json();
+    const entries = data.entries || [];
+
+    // Extract bike positions from parking entries (bikes_count > 0 = scooters here)
+    // Also show parking locations as points
+    const points = [];
+    entries.forEach(e => {
+      const lat = e.latitude || e.location_lat || (e.location||{}).lat;
+      const lng = e.longitude || e.location_lng || (e.location||{}).lng;
+      const count = e.bikes_count || 0;
+      if (lat && lng && count > 0) {
+        for (let i = 0; i < Math.min(count, 10); i++) {
+          // Scatter slightly for heatmap effect
+          points.push([lat + (Math.random()-.5)*0.001, lng + (Math.random()-.5)*0.001, count]);
+        }
+      }
+    });
+
+    if (points.length === 0) {
+      toast('Nenhum patinete encontrado agora');
+    } else {
+      heatLayer.setLatLngs(points);
+      document.getElementById('stat-points').textContent = points.length;
+      document.getElementById('stat-updated').textContent = 'Agora • ' + new Date().toLocaleTimeString('pt-BR');
+      document.getElementById('stat-period').textContent = 'Tempo real';
+      document.getElementById('no-data').style.display = 'none';
+      toast(`⚡ ${points.length} posições carregadas em tempo real`);
+    }
+  } catch(e) {
+    toast('Erro: ' + e.message);
+  }
+  hideLoading();
+}
+
+// ── UI ────────────────────────────────────────────────────────────────────────
+async function reload() {
+  const city = document.getElementById('city-sel').value;
+  const days = parseInt(document.getElementById('days-sel').value);
+  currentCity = city;
+
+  if (!city) { toast('Selecione uma cidade'); return; }
+
+  showLoading('Carregando heatmap...');
+  try {
+    const [heatData, stList] = await Promise.all([
+      loadHeatmap(city, days, mode === 'free'),
+      loadStations(city)
+    ]);
+
+    stations = stList;
+    renderStations(stList);
+
+    const pts = heatData.points || [];
+    if (pts.length === 0) {
+      document.getElementById('no-data').style.display = 'block';
+      heatLayer.setLatLngs([]);
+    } else {
+      document.getElementById('no-data').style.display = 'none';
+      // Normalize weights
+      const maxW = Math.max(...pts.map(p=>p[2]), 1);
+      heatLayer.setLatLngs(pts.map(p => [p[0], p[1], p[2]/maxW]));
+      // Fit bounds
+      const bounds = L.latLngBounds(pts.map(p=>[p[0],p[1]]));
+      map.fitBounds(bounds, {padding:[40,40]});
+      analyzeZones(pts, stList);
+    }
+
+    const periodLabels = {1:'Hoje',3:'3 dias',7:'7 dias',14:'14 dias'};
+    document.getElementById('stat-points').textContent = pts.length;
+    document.getElementById('stat-period').textContent = periodLabels[days] || `${days} dias`;
+    document.getElementById('stat-updated').textContent = new Date().toLocaleTimeString('pt-BR');
+
+  } catch(e) {
+    if (e.message.includes('bike_logger')) {
+      document.getElementById('no-data').style.display = 'block';
+      document.getElementById('loading-text').textContent = 'Bot ainda não coletou dados. Aguarde 30 min.';
+    } else {
+      toast('Erro: ' + e.message);
+    }
+  }
+  hideLoading();
+}
+
+function analyzeZones(pts, stList) {
+  // Find clusters of bike positions that are far from any JET station
+  const MIN_DIST = 0.003; // ~300m
+  const clusters = [];
+
+  // Simple grid clustering
+  const grid = {};
+  pts.forEach(p => {
+    const gk = `${Math.round(p[0]/MIN_DIST)}_${Math.round(p[1]/MIN_DIST)}`;
+    if (!grid[gk]) grid[gk] = {lat:0,lng:0,count:0,weight:0};
+    grid[gk].lat += p[0]; grid[gk].lng += p[1];
+    grid[gk].count++; grid[gk].weight += p[2];
+  });
+
+  Object.values(grid).forEach(g => {
+    const lat = g.lat/g.count, lng = g.lng/g.count;
+    // Check distance from nearest JET station
+    const nearStation = stList.filter(s=>s.ownership!=='competencia').some(s => {
+      if (!s.lat || !s.lng) return false;
+      const d = Math.sqrt((s.lat-lat)**2 + (s.lng-lng)**2);
+      return d < MIN_DIST;
+    });
+    if (!nearStation && g.count >= 3) {
+      clusters.push({lat, lng, count: g.count, weight: g.weight});
+    }
+  });
+
+  clusters.sort((a,b) => b.weight - a.weight);
+  const top = clusters.slice(0, 5);
+
+  // Show panel
+  const panel = document.getElementById('panel');
+  const list = document.getElementById('cluster-list');
+  if (top.length === 0) {
+    panel.style.display = 'none';
+    return;
+  }
+
+  panel.style.display = 'block';
+  list.innerHTML = top.map((c,i) => `
+    <div class="panel-row" style="cursor:pointer" onclick="map.setView([${c.lat},${c.lng}],16)">
+      <span class="panel-label">📍 Zona ${i+1}</span>
+      <span class="panel-val">${c.count} ocorrências</span>
+    </div>
+  `).join('');
+
+  // Add markers on map
+  top.forEach((c,i) => {
+    const icon = L.divIcon({
+      className: '',
+      html: `<div style="width:32px;height:32px;background:#ef4444;border:2px solid #fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:900;color:#fff;box-shadow:0 0 12px #ef444480">${i+1}</div>`,
+      iconSize: [32,32], iconAnchor: [16,16]
+    });
+    L.marker([c.lat,c.lng], {icon})
+      .bindPopup(`<b>🔴 Zona ${i+1}</b><br>${c.count} ocorrências de patinetes<br><small>Sem estação JET próxima</small>`)
+      .addTo(stationLayer);
+  });
+}
+
+function setMode(m) {
+  mode = m;
+  document.getElementById('btn-free').classList.toggle('active', m==='free');
+  document.getElementById('btn-all').classList.toggle('active', m==='all');
+  reload();
+}
+
+function toggleStations() {
+  showStations = !showStations;
+  renderStations(stations);
+}
+
+async function onCityChange() {
+  currentCity = document.getElementById('city-sel').value;
+  if (currentCity) reload();
+}
+
+function showLoading(txt) {
+  document.getElementById('loading-text').textContent = txt || 'Carregando...';
+  document.getElementById('loading').style.display = 'flex';
+}
+function hideLoading() {
+  document.getElementById('loading').style.display = 'none';
+}
+
+let _toastT;
+function toast(msg) {
+  clearTimeout(_toastT);
+  let el = document.getElementById('_toast');
+  if (!el) { el = document.createElement('div'); el.id='_toast'; el.className='toast'; document.body.appendChild(el); }
+  el.textContent = msg; el.style.display = 'block';
+  _toastT = setTimeout(()=>{ el.style.display='none'; }, 3000);
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+async function init() {
+  initMap();
+  await initFirebase();
+
+  // Load city list from proxy
+  try {
+    const resp = await fetch(`${PROXY}/gojet/cities`);
+    const cities = await resp.json();
+    const sel = document.getElementById('city-sel');
+    cities.forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c.name; opt.textContent = c.name;
+      sel.appendChild(opt);
+    });
+
+    // Auto-select first city if only a few
+    if (cities.length <= 5) {
+      sel.value = cities[0]?.name || '';
+      currentCity = sel.value;
+    }
+  } catch(e) {
+    // Use known cities
+    ['Guaratuba','Londrina','Matinhos'].forEach(c => {
+      const opt = document.createElement('option');
+      opt.value = c; opt.textContent = c;
+      document.getElementById('city-sel').appendChild(opt);
+    });
+  }
+
+  hideLoading();
+  document.getElementById('no-data').style.display = 'block';
+}
+
+// Firebase SDK
+const fbScript = document.createElement('script');
+fbScript.src = 'https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js';
+fbScript.onload = () => {
+  const fsScript = document.createElement('script');
+  fsScript.src = 'https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js';
+  fsScript.onload = init;
+  document.head.appendChild(fsScript);
+};
+document.head.appendChild(fbScript);
+</script>
+</body>
+</html>
