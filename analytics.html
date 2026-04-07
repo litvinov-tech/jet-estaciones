@@ -90,6 +90,7 @@ button.secondary:hover{border-color:#3b82f6}
     <button onclick="reload()">🔄 Atualizar</button>
     <button class="secondary" onclick="toggleStations()">🅿️ Estações JET</button>
     <button class="secondary" onclick="fetchNow()">⚡ Dados agora</button>
+    <button class="secondary" onclick="loadFromGAS()">📊 Histórico GAS</button>
   </div>
 </div>
 
@@ -126,6 +127,7 @@ button.secondary:hover{border-color:#3b82f6}
 <script>
 // ── Config ──────────────────────────────────────────────────────────────────
 const PROXY = 'https://survival-michigan-transmitted-travelers.trycloudflare.com';
+const GAS_URL = atob('aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J5YkFiLXZXcWRnZ3VEMHA5Q2xIajM1YTMyamZFOGw3SE0wVzNZZmR0QVE2R3RnRVNZTHYweXJPM2dNVGJFVlliUzkvZXhlYw=='); // GAS Web App
 const FIREBASE_PROJECT = 'jet-estaciones';
 
 // Firebase config (same as main app)
@@ -201,6 +203,59 @@ async function loadHeatmap(city, days, freeOnly) {
   const resp = await fetch(url);
   if (!resp.ok) throw new Error('HTTP ' + resp.status);
   return resp.json();
+}
+
+// ── Historical data from Google Apps Script ───────────────────────────────────
+async function loadFromGAS() {
+  if (!currentCity) { toast('Selecione uma cidade'); return; }
+  const days = parseInt(document.getElementById('days-sel').value);
+  showLoading('Carregando histórico do Google Sheets...');
+  try {
+    const resp = await fetch(GAS_URL, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({acao: 'getOccupancyHeatmap', city: currentCity, days})
+    });
+    const data = await resp.json();
+    if (!data.ok) throw new Error(data.msg || 'GAS error');
+
+    const pts = data.points || [];
+    if (pts.length === 0) {
+      toast('Sem dados históricos no GAS para esta cidade');
+      hideLoading(); return;
+    }
+
+    heatLayer.setLatLngs(pts);
+    document.getElementById('no-data').style.display = 'none';
+
+    // Fit bounds
+    const bounds = L.latLngBounds(pts.map(p=>[p[0],p[1]]));
+    map.fitBounds(bounds, {padding:[40,40]});
+
+    // Show station occupancy panel
+    const stList = data.stations || [];
+    const panel = document.getElementById('panel');
+    const list = document.getElementById('cluster-list');
+    panel.querySelector('h3').textContent = '📊 Ocupação média por estação';
+    panel.style.display = 'block';
+    list.innerHTML = stList
+      .sort((a,b)=>b.fill-a.fill)
+      .slice(0,8)
+      .map(s=>`
+        <div class="panel-row" style="cursor:pointer" onclick="map.setView([${s.lat},${s.lng}],17)">
+          <span class="panel-label" title="${s.name}">${s.name.substring(0,20)}${s.name.length>20?'…':''}</span>
+          <span class="panel-val" style="color:${s.fill>70?'#ef4444':s.fill>40?'#f59e0b':'#10b981'}">${s.fill}%</span>
+        </div>
+      `).join('');
+
+    document.getElementById('stat-points').textContent = pts.length;
+    document.getElementById('stat-period').textContent = `${days} dias (GAS)`;
+    document.getElementById('stat-updated').textContent = new Date().toLocaleTimeString('pt-BR');
+    toast(`📊 ${pts.length} estações com histórico`);
+  } catch(e) {
+    toast('Erro GAS: ' + e.message);
+  }
+  hideLoading();
 }
 
 // ── Current positions from GoJet API ─────────────────────────────────────────
