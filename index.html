@@ -409,26 +409,26 @@ body{background:var(--bg-deep)!important}
   backdrop-filter:blur(20px)!important;
   -webkit-backdrop-filter:blur(20px)!important;
   border-top:1px solid var(--border)!important;
-  padding:6px 8px 8px!important;
-  gap:2px!important;
+  padding:6px 8px calc(8px + env(safe-area-inset-bottom))!important;
+  gap:4px!important;
   box-shadow:0 -4px 20px rgba(0,0,0,0.4)!important;
+  -webkit-mask-image:linear-gradient(to right,transparent 0,black 8px,black calc(100% - 8px),transparent 100%)!important;
+  mask-image:linear-gradient(to right,transparent 0,black 8px,black calc(100% - 8px),transparent 100%)!important;
 }
 .tbtn{
-  flex:1 1 0!important;
-  min-width:0!important;
+  flex:0 0 auto!important;
+  min-width:52px!important;
   flex-direction:column!important;
-  padding:6px 4px!important;
+  padding:6px 8px!important;
   border-radius:12px!important;
   background:transparent!important;
   color:var(--text-secondary)!important;
-  font-size:9px!important;
+  font-size:10px!important;
   font-weight:600!important;
   gap:2px!important;
   letter-spacing:0.2px!important;
   transition:background 0.15s,color 0.15s!important;
   white-space:nowrap!important;
-  overflow:hidden!important;
-  text-overflow:ellipsis!important;
 }
 .tbtn:hover,.tbtn:active{
   background:var(--bg-surface)!important;
@@ -658,9 +658,9 @@ body{background:var(--bg-deep)!important}
     <button class="tbtn" id="tb-team" onclick="openTeam()">👥 Equipo</button>
     <button class="tbtn" id="bike-btn" onclick="toggleBikeLayer(this)">🚴 Ciclovías</button>
     <button class="tbtn" id="tb-city" onclick="openCitySelector(false)" style="background:#005bff20;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🌎 Ciudad</button>
-    <button class="tbtn" id="tb-suggest" onclick="toggleSuggestions()">🎯 Sugerencias</button>
-    <button class="tbtn" id="tb-import" onclick="openImport()">📥 Importar</button>
-    <button class="tbtn" id="tb-export" onclick="exportData()">📤 Exportar</button>
+    <button class="tbtn" id="tb-suggest" onclick="toggleSuggestions()">🎯 Suger.</button>
+    <button class="tbtn" id="tb-import" onclick="openImport()">📥 Import</button>
+    <button class="tbtn" id="tb-export" onclick="exportData()">📤 Export</button>
     <button class="tbtn" id="tb-analytics" onclick="openAnalytics()">🔥 Analytics</button>
     <button class="tbtn" id="tb-admin" onclick="openAdminPanel()" style="display:none;position:relative">🛡 Admin<span id="tb-admin-badge" style="position:absolute;top:2px;right:2px;background:#dc3545;color:white;border-radius:8px;font-size:9px;padding:1px 4px;font-weight:700;display:none">0</span></button>
   </div>
