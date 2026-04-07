@@ -843,7 +843,12 @@ body{background:var(--bg-deep)!important}
       <button onclick="closePhotoRotateEditor()" style="background:rgba(255,255,255,0.1);color:#fff;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px">✕ Закрыть</button>
     </div>
   </div>
-  <div style="padding:8px 8px 4px;color:#aaa;font-size:12px">Нажми на фото чтобы выделить → Повернуть выбранные</div>
+  <div style="display:flex;gap:8px;padding:6px 8px;align-items:center;flex-wrap:wrap">
+    <button onclick="preSelectAll()" style="background:#334155;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer">☑ Все</button>
+    <button onclick="preSelectLandscape()" style="background:#1e40af;color:#fff;border:none;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer">📱 Горизонтальные (перевёрнутые)</button>
+    <button onclick="preDeselectAll()" style="background:#334155;color:#aaa;border:none;border-radius:6px;padding:5px 10px;font-size:12px;cursor:pointer">✕ Снять</button>
+    <span style="color:#aaa;font-size:12px">Нажми на фото или используй кнопки выше</span>
+  </div>
   <div id="pre-grid" style="display:grid;grid-template-columns:repeat(auto-fill,minmax(130px,1fr));gap:8px;padding:8px;overflow-y:auto;flex:1"></div>
 </div>
 
@@ -3859,6 +3864,28 @@ function openPhotoRotateEditor() {
     };
     grid.appendChild(div);
   });
+}
+function preSelectAll() {
+  document.querySelectorAll('#pre-grid > div').forEach(div => {
+    div.classList.add('pre-sel'); div.style.border='3px solid #f97316';
+  });
+  document.getElementById('pre-sel-count').textContent = 'Выбрано: ' + document.querySelectorAll('.pre-sel').length;
+}
+function preDeselectAll() {
+  document.querySelectorAll('.pre-sel').forEach(div => {
+    div.classList.remove('pre-sel'); div.style.border='3px solid transparent';
+  });
+  document.getElementById('pre-sel-count').textContent = 'Выбрано: 0';
+}
+function preSelectLandscape() {
+  preDeselectAll();
+  document.querySelectorAll('#pre-grid > div').forEach(div => {
+    const img = div.querySelector('img');
+    if (img && img.naturalWidth > img.naturalHeight) {
+      div.classList.add('pre-sel'); div.style.border='3px solid #f97316';
+    }
+  });
+  document.getElementById('pre-sel-count').textContent = 'Выбрано: ' + document.querySelectorAll('.pre-sel').length;
 }
 function closePhotoRotateEditor() {
   document.getElementById('photo-rotate-overlay').style.display = 'none';
