@@ -4820,9 +4820,11 @@ body{font-family:Arial,Helvetica,sans-serif;padding:18px 22px;color:#222;max-wid
 ${stationsHtml}
 </body></html>`;
 
-  const win=window.open('','_blank');
-  if(win){win.document.write(html);win.document.close();}
-  else toast('⚠️ Разрешите всплывающие окна в браузере');
+  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const win = window.open(url, '_blank');
+  if(!win) toast('⚠️ ' + (lang==='ru'?'Разрешите всплывающие окна':'Permite ventanas emergentes'));
+  setTimeout(()=>URL.revokeObjectURL(url), 60000);
   closeOverlay('export-overlay');
 }
 
