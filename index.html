@@ -10,6 +10,7 @@
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
@@ -946,6 +947,9 @@ body{background:var(--bg-deep)!important}
     <button onclick="exportGoogleMyMaps()" style="width:100%;padding:14px;background:linear-gradient(135deg,#1565c0,#0d47a1);color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
       <span data-i18n="exp_btn_mymaps">🗺 Google My Maps — pinos CSV</span>
     </button>
+    <button onclick="exportKMZ()" style="width:100%;padding:14px;background:linear-gradient(135deg,#2e7d32,#1b5e20);color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
+      <span data-i18n="exp_btn_kmz">📍 Google My Maps — KMZ</span>
+    </button>
     <button onclick="exportOficial()" style="width:100%;padding:14px;background:linear-gradient(135deg,#1a1a2e,#16213e);color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">
       <span data-i18n="exp_btn_oficial">🏛 CSV Formato Oficial (57 campos)</span>
     </button>
@@ -1168,7 +1172,7 @@ const LANGS = {
     ap_reg_reqs:'⏳ Solicitudes de registro', ap_no_reqs:'Sin solicitudes pendientes ✅', ap_reg_date:'Fecha de registro:', ap_reject:'🚫 Rechazar', ap_del_st_reqs:'🗑 Solicitudes de borrado', ap_no_del_reqs:'Sin solicitudes de borrado ✅', ap_del_station:'✅ Eliminar estación', ap_req_rejected:'✕ Solicitud rechazada',
     ap_no_stations:'No hay estaciones registradas', ap_last_of:'Últimas {n} de {total} estaciones', ap_competitor_short:'🔴 competencia',
     exp_title:'📤 Exportar estaciones', exp_sub:'Seleccione formato para descargar {n} estaciones:', exp_building:'Generando Excel...', exp_excel_done:'📊 Excel descargado', exp_err:'❌ Error:', loading:'Cargando...',
-    exp_btn_excel:'📊 Excel (.xlsx) — tabla con coordenadas', exp_btn_croqui:'📄 Croqui PDF — todas (2 por página)', exp_btn_pdf:'📋 PDF resumen — lista consolidada', exp_btn_html:'🌐 HTML — reporte interactivo', exp_btn_mymaps:'🗺 Google My Maps — pinos CSV', exp_btn_json:'📋 JSON — datos completos', exp_btn_oficial:'🏛 CSV Formato Oficial (57 campos)',
+    exp_btn_excel:'📊 Excel (.xlsx) — tabla con coordenadas', exp_btn_croqui:'📄 Croqui PDF — todas (2 por página)', exp_btn_pdf:'📋 PDF resumen — lista consolidada', exp_btn_html:'🌐 HTML — reporte interactivo', exp_btn_mymaps:'🗺 Google My Maps — pinos CSV', exp_btn_kmz:'📍 Google My Maps — KMZ', exp_btn_json:'📋 JSON — datos completos', exp_btn_oficial:'🏛 CSV Formato Oficial (57 campos)',
   },
   ru: {
     login:'Войти', register:'Регистрация',
@@ -1245,7 +1249,7 @@ const LANGS = {
     ap_reg_reqs:'⏳ Заявки на регистрацию', ap_no_reqs:'Нет ожидающих заявок ✅', ap_reg_date:'Дата регистрации:', ap_reject:'🚫 Отклонить', ap_del_st_reqs:'🗑 Заявки на удаление парковок', ap_no_del_reqs:'Нет заявок на удаление ✅', ap_del_station:'✅ Удалить станцию', ap_req_rejected:'✕ Заявка отклонена',
     ap_no_stations:'Нет добавленных парковок', ap_last_of:'Последние {n} из {total} парковок', ap_competitor_short:'🔴 конкурент',
     exp_title:'📤 Экспорт парковок', exp_sub:'Выберите формат для скачивания {n} парковок:', exp_building:'Формирование Excel...', exp_excel_done:'📊 Excel скачан', exp_err:'❌ Ошибка:', loading:'Загрузка...',
-    exp_btn_excel:'📊 Excel (.xlsx) — таблица с координатами', exp_btn_croqui:'📄 Croqui PDF — все парковки (2 на странице)', exp_btn_pdf:'📋 PDF-отчёт — сводный список', exp_btn_html:'🌐 HTML — красивый интерактивный отчёт', exp_btn_mymaps:'🗺 Google My Maps — пины CSV', exp_btn_json:'📋 JSON — полные данные', exp_btn_oficial:'🏛 CSV Формат Официальный (57 полей)',
+    exp_btn_excel:'📊 Excel (.xlsx) — таблица с координатами', exp_btn_croqui:'📄 Croqui PDF — все парковки (2 на странице)', exp_btn_pdf:'📋 PDF-отчёт — сводный список', exp_btn_html:'🌐 HTML — красивый интерактивный отчёт', exp_btn_mymaps:'🗺 Google My Maps — пины CSV', exp_btn_kmz:'📍 Google My Maps — KMZ', exp_btn_json:'📋 JSON — полные данные', exp_btn_oficial:'🏛 CSV Формат Официальный (57 полей)',
   },
   pt: {
     login:'Entrar', register:'Cadastrar',
@@ -1322,7 +1326,7 @@ const LANGS = {
     ap_reg_reqs:'⏳ Solicitações de cadastro', ap_no_reqs:'Sem solicitações pendentes ✅', ap_reg_date:'Data de cadastro:', ap_reject:'🚫 Rejeitar', ap_del_st_reqs:'🗑 Solicitações de exclusão', ap_no_del_reqs:'Sem solicitações de exclusão ✅', ap_del_station:'✅ Excluir estação', ap_req_rejected:'✕ Solicitação rejeitada',
     ap_no_stations:'Nenhuma estação registrada', ap_last_of:'Últimas {n} de {total} estações', ap_competitor_short:'🔴 concorrência',
     exp_title:'📤 Exportar estações', exp_sub:'Selecione o formato para baixar {n} estações:', exp_building:'Gerando Excel...', exp_excel_done:'📊 Excel baixado', exp_err:'❌ Erro:', loading:'Carregando...',
-    exp_btn_excel:'📊 Excel (.xlsx) — tabela com coordenadas', exp_btn_croqui:'📄 Croqui PDF — todas (2 por página)', exp_btn_pdf:'📋 PDF resumo — lista consolidada', exp_btn_html:'🌐 HTML — relatório interativo', exp_btn_mymaps:'🗺 Google My Maps — pinos CSV', exp_btn_json:'📋 JSON — dados completos', exp_btn_oficial:'🏛 CSV Formato Oficial (57 campos)',
+    exp_btn_excel:'📊 Excel (.xlsx) — tabela com coordenadas', exp_btn_croqui:'📄 Croqui PDF — todas (2 por página)', exp_btn_pdf:'📋 PDF resumo — lista consolidada', exp_btn_html:'🌐 HTML — relatório interativo', exp_btn_mymaps:'🗺 Google My Maps — pinos CSV', exp_btn_kmz:'📍 Google My Maps — KMZ', exp_btn_json:'📋 JSON — dados completos', exp_btn_oficial:'🏛 CSV Formato Oficial (57 campos)',
   }
 };
 
@@ -5374,6 +5378,59 @@ function exportGoogleMyMaps(){
   download(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}), `JET_MyMaps_${cityName}_${today()}.csv`);
   closeOverlay('export-overlay');
   toast('🗺 CSV para Google My Maps baixado');
+}
+
+async function exportKMZ(){
+  if(!stations.length){ toast(t('no_export')); return; }
+  const cityName = currentCity || 'todas';
+  const own = {
+    es:{propia:'JET Propia',competencia:'Competencia'},
+    ru:{propia:'Наша JET',competencia:'Конкурент'},
+    pt:{propia:'Própria JET',competencia:'Concorrente'}
+  }[lang]||{};
+
+  const placemarks = stations.map(s => {
+    const tipo = own[s.ownership] || s.ownership || 'JET';
+    const desc = [
+      tipo,
+      s.type   ? `Tipo: ${s.type}`     : '',
+      s.capacity ? `Cap: ${s.capacity}` : '',
+      s.radius ? `Raio: ${s.radius}m`   : '',
+      s.address ? s.address              : '',
+      s.notes  ? `Obs: ${s.notes}`      : '',
+      s.date   ? `Data: ${s.date}`      : '',
+      s.userName ? `Por: ${s.userName}` : '',
+    ].filter(Boolean).join('\n');
+    const iconUrl = s.ownership === 'competencia'
+      ? 'http://maps.google.com/mapfiles/kml/paddle/red-circle.png'
+      : 'http://maps.google.com/mapfiles/kml/paddle/blu-circle.png';
+    return `    <Placemark>
+      <name>${(s.name||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')}</name>
+      <description><![CDATA[${desc}]]></description>
+      <Style><IconStyle><Icon><href>${iconUrl}</href></Icon></IconStyle></Style>
+      <Point><coordinates>${(s.lng||0).toFixed(6)},${(s.lat||0).toFixed(6)},0</coordinates></Point>
+    </Placemark>`;
+  }).join('\n');
+
+  const kml = `<?xml version="1.0" encoding="UTF-8"?>
+<kml xmlns="http://www.opengis.net/kml/2.2">
+  <Document>
+    <name>JET Estaciones — ${cityName}</name>
+    <description>Exportado: ${today()}</description>
+${placemarks}
+  </Document>
+</kml>`;
+
+  try {
+    const zip = new JSZip();
+    zip.file('doc.kml', kml);
+    const blob = await zip.generateAsync({type:'blob', compression:'DEFLATE'});
+    download(blob, `JET_MyMaps_${cityName}_${today()}.kmz`);
+    closeOverlay('export-overlay');
+    toast('📍 KMZ para Google My Maps baixado');
+  } catch(e) {
+    toast('❌ Erro ao gerar KMZ: ' + e.message);
+  }
 }
 
 function esc(v){return (v||'').replace(/"/g,'""');}
