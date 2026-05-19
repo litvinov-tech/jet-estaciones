@@ -1479,6 +1479,7 @@ let currentCountry = localStorage.getItem('jet_country') || null;
 let currentState   = localStorage.getItem('jet_state')   || null;
 let currentCity    = localStorage.getItem('jet_city')     || null;
 let selCityTemp    = null;
+let citySelectorRequired = false;
 const ADMIN_EMAIL = 'litvinov@jetshr.com.br';
 const STATIONS_COLLECTION = 'stations';
 const STATIONS_INDEX_COLLECTION = 'stations_index';
@@ -1626,7 +1627,16 @@ function getFilteredStations(){
   return list;
 }
 
+function pruneSelectedDocIds(){
+  if(!selectedDocIds.size) return;
+  const loadedIds = new Set(stations.map(s => s._docId).filter(Boolean));
+  [...selectedDocIds].forEach(id => {
+    if(!loadedIds.has(id)) selectedDocIds.delete(id);
+  });
+}
+
 function getSelectedStations(){
+  pruneSelectedDocIds();
   return [...selectedDocIds].map(id => stations.find(s => s._docId === id)).filter(Boolean);
 }
 
@@ -1660,6 +1670,33 @@ function updateExportCount(){
   const countEl = document.getElementById('export-count');
   if(countEl) countEl.textContent = list.length;
   return list.length;
+}
+
+function resetCityScopedUiState(){
+  filterUser = null;
+  filterBatch = null;
+  exportScope = 'visible';
+  selectedDocIds.clear();
+  Object.values(radiusCircles).forEach(circle => {
+    try{ map.removeLayer(circle); }catch(e){}
+  });
+  radiusCircles = {};
+  if(suggestionsLayer) suggestionsLayer.clearLayers();
+  const scopeEl = document.getElementById('export-scope');
+  if(scopeEl) scopeEl.value = exportScope;
+  const listOverlay = document.getElementById('list-overlay');
+  if(listOverlay && listOverlay.classList.contains('on')){
+    renderListFilters();
+    renderListItems();
+  }
+  updateExportCount();
+}
+
+function ensureCitySelectedForDataAction(actionText){
+  if(currentCity) return true;
+  toast(`Selecciona una ciudad antes de ${actionText || 'continuar'}`);
+  openCitySelector(true);
+  return false;
 }
 
 // ==================== GEO DATA ====================
@@ -1869,6 +1906,7 @@ map.on('moveend', () => {
 
 // ==================== CITY SELECTOR ====================
 function openCitySelector(required){
+  citySelectorRequired = !!required;
   const ov = document.getElementById('city-overlay');
   ov.classList.add('on');
   // Restore previous selection
@@ -1892,6 +1930,11 @@ function openCitySelector(required){
 }
 
 function closeCitySelector(){
+  if(citySelectorRequired && !currentCity){
+    toast('Selecciona una ciudad primero');
+    return;
+  }
+  citySelectorRequired = false;
   document.getElementById('city-overlay').classList.remove('on');
 }
 
@@ -1964,12 +2007,17 @@ function updateCityConfirmBtn(){
 
 function cityConfirm(){
   if(!selCityTemp) return;
-  currentCountry = document.getElementById('city-country').value;
-  currentState   = document.getElementById('city-state').value;
-  currentCity    = selCityTemp;
+  const nextCountry = document.getElementById('city-country').value;
+  const nextState   = document.getElementById('city-state').value;
+  const nextCity    = selCityTemp;
+  const changedCity = nextCountry !== currentCountry || nextState !== currentState || nextCity !== currentCity;
+  currentCountry = nextCountry;
+  currentState   = nextState;
+  currentCity    = nextCity;
   localStorage.setItem('jet_country', currentCountry);
   localStorage.setItem('jet_state',   currentState);
   localStorage.setItem('jet_city',    currentCity);
+  if(changedCity) resetCityScopedUiState();
   closeCitySelector();
   updateCityBtn();
   toast('📍 ' + currentCity);
@@ -2350,18 +2398,19 @@ async function loadUserRole(){
 function resubscribeStations(){
   if(unsubStations){ unsubStations(); unsubStations = null; }
   stations = [];
+  selectedDocIds.clear();
+  if(exportScope === 'selected') exportScope = 'visible';
   stationFullCache.clear();
   renderAll();
   document.getElementById('cnt').textContent = '0';
+  updateExportCount();
 
-  const q = currentCity
-    ? db.collection(STATIONS_INDEX_COLLECTION).where('city','==', currentCity)
-    : db.collection(STATIONS_INDEX_COLLECTION).orderBy('createdAt','desc');
+  if(!currentCity) return;
+
+  const q = db.collection(STATIONS_INDEX_COLLECTION).where('city','==', currentCity);
 
   const loadFullFallback = () => {
-    const fullQ = currentCity
-      ? db.collection(STATIONS_COLLECTION).where('city','==', currentCity)
-      : db.collection(STATIONS_COLLECTION).orderBy('createdAt','desc');
+    const fullQ = db.collection(STATIONS_COLLECTION).where('city','==', currentCity);
     return fullQ.get().then(snap2 => {
       stations = snap2.docs.map(d => {
         const full = {...d.data(), _docId: d.id, _lite:false};
@@ -3082,6 +3131,7 @@ function setRadius2(val){
 
 // ==================== SAVE ====================
 async function saveStation(){
+  if(!ensureCitySelectedForDataAction('guardar una estacion')) return;
   if(!selCoords){ toast(t('no_point')); return; }
   const name = document.getElementById('f-name').value.trim();
   const type = document.getElementById('f-type').value;
@@ -4504,6 +4554,10 @@ function handleImport(input){
 
 async function processImportText(rawText, fileName, res){
     try{
+      if(!ensureCitySelectedForDataAction('importar estaciones')){
+        res.innerHTML='<div class="err">Selecciona una ciudad antes de importar.</div>';
+        return;
+      }
       let imported=[];
       const text = rawText.replace(/^\uFEFF/,''); // strip BOM
       const importBatchRaw = (document.getElementById('f-import-batch')?.value || '').trim();
@@ -4636,12 +4690,14 @@ async function processImportText(rawText, fileName, res){
       // Phase 1: add stations to Firestore
       let added=0, skipped=0, photosFetched=0, photosFailed=0;
       const docIds = [];
+      const importedCoords = [];
 
       res.innerHTML=`<span class="spinner"></span> Importando ${imported.length} estaciones...`;
 
       let importErrors = 0;
       for(const imp of imported){
-        const dup=stations.some(s=>dist(s.lat,s.lng,imp.lat,imp.lng)<20);
+        const dup=stations.some(s=>dist(s.lat,s.lng,imp.lat,imp.lng)<20)
+          || importedCoords.some(p=>dist(p.lat,p.lng,imp.lat,imp.lng)<20);
         if(dup){skipped++;continue;}
         const { _photoUrl, _photoIsDrive, ...data } = imp;
         const itemBatchName = data.batchName || importBatchName;
@@ -4655,9 +4711,9 @@ async function processImportText(rawText, fileName, res){
             batchName: itemBatchName || null,
             source:    'import',
             importFile: fileName || '',
-            city:      data.city || currentCity || null,
-            state:     data.state || currentState || null,
-            country:   data.country || currentCountry || null,
+            city:      currentCity || data.city || null,
+            state:     currentState || data.state || null,
+            country:   currentCountry || data.country || null,
             userId:    currentUser.uid,
             userName:  data.userName || currentUser.displayName||currentUser.email.split('@')[0],
             date:      data.date || new Date().toLocaleDateString('es-MX'),
@@ -4666,6 +4722,7 @@ async function processImportText(rawText, fileName, res){
           const ref = await db.collection(STATIONS_COLLECTION).add(stationData);
           await upsertStationIndex(ref.id, {...stationData, _docId: ref.id});
           docIds.push({ ref, imp });
+          importedCoords.push({lat: imp.lat, lng: imp.lng});
           added++;
         }catch(addErr){
           importErrors++;
@@ -4710,8 +4767,10 @@ async function processImportText(rawText, fileName, res){
 // ==================== EXPORT ====================
 function exportData(){
   if(!stations.length){toast(t('no_export'));return;}
-  if(selectedDocIds.size && exportScope !== 'all') exportScope = 'selected';
-  else if(!selectedDocIds.size && exportScope === 'selected') exportScope = 'visible';
+  pruneSelectedDocIds();
+  const selectedCount = getSelectedStations().length;
+  if(selectedCount && exportScope !== 'all') exportScope = 'selected';
+  else if(!selectedCount && exportScope === 'selected') exportScope = 'visible';
   const n = updateExportCount();
   if(!n){toast(t('no_export'));return;}
   document.getElementById('export-count').textContent = n;
