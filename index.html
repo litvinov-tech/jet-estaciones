@@ -190,6 +190,10 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .popup-photo-shell{position:relative;width:100%;height:112px;margin:7px 0;border-radius:8px;background:#f0f3fa;overflow:hidden;display:flex;align-items:center;justify-content:center}
 .popup-photo-img{width:100%;height:100%;object-fit:contain;display:block;cursor:pointer;image-orientation:from-image}
 .popup-photo-rotate{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.55);border:none;border-radius:6px;color:#fff;font-size:14px;line-height:1;cursor:pointer;padding:3px 7px}
+#station-card-panel{display:none;position:fixed;top:58px;left:50%;transform:translateX(-50%);z-index:2600;width:min(360px,calc(100vw - 24px));max-height:calc(100vh - 88px);overflow-y:auto;background:white;border-radius:14px;box-shadow:0 12px 36px rgba(0,0,0,.34);padding:14px 16px 16px;color:#333;pointer-events:auto}
+#station-card-panel.on{display:block}
+#station-card-panel .station-card-close{position:absolute;top:8px;right:10px;border:none;background:transparent;color:#777;font-size:22px;line-height:1;cursor:pointer;padding:2px 6px;z-index:2}
+#station-card-panel .station-popup{max-width:none;min-width:0;padding-right:16px}
 
 /* TOOLBAR ACTIVE */
 .tbtn.active{background:#005bff;color:white}
@@ -666,6 +670,7 @@ body{background:var(--bg-deep)!important}
 
   <div style="position:relative;flex:1;display:flex;flex-direction:column">
     <div id="map"></div>
+    <div id="station-card-panel"></div>
     <div id="counter">📍 <span id="cnt">0</span> estaciones</div>
     <div id="gps-status"><div id="gps-dot"></div><span id="gps-txt">GPS...</span></div>
     <div id="colleague-legend"></div>
@@ -1909,12 +1914,16 @@ map.on('popupopen', (e) => {
 
 document.addEventListener('click', (ev) => {
   const el = ev.target?.closest?.('[data-popup-action]');
-  if(!el || !el.closest('.leaflet-popup')) return;
+  const actionRoot = el?.closest?.('.leaflet-popup, #station-card-panel');
+  if(!el || !actionRoot) return;
   ev.preventDefault();
   ev.stopPropagation();
   if(ev.stopImmediatePropagation) ev.stopImmediatePropagation();
   const action = el.dataset.popupAction;
   const docId = el.dataset.docId || el.dataset.photoDocId || '';
+  if(actionRoot.id === 'station-card-panel' && !['hydrate-photo','view-photo','rotate-photo'].includes(action)){
+    closeStationCard();
+  }
   if(action === 'hydrate-photo' && docId) hydratePopupPhoto(docId, 99);
   else if(action === 'view-photo' && el.src) openPhotoViewer(el.src);
   else if(action === 'rotate-photo' && docId) rotateStationPhoto(docId);
@@ -3354,6 +3363,68 @@ async function openEdit(docId){
 }
 
 // ==================== RENDER ====================
+function stationPopupContent(s){
+  const isComp2 = s.ownership === 'competencia';
+  const photoHtml = popupPhotoBlock(s);
+  const capHtml   = s.capacity ? `<br><span style="font-size:11px;color:#28a745">🛴 ${s.capacity} scooters</span>` : '';
+  const ownBadge  = isComp2 ? `<span style="padding:1px 6px;border-radius:10px;font-size:11px;background:#fde8e8;color:#dc3545;margin-left:4px">Competencia</span>` : '';
+  return `
+    <div class="station-popup" data-doc-id="${attrSafe(s._docId)}">
+      <b style="font-size:14px">${s.name || ''}</b>${ownBadge}
+      <span style="display:inline-block;padding:1px 6px;border-radius:10px;font-size:11px;background:#e8f0ff;color:#005bff;margin-left:4px">${s.type || ''}</span>
+      ${capHtml}
+      <br><span style="font-size:11px;color:#888">${s.address||'—'}</span>
+      ${photoHtml}
+      <br><span style="font-size:11px;color:#005bff;font-weight:600">👤 ${s.userName||'—'}</span>
+      <span style="font-size:11px;color:#aaa"> · ${s.date || ''}</span>
+      ${s.notes?`<br><span style="font-size:12px;color:#555">${s.notes}</span>`:''}
+      <div class="popup-actions">
+        ${(currentRole==='admin' || s.userId===currentUser?.uid)
+          ? `<button type="button" class="pa-btn" style="background:#e8f0ff;color:#005bff" data-popup-action="edit" data-doc-id="${attrSafe(s._docId)}" onclick="openEdit('${jsString(s._docId)}')">✏️ Editar</button>`
+          : ''}
+        <button type="button" class="pa-btn" style="background:#e8f5e9;color:#28a745" data-popup-action="radius" data-doc-id="${attrSafe(s._docId)}" data-lat="${s.lat}" data-lng="${s.lng}" onclick="toggleRadius('${jsString(s._docId)}',${s.lat},${s.lng})">⭕ Radio</button>
+        <button type="button" class="pa-btn" style="background:#f5f5f5;color:#333" data-popup-action="street" data-lat="${s.lat}" data-lng="${s.lng}" onclick="openStreetView(${s.lat},${s.lng})">🌐 Street</button>
+        <button type="button" class="pa-btn" style="background:#fff3e0;color:#e65100" data-popup-action="croqui" data-doc-id="${attrSafe(s._docId)}" onclick="exportCroqui('${jsString(s._docId)}')">📄 Croqui</button>
+        ${currentRole==='admin'
+          ? `<button type="button" class="pa-btn" style="background:#fde8e8;color:#dc3545" data-popup-action="delete" data-doc-id="${attrSafe(s._docId)}" onclick="delStation('${jsString(s._docId)}')">🗑</button>`
+          : `<button type="button" class="pa-btn" style="background:#fff3cd;color:#856404" data-popup-action="delete-request" data-doc-id="${attrSafe(s._docId)}" data-name="${attrSafe(s.name)}" onclick="openDeleteRequest('${jsString(s._docId)}','${jsString(s.name)}')">🗑 Solicitar</button>`
+        }
+      </div>
+    </div>
+  `;
+}
+
+function closeStationCard(){
+  const panel = document.getElementById('station-card-panel');
+  if(!panel) return;
+  panel.classList.remove('on');
+  panel.innerHTML = '';
+  panel.dataset.docId = '';
+}
+
+async function openStationCard(docId){
+  const panel = document.getElementById('station-card-panel');
+  if(!panel || !docId) return;
+  map.closePopup();
+  let s = stationFullCache.get(docId) || stations.find(st => st._docId === docId);
+  if(!s) return;
+  panel.dataset.docId = docId;
+  panel.innerHTML = `<button type="button" class="station-card-close" onclick="closeStationCard()">×</button>${stationPopupContent(s)}`;
+  panel.classList.add('on');
+  setTimeout(() => hydratePopupPhoto(docId), 20);
+  if(s._lite){
+    try{
+      const full = await loadFullStation(docId);
+      if(full && panel.dataset.docId === docId){
+        panel.innerHTML = `<button type="button" class="station-card-close" onclick="closeStationCard()">×</button>${stationPopupContent(full)}`;
+        setTimeout(() => hydratePopupPhoto(docId), 20);
+      }
+    }catch(e){
+      console.warn('station card full load failed', e);
+    }
+  }
+}
+
 function renderAll(){
   spotsGroup.clearLayers();
   const visible = getFilteredStations();
@@ -3370,38 +3441,10 @@ function renderAll(){
     const m = L.marker([s.lat,s.lng],{
       icon:L.divIcon({className:'',html:shape,iconSize:[30,30],iconAnchor:[15,15]})
     }).addTo(spotsGroup);
-    // Lazy popup — built only when opened
-    m.bindPopup(()=>{
-      const isComp2 = s.ownership === 'competencia';
-      const photoHtml = popupPhotoBlock(s);
-      setTimeout(() => hydratePopupPhoto(s._docId), 0);
-      const capHtml   = s.capacity ? `<br><span style="font-size:11px;color:#28a745">🛴 ${s.capacity} scooters</span>` : '';
-      const ownBadge  = isComp2 ? `<span style="padding:1px 6px;border-radius:10px;font-size:11px;background:#fde8e8;color:#dc3545;margin-left:4px">Competencia</span>` : '';
-      return `
-      <div class="station-popup" data-doc-id="${attrSafe(s._docId)}">
-        <b style="font-size:14px">${s.name}</b>${ownBadge}
-        <span style="display:inline-block;padding:1px 6px;border-radius:10px;font-size:11px;background:#e8f0ff;color:#005bff;margin-left:4px">${s.type}</span>
-        ${capHtml}
-        <br><span style="font-size:11px;color:#888">${s.address||'—'}</span>
-        ${photoHtml}
-        <br><span style="font-size:11px;color:#005bff;font-weight:600">👤 ${s.userName||'—'}</span>
-        <span style="font-size:11px;color:#aaa"> · ${s.date}</span>
-        ${s.notes?`<br><span style="font-size:12px;color:#555">${s.notes}</span>`:''}
-        <div class="popup-actions">
-          ${(currentRole==='admin' || s.userId===currentUser.uid)
-            ? `<button type="button" class="pa-btn" style="background:#e8f0ff;color:#005bff" data-popup-action="edit" data-doc-id="${attrSafe(s._docId)}" onclick="openEdit('${jsString(s._docId)}')">✏️ Editar</button>`
-            : ''}
-          <button type="button" class="pa-btn" style="background:#e8f5e9;color:#28a745" data-popup-action="radius" data-doc-id="${attrSafe(s._docId)}" data-lat="${s.lat}" data-lng="${s.lng}" onclick="toggleRadius('${jsString(s._docId)}',${s.lat},${s.lng})">⭕ Radio</button>
-          <button type="button" class="pa-btn" style="background:#f5f5f5;color:#333" data-popup-action="street" data-lat="${s.lat}" data-lng="${s.lng}" onclick="openStreetView(${s.lat},${s.lng})">🌐 Street</button>
-          <button type="button" class="pa-btn" style="background:#fff3e0;color:#e65100" data-popup-action="croqui" data-doc-id="${attrSafe(s._docId)}" onclick="exportCroqui('${jsString(s._docId)}')">📄 Croqui</button>
-          ${currentRole==='admin'
-            ? `<button type="button" class="pa-btn" style="background:#fde8e8;color:#dc3545" data-popup-action="delete" data-doc-id="${attrSafe(s._docId)}" onclick="delStation('${jsString(s._docId)}')">🗑</button>`
-            : `<button type="button" class="pa-btn" style="background:#fff3cd;color:#856404" data-popup-action="delete-request" data-doc-id="${attrSafe(s._docId)}" data-name="${attrSafe(s.name)}" onclick="openDeleteRequest('${jsString(s._docId)}','${jsString(s.name)}')">🗑 Solicitar</button>`
-          }
-        </div>
-      </div>
-    `; },{maxWidth:300,maxHeight:430,autoPan:true,keepInView:true,autoPanPadding:[24,70]});
-    m.on('popupopen', () => setTimeout(() => hydratePopupPhoto(s._docId), 80));
+    m.on('click', (ev) => {
+      if(ev?.originalEvent) L.DomEvent.stop(ev.originalEvent);
+      openStationCard(s._docId);
+    });
     }
     if(end < visible.length) setTimeout(()=>addChunk(end), 0);
   };
