@@ -3368,7 +3368,7 @@ function renderAll(){
         </div>
       </div>
     `; },{maxWidth:300,maxHeight:430,autoPan:true,keepInView:true,autoPanPadding:[24,70]});
-    m.on('popupopen', () => hydratePopupPhoto(s._docId));
+    m.on('popupopen', () => setTimeout(() => hydratePopupPhoto(s._docId), 80));
     }
     if(end < visible.length) setTimeout(()=>addChunk(end), 0);
   };
@@ -4195,17 +4195,43 @@ function renderStatsTab(){
 // Returns photo src only if it's a displayable image (not broken HEIC base64)
 function safePhoto(s) {
   if (!s || !s.photo) return null;
-  const p = s.photo;
+  const p = String(s.photo);
   if (p.startsWith('data:image/')) return p;
-  // Drive URLs can't load directly in browser — need proxy first
+  if (p.startsWith('http') && p.includes('drive.google.com/thumbnail?')) return p;
+  // Drive share pages can't load directly in browser — use thumbnail/proxy first
   if (p.startsWith('http') && !p.includes('drive.google.com')) return p;
   return null;
+}
+
+function attrSafe(v){
+  return String(v || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
+}
+
+function driveFileId(url){
+  if(!url) return '';
+  const raw = String(url);
+  try{
+    const u = new URL(raw);
+    const id = u.searchParams.get('id');
+    if(id) return id;
+    const fileMatch = u.pathname.match(/\/file\/d\/([^/]+)/);
+    if(fileMatch) return fileMatch[1];
+    const thumbMatch = u.pathname.includes('/thumbnail') ? u.searchParams.get('id') : '';
+    if(thumbMatch) return thumbMatch;
+  }catch(e){}
+  const fallback = raw.match(/(?:\/d\/|id=)([A-Za-z0-9_-]{20,})/);
+  return fallback ? fallback[1] : '';
+}
+
+function driveThumbnailSrc(url){
+  const id = driveFileId(url);
+  return id ? `https://drive.google.com/thumbnail?id=${encodeURIComponent(id)}&sz=w1200` : '';
 }
 
 function popupPhotoMarkup(s){
   const src = safePhoto(s);
   if(!src) return '';
-  return `<div class="popup-photo-shell"><img id="popup-photo-${s._docId}" class="popup-photo-img" src="${src}" onclick="openPhotoViewer(this.src)" onload="refreshOpenPopupLayout()"><button class="popup-photo-rotate" onclick="rotateStationPhoto('${s._docId}')" title="Повернуть фото">↻</button></div>`;
+  return `<div class="popup-photo-shell"><img id="popup-photo-${s._docId}" class="popup-photo-img" src="${attrSafe(src)}" onclick="openPhotoViewer(this.src)" onload="refreshOpenPopupLayout()" onerror="this.style.display='none';this.parentElement.insertAdjacentHTML('beforeend','<div style=&quot;color:#9a3412;font-size:11px;padding:12px&quot;>📷 Foto no disponible</div>');refreshOpenPopupLayout()"><button class="popup-photo-rotate" onclick="rotateStationPhoto('${s._docId}')" title="Повернуть фото">↻</button></div>`;
 }
 
 function popupPhotoBlock(s){
@@ -4215,9 +4241,14 @@ function popupPhotoBlock(s){
   return `<div id="popup-photo-wrap-${s._docId}" style="margin:6px 0;padding:9px;border-radius:6px;background:#f3f6fb;color:#6b7280;font-size:11px;text-align:center">📷 Foto se carga al abrir...</div>`;
 }
 
-async function hydratePopupPhoto(docId){
+async function hydratePopupPhoto(docId, attempt = 0){
   const wrap = document.getElementById(`popup-photo-wrap-${docId}`);
-  if(!wrap) return;
+  if(!wrap){
+    if(attempt < 12) setTimeout(() => hydratePopupPhoto(docId, attempt + 1), 80);
+    return;
+  }
+  if(wrap.dataset.loading === '1') return;
+  wrap.dataset.loading = '1';
   try{
     const full = await loadFullStation(docId);
     const src = await resolvePopupPhoto(full);
@@ -4239,6 +4270,8 @@ async function resolvePopupPhoto(s){
 
   const driveUrl = s.drivePhotoUrl || (s.photo && s.photo.includes('drive.google.com') ? s.photo : '');
   if(driveUrl){
+    const thumb = driveThumbnailSrc(driveUrl);
+    if(thumb) return thumb;
     const fetched = await fetchDrivePhoto(driveUrl);
     if(fetched && fetched.startsWith('data:image/')){
       await saveResolvedStationPhoto(s, fetched, driveUrl);
