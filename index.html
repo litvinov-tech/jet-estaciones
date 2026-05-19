@@ -1559,6 +1559,11 @@ async function loadFullStations(list, statusEl){
   return out;
 }
 
+async function getPhotoToolStations(statusEl){
+  const candidates = stations.filter(s => s && (s.hasPhoto || s.photo || s.drivePhotoUrl));
+  return loadFullStations(candidates, statusEl);
+}
+
 async function deleteStationDoc(docId){
   await db.collection(STATIONS_COLLECTION).doc(docId).delete();
   try{ await db.collection(STATIONS_INDEX_COLLECTION).doc(docId).delete(); }catch(e){}
@@ -4245,12 +4250,19 @@ function driveDirectUrl(url) {
 }
 
 // Helper: fetch Drive photo via server proxy (avoids CORS)
-function openPhotoRotateEditor() {
+async function openPhotoRotateEditor() {
   const overlay = document.getElementById('photo-rotate-overlay');
   const grid = document.getElementById('pre-grid');
+  const res = document.getElementById('drive-photo-result');
   overlay.style.display = 'flex';
+  grid.innerHTML = '<div style="color:#ddd;padding:12px">Cargando fotos...</div>';
+  const fullStations = await getPhotoToolStations(res);
+  const withPhoto = fullStations.filter(s => s.photo && s.photo.startsWith('data:image/'));
   grid.innerHTML = '';
-  const withPhoto = stations.filter(s => s.photo && s.photo.startsWith('data:image/'));
+  if (!withPhoto.length) {
+    grid.innerHTML = '<div style="color:#ddd;padding:12px">No hay fotos cargadas para rotar.</div>';
+    return;
+  }
   withPhoto.forEach(s => {
     const div = document.createElement('div');
     div.style.cssText = 'position:relative;cursor:pointer;border-radius:8px;overflow:hidden;border:3px solid transparent;background:#111';
@@ -4326,7 +4338,7 @@ async function preRotateSelected() {
 
 async function batchRotatePhotos() {
   const res = document.getElementById('drive-photo-result');
-  const targets = stations.filter(s => s.photo && s.photo.startsWith('data:image/'));
+  const targets = (await getPhotoToolStations(res)).filter(s => s.photo && s.photo.startsWith('data:image/'));
   if (!targets.length) { res.innerHTML='<div class="ok">Нет фото для поворота</div>'; return; }
   if (!confirm(`Повернуть ${targets.length} фото на 90° по часовой стрелке?\n(Нельзя отменить)`)) return;
   let done=0;
@@ -4366,7 +4378,7 @@ function showMissingPhotos() {
 async function convertAllBrokenPhotos() {
   const res = document.getElementById('drive-photo-result');
   const PROXY = 'https://brussels-radius-intake-barrier.trycloudflare.com';
-  const broken = stations.filter(s => s.photo && s.photo.startsWith('data:') && !s.photo.startsWith('data:image/'));
+  const broken = (await getPhotoToolStations(res)).filter(s => s.photo && s.photo.startsWith('data:') && !s.photo.startsWith('data:image/'));
   if (!broken.length) { res.innerHTML='<div class="ok">✅ Нет битых HEIC фото</div>'; return; }
   let done=0, failed=0;
   for (const s of broken) {
@@ -4391,8 +4403,9 @@ async function convertAllBrokenPhotos() {
 
 async function fetchAllDrivePhotos() {
   const res = document.getElementById('drive-photo-result');
+  const fullStations = await getPhotoToolStations(res);
   // Find stations with drivePhotoUrl saved, or photo that is Drive URL, or photo that is broken HEIC base64
-  const targets = stations.filter(s => {
+  const targets = fullStations.filter(s => {
     const driveUrl = s.drivePhotoUrl || (s.photo && s.photo.includes('drive.google.com') ? s.photo : '');
     if (driveUrl && driveUrl.includes('drive.google.com') && (!s.photo || s.photo.includes('drive.google.com'))) return true;
     // Also re-fetch photos saved as base64 HEIC (they start with AAAAG in base64 = ftyp magic)
@@ -4892,7 +4905,7 @@ async function exportOficial(){
 // --- EXCEL ---
 async function exportExcel(){
   const status = document.getElementById('export-status');
-  const exportList = getExportStations();
+  const exportList = await getExportStationsFull(status);
   if(!exportList.length){ toast(t('no_export')); return; }
   status.innerHTML = `<span class="spinner"></span>${t('loading')}`;
   try {
@@ -5691,8 +5704,9 @@ function filterCards(q){
 }
 
 // --- GOOGLE MY MAPS CSV EXPORT ---
-function exportGoogleMyMaps(){
-  const exportList = getExportStations();
+async function exportGoogleMyMaps(){
+  const status = document.getElementById('export-status');
+  const exportList = await getExportStationsFull(status);
   if(!exportList.length){ toast(t('no_export')); return; }
   // Google My Maps expects: Name, Description, Latitude, Longitude + optional icon columns
   const own = {
@@ -5731,7 +5745,8 @@ function exportGoogleMyMaps(){
 }
 
 async function exportKMZ(){
-  const exportList = getExportStations();
+  const status = document.getElementById('export-status');
+  const exportList = await getExportStationsFull(status);
   if(!exportList.length){ toast(t('no_export')); return; }
   const cityName = currentCity || 'todas';
   const own = {
