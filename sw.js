@@ -1,7 +1,7 @@
-const CACHE = 'jet-v12';
+const CACHE = 'jet-v13';
 
 // External CDN hosts — safe to cache forever (versioned URLs)
-const CDN_HOSTS = ['unpkg.com', 'gstatic.com', 'tile.openstreetmap.org', 'waymarkedtrails.org', 'sheetjs.com'];
+const CDN_HOSTS = ['unpkg.com', 'gstatic.com', 'tile.openstreetmap.org', 'waymarkedtrails.org', 'sheetjs.com', 'cdn.sheetjs.com', 'cdnjs.cloudflare.com'];
 
 // Never cache these — always fetch fresh
 const NO_CACHE = ['index.html', 'firebase-config.js', 'sw.js', '/'];

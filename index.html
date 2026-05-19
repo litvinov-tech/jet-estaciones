@@ -4195,10 +4195,13 @@ function renderStatsTab(){
 
 // Returns photo src only if it's a displayable image (not broken HEIC base64)
 function safePhoto(s) {
-  if (!s || !s.photo) return null;
-  const p = String(s.photo);
+  if (!s) return null;
+  const raw = s.photo || s.drivePhotoUrl || '';
+  if (!raw) return null;
+  const p = String(raw);
   if (p.startsWith('data:image/')) return p;
   if (p.startsWith('http') && p.includes('drive.google.com/thumbnail?')) return p;
+  if (p.startsWith('http') && p.includes('drive.google.com')) return driveThumbnailSrc(p) || null;
   // Drive share pages can't load directly in browser — use thumbnail/proxy first
   if (p.startsWith('http') && !p.includes('drive.google.com')) return p;
   return null;
@@ -4236,7 +4239,8 @@ function driveThumbnailSrc(url){
 function popupPhotoMarkup(s){
   const src = safePhoto(s);
   if(!src) return '';
-  return `<div class="popup-photo-shell"><img id="popup-photo-${s._docId}" class="popup-photo-img" src="${attrSafe(src)}" onclick="openPhotoViewer(this.src)" onload="refreshOpenPopupLayout()" onerror="this.style.display='none';this.parentElement.insertAdjacentHTML('beforeend','<div style=&quot;color:#9a3412;font-size:11px;padding:12px&quot;>📷 Foto no disponible</div>');refreshOpenPopupLayout()"><button class="popup-photo-rotate" onclick="rotateStationPhoto('${s._docId}')" title="Повернуть фото">↻</button></div>`;
+  const docId = attrSafe(s._docId);
+  return `<div id="popup-photo-shell-${docId}" class="popup-photo-shell"><img id="popup-photo-${docId}" class="popup-photo-img" src="${attrSafe(src)}" onclick="openPhotoViewer(this.src)" onload="refreshOpenPopupLayout()" onerror="this.style.display='none';this.parentElement.insertAdjacentHTML('beforeend','<div id=&quot;popup-photo-error-${docId}&quot; style=&quot;color:#6b7280;font-size:11px;padding:12px;text-align:center&quot;>📷 Intentando cargar por proxy...</div>');retryPopupPhoto('${jsString(s._docId)}');refreshOpenPopupLayout()"><button class="popup-photo-rotate" onclick="rotateStationPhoto('${jsString(s._docId)}')" title="Повернуть фото">↻</button></div>`;
 }
 
 function popupPhotoBlock(s){
@@ -4266,6 +4270,33 @@ async function hydratePopupPhoto(docId, attempt = 0){
     refreshOpenPopupLayout();
   }catch(e){
     wrap.textContent = 'No se pudo cargar la foto';
+  }
+}
+
+async function retryPopupPhoto(docId){
+  const shell = document.getElementById(`popup-photo-shell-${docId}`);
+  const msg = document.getElementById(`popup-photo-error-${docId}`);
+  if(!shell || shell.dataset.retrying === '1') return;
+  shell.dataset.retrying = '1';
+  try{
+    const full = await loadFullStation(docId);
+    const driveUrl = full?.drivePhotoUrl || (full?.photo && String(full.photo).includes('drive.google.com') ? full.photo : '');
+    if(!driveUrl){
+      if(msg) msg.textContent = '📷 Foto no disponible';
+      return;
+    }
+    const fetched = await fetchDrivePhoto(driveUrl);
+    if(fetched && fetched.startsWith('data:image/')){
+      await saveResolvedStationPhoto(full, fetched, driveUrl);
+      shell.outerHTML = popupPhotoMarkup({...full, photo:fetched, hasPhoto:true});
+    } else if(msg) {
+      msg.textContent = '📷 Foto no disponible';
+    }
+    refreshOpenPopupLayout();
+  }catch(e){
+    if(msg) msg.textContent = '📷 Foto no disponible';
+  }finally{
+    if(shell) shell.dataset.retrying = '0';
   }
 }
 
@@ -5329,22 +5360,35 @@ function makeCroqui(s){
 }
 
 // --- CROQUI MULTI (selected stations, 2 per page) ---
+function openReportWindow(message = 'Generando reporte...'){
+  const win = window.open('', '_blank');
+  if(win){
+    win.document.write(`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>JET</title></head><body style="font-family:Arial,sans-serif;padding:24px;color:#1a1f36">${message}</body></html>`);
+    win.document.close();
+  }
+  return win;
+}
+
 async function exportCroquiFromModal(){
+  const win = openReportWindow();
   const status = document.getElementById('export-status');
   const list = await getExportStationsFull(status);
-  if(!list.length){ toast(t('no_export')); return; }
+  if(!list.length){ if(win) win.close(); toast(t('no_export')); return; }
   closeOverlay('export-overlay');
-  exportCroquiMulti(list);
+  exportCroquiMulti(list, win);
 }
 
 async function exportSelectedCroqui(){
   if(selectedDocIds.size === 0){ toast('⚠️ Выберите парковки'); return; }
+  const win = openReportWindow();
   const list = [...selectedDocIds].map(id=>stations.find(s=>s._docId===id)).filter(Boolean);
-  exportCroquiMulti(await loadFullStations(list));
+  const fullList = await loadFullStations(list);
+  if(!fullList.length){ if(win) win.close(); toast(t('no_export')); return; }
+  exportCroquiMulti(fullList, win);
 }
 
-function exportCroquiMulti(list){
-  if(!list.length) return;
+function exportCroquiMulti(list, targetWin = null){
+  if(!list.length){ if(targetWin) targetWin.close(); return; }
 
   const T = {
     es:{title:'CROQUIS DE IMPLEMENTACIÓN DE ESTACIÓN',name:'Nombre',addr:'Dirección',coords:'Coordenadas',type:'Tipo de Lugar',cap:'Capacidad',radius:'Radio de Operación',own:'Tipo',by:'Registrado por',date:'Fecha',notes:'Notas',scheme:'Esquema',mapview:'Ubicación',print:'🖨️ Imprimir / Guardar PDF',propia:'JET Propia',competencia:'Competencia',generated:'Generado el',photo:'Foto',dims:'Dimensiones',faixa:'Acera libre'},
@@ -5360,7 +5404,8 @@ function exportCroquiMulti(list){
     const ownLabel = isComp ? T.competencia : T.propia;
     const addrParts = (s.address||'').split(',');
     const municipio = addrParts.length>1 ? addrParts[addrParts.length-1].trim() : '';
-    const photoBlock = s.photo
+    const photoSrc = safePhoto(s);
+    const photoBlock = photoSrc
       ? `<img id="jetphoto_${s._docId}" style="width:100%;height:160px;object-fit:contain;background:#f0f3fa;display:block">`
       : `<div style="width:100%;height:160px;background:#f0f3fa;display:flex;align-items:center;justify-content:center;font-size:36px;color:#ccc">📷</div>`;
     const notesRow = s.notes?`<tr><td>${T.notes}</td><td style="font-style:italic;color:#555">${s.notes}</td></tr>`:'';
@@ -5526,17 +5571,19 @@ ${pagesHtml}
 ${LEAFLET_MAP_INIT}
 </body></html>`;
 
-  const win = window.open('','_blank');
+  const win = targetWin || openReportWindow();
   if(win){
+    win.document.open();
     win.document.write(html);
     win.document.close();
     // Inject photos via DOM — Chrome blocks data: URIs embedded in document.write HTML
     // Use load event with fallback timeout to ensure DOM is ready before injecting
     const injectPhotos = () => {
       list.forEach(s => {
-        if(s.photo){
+        const src = safePhoto(s);
+        if(src){
           const img = win.document.getElementById('jetphoto_' + s._docId);
-          if(img) img.src = s.photo;
+          if(img) img.src = src;
         }
       });
     };
@@ -5548,8 +5595,9 @@ ${LEAFLET_MAP_INIT}
 
 // --- CROQUI (single station, one-page PDF) ---
 async function exportCroqui(docId){
+  const win = openReportWindow();
   const s = await loadFullStation(docId) || stations.find(st=>st._docId===docId);
-  if(!s){ toast('❌ Estación no encontrada'); return; }
+  if(!s){ if(win) win.close(); toast('❌ Estación no encontrada'); return; }
   map.closePopup();
 
   const T = {
@@ -5566,7 +5614,8 @@ async function exportCroqui(docId){
   const ownLabel = isComp ? T.competencia : T.propia;
   const dateStr = new Date().toLocaleDateString(lang==='ru'?'ru-RU':lang==='pt'?'pt-BR':'es-MX',{year:'numeric',month:'long',day:'numeric'});
 
-  const photoBlock = s.photo
+  const photoSrc = safePhoto(s);
+  const photoBlock = photoSrc
     ? `<img id="jetphoto" alt="foto" style="width:100%;height:220px;object-fit:contain;background:#f0f3fa;border-radius:6px;display:block">`
     : `<div style="width:100%;height:220px;background:#f0f3fa;border-radius:6px;display:flex;align-items:center;justify-content:center;font-size:48px;color:#ccc">📷</div>`;
 
@@ -5709,13 +5758,13 @@ tr:last-child{border-bottom:none}
 ${LEAFLET_MAP_INIT}
 </body></html>`;
 
-  const win = window.open('','_blank');
   if(win){
+    win.document.open();
     win.document.write(html);
     win.document.close();
     // Inject photo via DOM — Chrome blocks data: URIs embedded in document.write HTML
-    if(s.photo){
-      const injectSingle = () => { const img = win.document.getElementById('jetphoto'); if(img) img.src = s.photo; };
+    if(photoSrc){
+      const injectSingle = () => { const img = win.document.getElementById('jetphoto'); if(img) img.src = photoSrc; };
       if(win.document.readyState === 'complete') injectSingle();
       else win.addEventListener('load', injectSingle);
       setTimeout(injectSingle, 800);
@@ -5725,9 +5774,10 @@ ${LEAFLET_MAP_INIT}
 
 // --- PDF (HTML Report, opens in new tab → Ctrl+P → Save as PDF) ---
 async function exportPDF(){
+  const win = openReportWindow();
   const status = document.getElementById('export-status');
   const exportList = await getExportStationsFull(status);
-  if(!exportList.length){ toast(t('no_export')); return; }
+  if(!exportList.length){ if(win) win.close(); toast(t('no_export')); return; }
   const own = {
     es:{propia:'JET Propia',competencia:'Competencia'},
     ru:{propia:'Наша JET',competencia:'Конкурент'},
@@ -5823,8 +5873,11 @@ ${stationsHtml}
 
   const blob = new Blob([html], {type:'text/html;charset=utf-8'});
   const url = URL.createObjectURL(blob);
-  const win = window.open(url, '_blank');
-  if(!win) toast('⚠️ ' + (lang==='ru'?'Разрешите всплывающие окна':'Permite ventanas emergentes'));
+  if(win) win.location.href = url;
+  else {
+    download(blob, `JET_Report_${exportNameSuffix(exportList)}.html`);
+    toast('⚠️ ' + (lang==='ru'?'Всплывающее окно заблокировано, файл скачан как HTML':'Ventana emergente bloqueada, archivo HTML descargado'));
+  }
   setTimeout(()=>URL.revokeObjectURL(url), 60000);
   closeOverlay('export-overlay');
 }
@@ -5944,13 +5997,7 @@ function filterCards(q){
 <\/script>
 </body></html>`;
 
-  const blob = new Blob([html], {type:'text/html;charset=utf-8'});
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `JET_${exportNameSuffix(exportList)}.html`;
-  a.click();
-  setTimeout(()=>URL.revokeObjectURL(url), 10000);
+  download(new Blob([html], {type:'text/html;charset=utf-8'}), `JET_${exportNameSuffix(exportList)}.html`);
   closeOverlay('export-overlay');
   toast('✅ HTML ' + (lang==='ru'?'скачан':lang==='pt'?'baixado':'descargado'));
 }
@@ -6054,7 +6101,25 @@ ${placemarks}
 
 function esc(v){return (v||'').replace(/"/g,'""');}
 function today(){return new Date().toISOString().slice(0,10);}
-function download(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();}
+function download(blob, name){
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = name || 'download';
+  a.rel = 'noopener';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  try {
+    a.click();
+  } catch(e) {
+    const win = window.open(url, '_blank');
+    if(!win) toast('⚠️ No se pudo iniciar la descarga');
+  }
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+    a.remove();
+  }, 10000);
+}
 
 // ==================== BIKE LANE LAYER ====================
 function toggleBikeLayer(btn){
