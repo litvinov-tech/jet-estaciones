@@ -106,8 +106,9 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #list-sel-bar label{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer;color:#444}
 #list-sel-all{width:16px;height:16px;accent-color:#005bff;cursor:pointer}
 #list-sel-count{font-size:12px;color:#888;flex:1}
-#list-export-btn{background:#e65100;color:white;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
-#list-export-btn:disabled{background:#ccc;cursor:default}
+#list-export-btn,#list-data-export-btn{background:#e65100;color:white;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+#list-data-export-btn{background:#005bff}
+#list-export-btn:disabled,#list-data-export-btn:disabled{background:#ccc;cursor:default}
 .sort-select{border:1.5px solid #e0e0e0;border-radius:8px;padding:5px 8px;font-size:12px;background:white;color:#444;cursor:pointer}
 .empty{text-align:center;padding:40px 20px;color:#aaa;font-size:14px}
 
@@ -707,6 +708,11 @@ body{background:var(--bg-deep)!important}
       <div id="ai-result" style="display:none;margin-top:8px;padding:10px;background:#f0f4ff;border-radius:8px;font-size:12px;color:#333;border-left:3px solid #6366f1"></div>
     </div>
     <div class="fg"><label data-i18n="lbl_name">Nombre / Referencia *</label><input id="f-name" data-i18n-ph="ph_name" placeholder="Ej: Frente al Starbucks, Torre A..."></div>
+    <div class="fg">
+      <label>Lote / proyecto</label>
+      <input id="f-batch" placeholder="Ej: SPGG expansion mayo 2026">
+      <div style="font-size:11px;color:#888;margin-top:3px">Usa el mismo lote para poder exportar solo estas estaciones despues.</div>
+    </div>
     <div id="type-suggestions">
       <div class="sug-label" data-i18n="sug_lbl">📍 Encontrado cerca — elige el tipo:</div>
       <div id="type-chips"></div>
@@ -884,6 +890,7 @@ body{background:var(--bg-deep)!important}
         <option value="name_asc">🔤 A–Z</option>
       </select>
       <button id="list-export-btn" disabled onclick="exportSelectedCroqui()">📄 Croqui PDF (0)</button>
+      <button id="list-data-export-btn" disabled onclick="exportData()">📤 Exportar datos (0)</button>
       <button id="list-del-btn" disabled onclick="delSelected()" style="background:#dc3545;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;display:none">🗑 Удалить (0)</button>
     </div>
     <ul id="spot-list"></ul>
@@ -929,10 +936,19 @@ body{background:var(--bg-deep)!important}
     <button class="close-btn" onclick="closeOverlay('export-overlay')">✕</button>
     <h2 data-i18n="exp_title">📤 Exportar estaciones</h2>
     <p id="export-sub" style="font-size:13px;color:#666;margin-bottom:16px">Seleccione formato para descargar <b id="export-count">0</b> estaciones:</p>
+    <div class="fg">
+      <label>Que exportar</label>
+      <select id="export-scope" onchange="setExportScope(this.value)">
+        <option value="visible">Filtro/lista actual</option>
+        <option value="selected">Solo seleccionadas</option>
+        <option value="all">Todas las estaciones cargadas</option>
+      </select>
+      <div style="font-size:11px;color:#888;margin-top:3px">Para exportar un lote: abre Lista, elige el lote y deja esta opcion en "Filtro/lista actual".</div>
+    </div>
     <button onclick="exportExcel()" style="width:100%;padding:14px;background:#1d6f42;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
       <span data-i18n="exp_btn_excel">📊 Excel (.xlsx) — tabla con coordenadas</span>
     </button>
-    <button onclick="exportCroquiMulti(stations);closeOverlay('export-overlay')" style="width:100%;padding:14px;background:#e65100;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
+    <button onclick="exportCroquiMulti(getExportStations());closeOverlay('export-overlay')" style="width:100%;padding:14px;background:#e65100;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
       <span data-i18n="exp_btn_croqui">📄 Croqui PDF — todas (2 por página)</span>
     </button>
     <button onclick="exportPDF()" style="width:100%;padding:14px;background:#dc3545;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
@@ -988,6 +1004,11 @@ body{background:var(--bg-deep)!important}
       Formatos: <b>CSV</b> (coma/punto y coma), <b>TSV</b> (tabulador), <b>JSON</b><br>
       Columnas requeridas: <code style="background:#f5f5f5;padding:1px 5px;border-radius:4px">lat, lng</code> (o latitude/longitude)
     </p>
+    <div class="fg">
+      <label>Lote / proyecto para este import</label>
+      <input id="f-import-batch" placeholder="Ej: SPGG expansion mayo 2026">
+      <div style="font-size:11px;color:#888;margin-top:3px">Todas las estaciones importadas quedaran marcadas con este lote.</div>
+    </div>
     <div class="import-area" onclick="document.getElementById('f-import').click()">
       📂 Toca para seleccionar archivo<br><small style="color:#aaa">CSV · TSV · JSON</small>
     </div>
@@ -1436,6 +1457,8 @@ let locationTimer = null;
 let userMarkers   = {};
 let userColorMap  = {};
 let filterUser    = null;
+let filterBatch   = null;
+let exportScope   = 'visible';
 let radiusCircles = {};
 let bikeLayer = null;
 let suggestionsLayer  = null;
@@ -1451,6 +1474,67 @@ let currentState   = localStorage.getItem('jet_state')   || null;
 let currentCity    = localStorage.getItem('jet_city')     || null;
 let selCityTemp    = null;
 const ADMIN_EMAIL = 'litvinov@jetshr.com.br';
+
+function normalizeBatchId(value){
+  const raw = (value || '').trim();
+  if(!raw) return '';
+  return raw.normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g,'_')
+    .replace(/^_+|_+$/g,'')
+    .slice(0,80);
+}
+
+function stationBatchId(s){
+  return s?.batchId || normalizeBatchId(s?.batchName || '');
+}
+
+function stationBatchName(s){
+  return s?.batchName || s?.batchId || '';
+}
+
+function defaultBatchName(prefix='SPGG'){
+  const city = (currentCity || prefix || 'JET').replace(/\s+/g,' ').trim();
+  return `${city} ${today()}`;
+}
+
+function getFilteredStations(){
+  let list = [...stations];
+  if(filterUser) list = list.filter(s => s.userId === filterUser);
+  if(filterBatch) list = list.filter(s => stationBatchId(s) === filterBatch);
+  return list;
+}
+
+function getSelectedStations(){
+  return [...selectedDocIds].map(id => stations.find(s => s._docId === id)).filter(Boolean);
+}
+
+function getExportStations(){
+  if(exportScope === 'all') return [...stations];
+  if(exportScope === 'selected') return getSelectedStations();
+  return getFilteredStations();
+}
+
+function exportNameSuffix(list){
+  const city = normalizeBatchId(currentCity || 'todas') || 'todas';
+  const batch = filterBatch ? `_${filterBatch}` : '';
+  const sel = exportScope === 'selected' ? '_seleccionadas' : '';
+  return `${city}${batch}${sel}_${today()}`;
+}
+
+function setExportScope(scope){
+  exportScope = ['visible','selected','all'].includes(scope) ? scope : 'visible';
+  const el = document.getElementById('export-scope');
+  if(el) el.value = exportScope;
+  updateExportCount();
+}
+
+function updateExportCount(){
+  const list = getExportStations();
+  const countEl = document.getElementById('export-count');
+  if(countEl) countEl.textContent = list.length;
+  return list.length;
+}
 
 // ==================== GEO DATA ====================
 const GEO_DATA = {
@@ -2794,6 +2878,8 @@ function resetForm(){
   document.getElementById('type-suggestions').style.display = 'none';
   document.getElementById('type-chips').innerHTML = '';
   ['f-coords','f-addr','f-name','f-notes','f-faixa'].forEach(id=>document.getElementById(id).value='');
+  const fb=document.getElementById('f-batch');
+  if(fb) fb.value = localStorage.getItem('jet_last_batch_name') || '';
   const fl=document.getElementById('f-dims-l'); if(fl) fl.value='4.5';
   const fc=document.getElementById('f-dims-custom'); if(fc) fc.value='';
   const fw=document.getElementById('f-dims-custom-wrap'); if(fw) fw.style.display='none';
@@ -2867,6 +2953,11 @@ async function saveStation(){
   if(!selCoords){ toast(t('no_point')); return; }
   const name = document.getElementById('f-name').value.trim();
   const type = document.getElementById('f-type').value;
+  const oldStation = editingId ? stations.find(st=>st._docId===editingId) : null;
+  const batchRaw = (document.getElementById('f-batch')?.value || '').trim();
+  const batchName = batchRaw || oldStation?.batchName || '';
+  const batchId = normalizeBatchId(batchName || oldStation?.batchId || '');
+  if(batchRaw) localStorage.setItem('jet_last_batch_name', batchRaw);
   if(!name){ toast(t('no_name')); return; }
   if(!type){ toast(t('no_type')); return; }
   const photoEl = document.getElementById('photo-preview');
@@ -2893,6 +2984,10 @@ async function saveStation(){
       country:  currentCountry || null,
       state:    currentState   || null,
       city:     currentCity    || null,
+      batchId:   batchId || null,
+      batchName: batchName || null,
+      source:    oldStation?.source || 'manual',
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     };
     if(editingId){
       await db.collection('stations').doc(editingId).update(data);
@@ -2927,6 +3022,8 @@ function openEdit(docId){
   document.getElementById('f-addr').value  = s.address||'';
   document.getElementById('f-name').value  = s.name||'';
   document.getElementById('f-notes').value = s.notes||'';
+  const batchInput=document.getElementById('f-batch');
+  if(batchInput) batchInput.value = s.batchName || s.batchId || '';
   // Restore dimensions: parse "W m x L m" string into select + optional custom input
   if(s.dimensions){
     const parts = s.dimensions.match(/([\d.]+)\s*m\s*x\s*([\d.]+)\s*m/);
@@ -2963,7 +3060,7 @@ function openEdit(docId){
 // ==================== RENDER ====================
 function renderAll(){
   spotsGroup.clearLayers();
-  const visible = filterUser ? stations.filter(s=>s.userId===filterUser) : stations;
+  const visible = getFilteredStations();
   const CHUNK = 40;
   const addChunk = (start) => {
     const end = Math.min(start + CHUNK, visible.length);
@@ -3054,23 +3151,62 @@ async function delSelected(){
 // ==================== LIST ====================
 function openList(){
   selectedDocIds.clear();
-  const users = [...new Set(stations.map(s=>s.userId))];
-  const filtersEl = document.getElementById('list-filters');
-  filtersEl.innerHTML = `<button class="filter-btn${!filterUser?' active':''}" onclick="setFilter(null)">Todos (${stations.length})</button>`
-    + users.map(uid => {
-        const name = stations.find(s=>s.userId===uid)?.userName||'?';
-        const cnt  = stations.filter(s=>s.userId===uid).length;
-        return `<button class="filter-btn${filterUser===uid?' active':''}" onclick="setFilter('${uid}')">${name} (${cnt})</button>`;
-      }).join('');
+  renderListFilters();
   renderListItems();
   document.getElementById('list-overlay').classList.add('on');
 }
 
+function renderListFilters(){
+  const filtersEl = document.getElementById('list-filters');
+  if(!filtersEl) return;
+
+  const users = [...new Set(stations.map(s=>s.userId).filter(Boolean))];
+  const batchesMap = new Map();
+  stations.forEach(s => {
+    const id = stationBatchId(s);
+    if(id) batchesMap.set(id, stationBatchName(s) || id);
+  });
+  const batches = [...batchesMap.entries()].sort((a,b)=>a[1].localeCompare(b[1]));
+
+  const userButtons = users.map(uid => {
+    const name = stations.find(s=>s.userId===uid)?.userName||'?';
+    const cnt  = stations.filter(s=>s.userId===uid).length;
+    const safeUid = String(uid).replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+    return `<button class="filter-btn${filterUser===uid?' active':''}" onclick="setFilter('${safeUid}')">👤 ${name} (${cnt})</button>`;
+  }).join('');
+
+  const batchButtons = batches.map(([id,name]) => {
+    const cnt = stations.filter(s=>stationBatchId(s)===id).length;
+    return `<button class="filter-btn${filterBatch===id?' active':''}" onclick="setBatchFilter('${id}')">📦 ${name} (${cnt})</button>`;
+  }).join('');
+
+  filtersEl.innerHTML =
+    `<button class="filter-btn${!filterUser&&!filterBatch?' active':''}" onclick="clearListFilters()">Todos (${stations.length})</button>`
+    + userButtons
+    + batchButtons;
+}
+
 function setFilter(uid){
   filterUser = uid;
-  document.querySelectorAll('#list-filters .filter-btn').forEach(b=>{
-    b.classList.toggle('active', b.getAttribute('onclick')===`setFilter('${uid}')`);
-  });
+  selectedDocIds.clear();
+  renderListFilters();
+  renderAll();
+  renderListItems();
+}
+
+function setBatchFilter(batchId){
+  filterBatch = batchId || null;
+  selectedDocIds.clear();
+  renderListFilters();
+  renderAll();
+  renderListItems();
+}
+
+function clearListFilters(){
+  filterUser = null;
+  filterBatch = null;
+  selectedDocIds.clear();
+  renderListFilters();
   renderAll();
   renderListItems();
 }
@@ -3085,7 +3221,7 @@ function listSetSort(mode){
 }
 
 function listGetSorted(){
-  let list = filterUser ? stations.filter(s=>s.userId===filterUser) : [...stations];
+  let list = getFilteredStations();
   if(listSortMode === 'date_asc')  list.sort((a,b)=>(a.createdAt?.seconds||0)-(b.createdAt?.seconds||0));
   else if(listSortMode === 'name_asc') list.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   else list.sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)); // date_desc default
@@ -3111,6 +3247,11 @@ function updateListSelBar(){
   const btn = document.getElementById('list-export-btn');
   btn.textContent = `📄 Croqui PDF (${n})`;
   btn.disabled = n === 0;
+  const dataBtn = document.getElementById('list-data-export-btn');
+  if(dataBtn){
+    dataBtn.textContent = `📤 Exportar datos (${n})`;
+    dataBtn.disabled = n === 0;
+  }
   const delBtn = document.getElementById('list-del-btn');
   if(delBtn){
     delBtn.style.display = currentRole === 'admin' ? 'inline-block' : 'none';
@@ -3145,6 +3286,7 @@ function renderListItems(){
         </div>
         <div class="spot-who">👤 ${s.userName||'—'}</div>
         <div class="spot-meta">${s.address||'—'}</div>
+        ${stationBatchName(s)?`<div class="spot-ts">📦 ${stationBatchName(s)}</div>`:''}
         <div class="spot-ts">🕐 ${ts}</div>
         ${s.notes?`<div style="font-size:12px;color:#777;margin-top:2px">${s.notes}</div>`:''}
       </div>
@@ -4177,6 +4319,10 @@ async function processImportText(rawText, fileName, res){
     try{
       let imported=[];
       const text = rawText.replace(/^\uFEFF/,''); // strip BOM
+      const importBatchRaw = (document.getElementById('f-import-batch')?.value || '').trim();
+      const importBatchName = importBatchRaw || defaultBatchName('import');
+      const importBatchId = normalizeBatchId(importBatchName);
+      localStorage.setItem('jet_last_batch_name', importBatchName);
 
       if(fileName.endsWith('.json')){
         imported=JSON.parse(text);
@@ -4231,6 +4377,7 @@ async function processImportText(rawText, fileName, res){
         const iBai  = col2(['bairro','barrio','neighborhood']);
         const iCrBy = col2(['criadopor','creado','created by','username']);
         const iDate = col2(['datacriacao','fecha','date']);
+        const iBatch = col2(['batch','lote','proyecto','project']);
 
         // Map TipoEstacao → ownership
         const mapTipo = (v) => {
@@ -4286,6 +4433,7 @@ async function processImportText(rawText, fileName, res){
             stationCode: g(iCod),
             userName:   g(iCrBy),
             date:       g(iDate),
+            batchName:  g(iBatch),
             _photoUrl:  photoUrl,
             _photoIsDrive: isDriveUrl,
             photo:      isDriveUrl ? '' : photoUrl,
@@ -4309,11 +4457,20 @@ async function processImportText(rawText, fileName, res){
         const dup=stations.some(s=>dist(s.lat,s.lng,imp.lat,imp.lng)<20);
         if(dup){skipped++;continue;}
         const { _photoUrl, _photoIsDrive, ...data } = imp;
+        const itemBatchName = data.batchName || importBatchName;
+        const itemBatchId = normalizeBatchId(itemBatchName) || importBatchId;
         try{
           const ref = await db.collection('stations').add({
             ...data,
             drivePhotoUrl: _photoIsDrive ? _photoUrl : '',
             ownership: data.ownership || 'propia',
+            batchId:   itemBatchId || null,
+            batchName: itemBatchName || null,
+            source:    'import',
+            importFile: fileName || '',
+            city:      data.city || currentCity || null,
+            state:     data.state || currentState || null,
+            country:   data.country || currentCountry || null,
             userId:    currentUser.uid,
             userName:  data.userName || currentUser.displayName||currentUser.email.split('@')[0],
             date:      data.date || new Date().toLocaleDateString('es-MX'),
@@ -4359,24 +4516,32 @@ async function processImportText(rawText, fileName, res){
 // ==================== EXPORT ====================
 function exportData(){
   if(!stations.length){toast(t('no_export'));return;}
-  const n = stations.length;
+  if(selectedDocIds.size && exportScope !== 'all') exportScope = 'selected';
+  else if(!selectedDocIds.size && exportScope === 'selected') exportScope = 'visible';
+  const n = updateExportCount();
+  if(!n){toast(t('no_export'));return;}
   document.getElementById('export-count').textContent = n;
   const subTpl = t('exp_sub').replace('{n}', n);
   document.getElementById('export-sub').innerHTML = subTpl.replace(String(n), `<b id="export-count">${n}</b>`);
+  const scopeEl = document.getElementById('export-scope');
+  if(scopeEl) scopeEl.value = exportScope;
   document.getElementById('export-status').innerHTML = '';
   document.getElementById('export-overlay').classList.add('on');
 }
 
 // --- JSON ---
 function exportJSON(){
-  download(new Blob([JSON.stringify(stations,null,2)],{type:'application/json'}),`jet_${today()}.json`);
+  const list = getExportStations();
+  if(!list.length){ toast(t('no_export')); return; }
+  download(new Blob([JSON.stringify(list,null,2)],{type:'application/json'}),`jet_${exportNameSuffix(list)}.json`);
   toast('📋 JSON exportado');
   closeOverlay('export-overlay');
 }
 
 // --- FORMATO OFICIAL (57 columns, competitor-compatible) ---
 function exportOficial(){
-  if(!stations.length){ toast(t('no_export')); return; }
+  const exportList = getExportStations();
+  if(!exportList.length){ toast(t('no_export')); return; }
   const status = document.getElementById('export-status');
   status.innerHTML = '<span class="spinner"></span> Generando CSV oficial...';
 
@@ -4393,7 +4558,7 @@ function exportOficial(){
   // Build sequential codes: STREET-001 per street
   const seqByStreet = {};
   const seqGlobalMap = {};
-  const stationsSorted = [...stations].sort((a,b)=>(a.address||'').localeCompare(b.address||''));
+  const stationsSorted = [...exportList].sort((a,b)=>(a.address||'').localeCompare(b.address||''));
   stationsSorted.forEach((s,gi) => {
     const sk = streetKey(s.address);
     seqByStreet[sk] = (seqByStreet[sk]||0) + 1;
@@ -4402,13 +4567,13 @@ function exportOficial(){
 
   // Duplicate detection: group stations within 50m of each other
   const dupGroup = {};
-  for(let i=0;i<stations.length;i++){
-    for(let j=i+1;j<stations.length;j++){
-      const d = dist(stations[i].lat,stations[i].lng,stations[j].lat,stations[j].lng);
+  for(let i=0;i<exportList.length;i++){
+    for(let j=i+1;j<exportList.length;j++){
+      const d = dist(exportList[i].lat,exportList[i].lng,exportList[j].lat,exportList[j].lng);
       if(d<50){
-        const key = [stations[i]._docId,stations[j]._docId].sort().join('-');
-        dupGroup[stations[i]._docId] = dupGroup[stations[i]._docId]||key;
-        dupGroup[stations[j]._docId] = dupGroup[stations[j]._docId]||key;
+        const key = [exportList[i]._docId,exportList[j]._docId].sort().join('-');
+        dupGroup[exportList[i]._docId] = dupGroup[exportList[i]._docId]||key;
+        dupGroup[exportList[j]._docId] = dupGroup[exportList[j]._docId]||key;
       }
     }
   }
@@ -4447,7 +4612,7 @@ function exportOficial(){
 
   const rows = [COLS];
 
-  stations.forEach(s => {
+  exportList.forEach(s => {
     const addrParts = (s.address||'').split(',').map(p=>p.trim());
     const sk    = streetKey(s.address);
     usedStreetSeq[sk] = (usedStreetSeq[sk]||0)+1;
@@ -4551,15 +4716,17 @@ function exportOficial(){
 
   const bom = '\uFEFF'; // UTF-8 BOM for Excel compatibility
   download(new Blob([bom+tsv],{type:'text/tab-separated-values;charset=utf-8'}),
-           `jet_oficial_${today()}.csv`);
+           `jet_oficial_${exportNameSuffix(exportList)}.csv`);
   toast('🏛 CSV Oficial exportado');
-  status.innerHTML = `✅ ${stations.length} estaciones exportadas — formato oficial`;
+  status.innerHTML = `✅ ${exportList.length} estaciones exportadas — formato oficial`;
   setTimeout(()=>{ status.innerHTML=''; closeOverlay('export-overlay'); }, 2000);
 }
 
 // --- EXCEL ---
 async function exportExcel(){
   const status = document.getElementById('export-status');
+  const exportList = getExportStations();
+  if(!exportList.length){ toast(t('no_export')); return; }
   status.innerHTML = `<span class="spinner"></span>${t('loading')}`;
   try {
     // Lazy-load SheetJS
@@ -4575,19 +4742,20 @@ async function exportExcel(){
 
     const L = LANGS[lang]||LANGS.es;
     const headers = {
-      es:['#','Nombre','Tipo','Ownership','Dirección','Ciudad','Latitud','Longitud','Capacidad','Radio (m)','Registrado por','Fecha','Notas'],
-      ru:['#','Название','Тип','Принадлежность','Адрес','Город','Широта','Долгота','Вместимость','Радиус (м)','Добавил','Дата','Примечания'],
-      pt:['#','Nome','Tipo','Propriedade','Endereço','Cidade','Latitude','Longitude','Capacidade','Raio (m)','Registrado por','Data','Notas'],
+      es:['#','Nombre','Tipo','Ownership','Lote / proyecto','Origen','Dirección','Ciudad','Latitud','Longitud','Capacidad','Radio (m)','Registrado por','Fecha','Notas'],
+      ru:['#','Название','Тип','Принадлежность','Партия / проект','Источник','Адрес','Город','Широта','Долгота','Вместимость','Радиус (м)','Добавил','Дата','Примечания'],
+      pt:['#','Nome','Tipo','Propriedade','Lote / projeto','Origem','Endereço','Cidade','Latitude','Longitude','Capacidade','Raio (m)','Registrado por','Data','Notas'],
     };
     const hdr = headers[lang]||headers.es;
     const ownLabel = (v) => ({propia:{es:'JET',ru:'JET',pt:'JET'},competencia:{es:'Competencia',ru:'Конкурент',pt:'Concorrente'}}[v]||{});
 
-    const rows = stations.map((s,i) => {
+    const rows = exportList.map((s,i) => {
       const addrParts = (s.address||'').split(',').map(p=>p.trim());
       const city = s.city || addrParts[addrParts.length-1]||'';
       return [
         i+1, s.name||'', s.type||'',
         (ownLabel(s.ownership)||{})[lang]||s.ownership||'',
+        stationBatchName(s)||'', s.source||'',
         s.address||'', city,
         s.lat, s.lng,
         s.capacity||'', s.radius||'',
@@ -4597,14 +4765,14 @@ async function exportExcel(){
 
     const ws = XLSX.utils.aoa_to_sheet([hdr, ...rows]);
     // Column widths
-    ws['!cols'] = [4,25,18,14,35,18,12,12,12,10,20,12,30].map(w=>({wch:w}));
+    ws['!cols'] = [4,25,18,14,22,12,35,18,12,12,12,10,20,12,30].map(w=>({wch:w}));
     // Freeze header row
     ws['!views'] = [{state:'frozen', xSplit:0, ySplit:1, topLeftCell:'A2', activeCell:'A2', sqref:'A2'}];
 
     const wb = XLSX.utils.book_new();
     const sheetName = {es:'Estaciones',ru:'Парковки',pt:'Estações'}[lang]||'Stations';
     XLSX.utils.book_append_sheet(wb, ws, sheetName);
-    XLSX.writeFile(wb, `jet_${today()}.xlsx`);
+    XLSX.writeFile(wb, `jet_${exportNameSuffix(exportList)}.xlsx`);
 
     toast(t('exp_excel_done'));
     status.innerHTML = '';
@@ -5117,6 +5285,8 @@ ${LEAFLET_MAP_INIT}
 
 // --- PDF (HTML Report, opens in new tab → Ctrl+P → Save as PDF) ---
 function exportPDF(){
+  const exportList = getExportStations();
+  if(!exportList.length){ toast(t('no_export')); return; }
   const own = {
     es:{propia:'JET Propia',competencia:'Competencia'},
     ru:{propia:'Наша JET',competencia:'Конкурент'},
@@ -5128,12 +5298,12 @@ function exportPDF(){
     pt:{title:'Relatório de Estações JET',date:'Data',total:'Total',jet:'Próprias JET',comp:'Concorrentes',cities:'Cidades',addr:'Endereço',coords:'Coordenadas',cap:'Capacidade',radius:'Raio',by:'Registrado por',notes:'Notas',croqui:'Croqui',printBtn:'🖨️ Imprimir / Salvar PDF',generated:'Gerado em',photo:'Foto'}
   }[lang]||{};
 
-  const ownCount  = stations.filter(s=>s.ownership!=='competencia').length;
-  const compCount = stations.filter(s=>s.ownership==='competencia').length;
-  const citySet   = new Set(stations.map(s=>(s.address||'').split(',').pop().trim()).filter(Boolean));
+  const ownCount  = exportList.filter(s=>s.ownership!=='competencia').length;
+  const compCount = exportList.filter(s=>s.ownership==='competencia').length;
+  const citySet   = new Set(exportList.map(s=>(s.address||'').split(',').pop().trim()).filter(Boolean));
   const dateStr   = new Date().toLocaleDateString(lang==='ru'?'ru-RU':lang==='pt'?'pt-BR':'es-MX',{year:'numeric',month:'long',day:'numeric'});
 
-  const stationsHtml = stations.map((s,i)=>`
+  const stationsHtml = exportList.map((s,i)=>`
 <div class="sc">
   <div class="sc-left">
     ${safePhoto(s) ? `<img class="sp" src="${safePhoto(s)}" alt="">` : `<div class="sp-empty">📷</div>`}
@@ -5198,11 +5368,11 @@ body{font-family:Arial,Helvetica,sans-serif;padding:18px 22px;color:#222;max-wid
   </div>
   <div class="hdr-right">
     ${T.generated}: ${dateStr}<br>
-    ${T.total}: <b>${stations.length}</b>
+    ${T.total}: <b>${exportList.length}</b>
   </div>
 </div>
 <div class="sgrid">
-  <div class="scard"><div class="snum">${stations.length}</div><div class="slbl">${T.total}</div></div>
+  <div class="scard"><div class="snum">${exportList.length}</div><div class="slbl">${T.total}</div></div>
   <div class="scard"><div class="snum" style="color:#28a745">${ownCount}</div><div class="slbl">${T.jet}</div></div>
   <div class="scard"><div class="snum" style="color:#dc3545">${compCount}</div><div class="slbl">${T.comp}</div></div>
   <div class="scard"><div class="snum">${citySet.size}</div><div class="slbl">${T.cities}</div></div>
@@ -5219,12 +5389,14 @@ ${stationsHtml}
 }
 
 function exportHTMLReport(){
+  const exportList = getExportStations();
+  if(!exportList.length){ toast(t('no_export')); return; }
   const cityName = currentCity || (lang==='ru'?'Все города':lang==='pt'?'Todas as cidades':'Todas las ciudades');
   const dateStr = new Date().toLocaleDateString(lang==='ru'?'ru-RU':lang==='pt'?'pt-BR':'es-MX',{year:'numeric',month:'long',day:'numeric'});
-  const ownCount = stations.filter(s=>s.ownership!=='competencia').length;
-  const compCount = stations.filter(s=>s.ownership==='competencia').length;
+  const ownCount = exportList.filter(s=>s.ownership!=='competencia').length;
+  const compCount = exportList.filter(s=>s.ownership==='competencia').length;
 
-  const cards = stations.map((s,i)=>{
+  const cards = exportList.map((s,i)=>{
     const isComp = s.ownership==='competencia';
     const _sp2 = safePhoto(s);
     const photoHtml = _sp2
@@ -5308,10 +5480,10 @@ body{font-family:'Inter',sans-serif;background:#0a0e1a;color:#e8edf5;min-height:
     <div class="top-title">${lang==='ru'?'Отчёт о станциях':lang==='pt'?'Relatório de Estações':'Reporte de Estaciones'}</div>
     <div class="top-city">${cityName}</div>
   </div>
-  <div class="top-right">${dateStr}<br><b style="color:#fff;font-size:16px">${stations.length}</b> ${lang==='ru'?'парковок':lang==='pt'?'estações':'estaciones'}</div>
+  <div class="top-right">${dateStr}<br><b style="color:#fff;font-size:16px">${exportList.length}</b> ${lang==='ru'?'парковок':lang==='pt'?'estações':'estaciones'}</div>
 </div>
 <div class="stats">
-  <div class="stat"><div class="stat-n stat-n--blue">${stations.length}</div><div class="stat-l">${lang==='ru'?'Всего':lang==='pt'?'Total':'Total'}</div></div>
+  <div class="stat"><div class="stat-n stat-n--blue">${exportList.length}</div><div class="stat-l">${lang==='ru'?'Всего':lang==='pt'?'Total':'Total'}</div></div>
   <div class="stat"><div class="stat-n stat-n--green">${ownCount}</div><div class="stat-l">JET ${lang==='ru'?'Наши':lang==='pt'?'Próprias':'Propias'}</div></div>
   <div class="stat"><div class="stat-n stat-n--red">${compCount}</div><div class="stat-l">${lang==='ru'?'Конкуренты':lang==='pt'?'Concorrentes':'Competencia'}</div></div>
 </div>
@@ -5319,7 +5491,7 @@ body{font-family:'Inter',sans-serif;background:#0a0e1a;color:#e8edf5;min-height:
   <input type="search" id="q" placeholder="🔍 ${lang==='ru'?'Поиск по названию или адресу':lang==='pt'?'Buscar por nome ou endereço':'Buscar por nombre o dirección'}..." oninput="filterCards(this.value)">
 </div>
 <div class="grid" id="grid">${cards}</div>
-<div class="footer">JET Movilidad © ${new Date().getFullYear()} · ${dateStr} · ${stations.length} ${lang==='ru'?'станций':lang==='pt'?'estações':'estaciones'}</div>
+<div class="footer">JET Movilidad © ${new Date().getFullYear()} · ${dateStr} · ${exportList.length} ${lang==='ru'?'станций':lang==='pt'?'estações':'estaciones'}</div>
 <script>
 function filterCards(q){
   const v=q.toLowerCase();
@@ -5334,7 +5506,7 @@ function filterCards(q){
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `JET_${cityName.replace(/\s+/g,'_')}_${today()}.html`;
+  a.download = `JET_${exportNameSuffix(exportList)}.html`;
   a.click();
   setTimeout(()=>URL.revokeObjectURL(url), 10000);
   closeOverlay('export-overlay');
@@ -5343,7 +5515,8 @@ function filterCards(q){
 
 // --- GOOGLE MY MAPS CSV EXPORT ---
 function exportGoogleMyMaps(){
-  if(!stations.length){ toast(t('no_export')); return; }
+  const exportList = getExportStations();
+  if(!exportList.length){ toast(t('no_export')); return; }
   // Google My Maps expects: Name, Description, Latitude, Longitude + optional icon columns
   const own = {
     es:{propia:'JET Propia',competencia:'Competencia'},
@@ -5351,8 +5524,8 @@ function exportGoogleMyMaps(){
     pt:{propia:'Própria JET',competencia:'Concorrente'}
   }[lang]||{};
 
-  const header = ['Name','Description','Latitude','Longitude','Tipo','Capacidade','Endereço','Registrado por'];
-  const rows = stations.map(s => {
+  const header = ['Name','Description','Latitude','Longitude','Tipo','Lote','Capacidade','Endereço','Registrado por'];
+  const rows = exportList.map(s => {
     const tipo = own[s.ownership] || s.ownership || 'JET';
     const desc = [
       s.type ? `Tipo: ${s.type}` : '',
@@ -5367,6 +5540,7 @@ function exportGoogleMyMaps(){
       (s.lat||0).toFixed(6),
       (s.lng||0).toFixed(6),
       tipo,
+      stationBatchName(s) || '',
       s.capacity || '',
       s.address || '',
       s.userName || '',
@@ -5374,14 +5548,14 @@ function exportGoogleMyMaps(){
   });
 
   const csv = [header.map(h=>`"${h}"`).join(','), ...rows].join('\r\n');
-  const cityName = currentCity || 'todas';
-  download(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}), `JET_MyMaps_${cityName}_${today()}.csv`);
+  download(new Blob(['\uFEFF'+csv],{type:'text/csv;charset=utf-8'}), `JET_MyMaps_${exportNameSuffix(exportList)}.csv`);
   closeOverlay('export-overlay');
   toast('🗺 CSV para Google My Maps baixado');
 }
 
 async function exportKMZ(){
-  if(!stations.length){ toast(t('no_export')); return; }
+  const exportList = getExportStations();
+  if(!exportList.length){ toast(t('no_export')); return; }
   const cityName = currentCity || 'todas';
   const own = {
     es:{propia:'JET Propia',competencia:'Competencia'},
@@ -5389,13 +5563,14 @@ async function exportKMZ(){
     pt:{propia:'Própria JET',competencia:'Concorrente'}
   }[lang]||{};
 
-  const placemarks = stations.map(s => {
+  const placemarks = exportList.map(s => {
     const tipo = own[s.ownership] || s.ownership || 'JET';
     const desc = [
       tipo,
       s.type   ? `Tipo: ${s.type}`     : '',
       s.capacity ? `Cap: ${s.capacity}` : '',
       s.radius ? `Raio: ${s.radius}m`   : '',
+      stationBatchName(s) ? `Lote: ${stationBatchName(s)}` : '',
       s.address ? s.address              : '',
       s.notes  ? `Obs: ${s.notes}`      : '',
       s.date   ? `Data: ${s.date}`      : '',
@@ -5425,7 +5600,7 @@ ${placemarks}
     const zip = new JSZip();
     zip.file('doc.kml', kml);
     const blob = await zip.generateAsync({type:'blob', compression:'DEFLATE'});
-    download(blob, `JET_MyMaps_${cityName}_${today()}.kmz`);
+    download(blob, `JET_MyMaps_${exportNameSuffix(exportList)}.kmz`);
     closeOverlay('export-overlay');
     toast('📍 KMZ para Google My Maps baixado');
   } catch(e) {
