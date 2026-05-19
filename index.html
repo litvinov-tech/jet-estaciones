@@ -3342,6 +3342,7 @@ function renderAll(){
     m.bindPopup(()=>{
       const isComp2 = s.ownership === 'competencia';
       const photoHtml = popupPhotoBlock(s);
+      setTimeout(() => hydratePopupPhoto(s._docId), 0);
       const capHtml   = s.capacity ? `<br><span style="font-size:11px;color:#28a745">🛴 ${s.capacity} scooters</span>` : '';
       const ownBadge  = isComp2 ? `<span style="padding:1px 6px;border-radius:10px;font-size:11px;background:#fde8e8;color:#dc3545;margin-left:4px">Competencia</span>` : '';
       return `
@@ -4207,6 +4208,10 @@ function attrSafe(v){
   return String(v || '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;');
 }
 
+function jsString(v){
+  return String(v || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\r?\n/g, ' ');
+}
+
 function driveFileId(url){
   if(!url) return '';
   const raw = String(url);
@@ -4238,7 +4243,8 @@ function popupPhotoBlock(s){
   const markup = popupPhotoMarkup(s);
   if(markup) return markup;
   if(!s.hasPhoto && !s._lite) return '';
-  return `<div id="popup-photo-wrap-${s._docId}" style="margin:6px 0;padding:9px;border-radius:6px;background:#f3f6fb;color:#6b7280;font-size:11px;text-align:center">📷 Foto se carga al abrir...</div>`;
+  const docId = attrSafe(s._docId);
+  return `<div id="popup-photo-wrap-${docId}" onclick="hydratePopupPhoto('${jsString(s._docId)}', 99)" style="margin:6px 0;padding:9px;border-radius:6px;background:#f3f6fb;color:#6b7280;font-size:11px;text-align:center;cursor:pointer">📷 Foto se carga al abrir...<br><span style="font-size:10px;color:#94a3b8">clic para reintentar</span></div>`;
 }
 
 async function hydratePopupPhoto(docId, attempt = 0){
