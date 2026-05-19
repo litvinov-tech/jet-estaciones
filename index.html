@@ -4220,11 +4220,73 @@ async function hydratePopupPhoto(docId){
   if(!wrap) return;
   try{
     const full = await loadFullStation(docId);
-    const markup = popupPhotoMarkup(full);
-    wrap.outerHTML = markup || '';
+    const src = await resolvePopupPhoto(full);
+    if(src){
+      wrap.outerHTML = popupPhotoMarkup({...full, photo: src});
+    } else {
+      wrap.outerHTML = '<div style="margin:6px 0;padding:9px;border-radius:6px;background:#fff7ed;color:#9a3412;font-size:11px;text-align:center">📷 Foto no disponible</div>';
+    }
     refreshOpenPopupLayout();
   }catch(e){
     wrap.textContent = 'No se pudo cargar la foto';
+  }
+}
+
+async function resolvePopupPhoto(s){
+  if(!s) return null;
+  const direct = safePhoto(s);
+  if(direct) return direct;
+
+  const driveUrl = s.drivePhotoUrl || (s.photo && s.photo.includes('drive.google.com') ? s.photo : '');
+  if(driveUrl){
+    const fetched = await fetchDrivePhoto(driveUrl);
+    if(fetched && fetched.startsWith('data:image/')){
+      await saveResolvedStationPhoto(s, fetched, driveUrl);
+      return fetched;
+    }
+  }
+
+  if(s.photo && s.photo.startsWith('data:') && !s.photo.startsWith('data:image/')){
+    const converted = await convertBase64Photo(s.photo);
+    if(converted && converted.startsWith('data:image/')){
+      await saveResolvedStationPhoto(s, converted, driveUrl);
+      return converted;
+    }
+  }
+  return null;
+}
+
+async function saveResolvedStationPhoto(s, data, driveUrl){
+  if(!s || !s._docId || !data) return;
+  s.photo = data;
+  stationFullCache.set(s._docId, s);
+  const idx = stations.findIndex(x => x._docId === s._docId);
+  if(idx >= 0) stations[idx] = {...stations[idx], photo:data, hasPhoto:true, drivePhotoUrl:driveUrl || stations[idx].drivePhotoUrl || ''};
+  try{
+    await db.collection(STATIONS_COLLECTION).doc(s._docId).update({photo:data, ...(driveUrl?{drivePhotoUrl:driveUrl}: {})});
+    await db.collection(STATIONS_INDEX_COLLECTION).doc(s._docId).set({
+      hasPhoto:true,
+      ...(driveUrl?{drivePhotoUrl:driveUrl}: {}),
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    }, {merge:true});
+  }catch(e){
+    console.warn('photo cache save skipped:', e);
+  }
+}
+
+async function convertBase64Photo(data){
+  try{
+    const proxyBase = ((typeof AN_PROXY !== 'undefined' && AN_PROXY) || 'https://consist-enter-physiology-winston.trycloudflare.com').replace(/\/$/,'');
+    const resp = await fetch(`${proxyBase}/convert-base64`, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({data})
+    });
+    if(!resp.ok) return null;
+    const d = await resp.json();
+    return d.data || null;
+  }catch(e){
+    return null;
   }
 }
 
@@ -4518,7 +4580,7 @@ function showMissingPhotos() {
 
 async function convertAllBrokenPhotos() {
   const res = document.getElementById('drive-photo-result');
-  const PROXY = 'https://brussels-radius-intake-barrier.trycloudflare.com';
+  const proxyBase = ((typeof AN_PROXY !== 'undefined' && AN_PROXY) || 'https://consist-enter-physiology-winston.trycloudflare.com').replace(/\/$/, '');
   const broken = (await getPhotoToolStations(res)).filter(s => s.photo && s.photo.startsWith('data:') && !s.photo.startsWith('data:image/'));
   if (!broken.length) { res.innerHTML='<div class="ok">✅ Нет битых HEIC фото</div>'; return; }
   let done=0, failed=0;
@@ -4526,7 +4588,7 @@ async function convertAllBrokenPhotos() {
     const idx = broken.indexOf(s)+1;
     res.innerHTML=`<span class="spinner"></span> ${idx}/${broken.length} — ${s.name||''}...`;
     try {
-      const resp = await fetch(`${PROXY}/convert-base64`, {
+      const resp = await fetch(`${proxyBase}/convert-base64`, {
         method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({data: s.photo})
       });
@@ -4582,7 +4644,8 @@ async function fetchAllDrivePhotos() {
 async function fetchDrivePhoto(url) {
   if (!url || !url.includes('drive.google.com')) return url;
   try {
-    const proxyUrl = `https://brussels-radius-intake-barrier.trycloudflare.com/proxy-photo?url=${encodeURIComponent(url)}`;
+    const proxyBase = ((typeof AN_PROXY !== 'undefined' && AN_PROXY) || 'https://consist-enter-physiology-winston.trycloudflare.com').replace(/\/$/, '');
+    const proxyUrl = `${proxyBase}/proxy-photo?url=${encodeURIComponent(url)}`;
     const resp = await fetch(proxyUrl);
     if (!resp.ok) return url;
     const d = await resp.json();
