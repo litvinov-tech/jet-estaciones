@@ -173,6 +173,12 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 /* POPUP ACTIONS */
 .popup-actions{display:flex;gap:5px;margin-top:8px;flex-wrap:wrap}
 .pa-btn{padding:5px 10px;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer}
+.leaflet-popup-content-wrapper{border-radius:10px;overflow:hidden}
+.leaflet-popup-content{max-height:min(430px,calc(100vh - 120px));overflow-y:auto;overflow-x:hidden}
+.station-popup{min-width:190px;max-width:256px;font-family:system-ui}
+.popup-photo-shell{position:relative;width:100%;height:112px;margin:7px 0;border-radius:8px;background:#f0f3fa;overflow:hidden;display:flex;align-items:center;justify-content:center}
+.popup-photo-img{width:100%;height:100%;object-fit:contain;display:block;cursor:pointer;image-orientation:from-image}
+.popup-photo-rotate{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.55);border:none;border-radius:6px;color:#fff;font-size:14px;line-height:1;cursor:pointer;padding:3px 7px}
 
 /* TOOLBAR ACTIVE */
 .tbtn.active{background:#005bff;color:white}
@@ -3213,7 +3219,7 @@ function renderAll(){
       const capHtml   = s.capacity ? `<br><span style="font-size:11px;color:#28a745">🛴 ${s.capacity} scooters</span>` : '';
       const ownBadge  = isComp2 ? `<span style="padding:1px 6px;border-radius:10px;font-size:11px;background:#fde8e8;color:#dc3545;margin-left:4px">Competencia</span>` : '';
       return `
-      <div style="min-width:190px;font-family:system-ui">
+      <div class="station-popup">
         <b style="font-size:14px">${s.name}</b>${ownBadge}
         <span style="display:inline-block;padding:1px 6px;border-radius:10px;font-size:11px;background:#e8f0ff;color:#005bff;margin-left:4px">${s.type}</span>
         ${capHtml}
@@ -3235,7 +3241,7 @@ function renderAll(){
           }
         </div>
       </div>
-    `; },{maxWidth:280});
+    `; },{maxWidth:300,maxHeight:430,autoPan:true,keepInView:true,autoPanPadding:[24,70]});
     m.on('popupopen', () => hydratePopupPhoto(s._docId));
     }
     if(end < visible.length) setTimeout(()=>addChunk(end), 0);
@@ -4073,7 +4079,7 @@ function safePhoto(s) {
 function popupPhotoMarkup(s){
   const src = safePhoto(s);
   if(!src) return '';
-  return `<div style="position:relative"><img id="popup-photo-${s._docId}" src="${src}" style="width:100%;border-radius:6px;margin:6px 0;max-height:180px;object-fit:contain;cursor:pointer;image-orientation:from-image" onclick="openPhotoViewer(this.src)"><button onclick="rotateStationPhoto('${s._docId}')" style="position:absolute;top:10px;right:4px;background:rgba(0,0,0,.55);border:none;border-radius:6px;color:#fff;font-size:14px;cursor:pointer;padding:2px 6px" title="Повернуть фото">↻</button></div>`;
+  return `<div class="popup-photo-shell"><img id="popup-photo-${s._docId}" class="popup-photo-img" src="${src}" onclick="openPhotoViewer(this.src)" onload="refreshOpenPopupLayout()"><button class="popup-photo-rotate" onclick="rotateStationPhoto('${s._docId}')" title="Повернуть фото">↻</button></div>`;
 }
 
 function popupPhotoBlock(s){
@@ -4090,9 +4096,18 @@ async function hydratePopupPhoto(docId){
     const full = await loadFullStation(docId);
     const markup = popupPhotoMarkup(full);
     wrap.outerHTML = markup || '';
+    refreshOpenPopupLayout();
   }catch(e){
     wrap.textContent = 'No se pudo cargar la foto';
   }
+}
+
+function refreshOpenPopupLayout(){
+  requestAnimationFrame(() => {
+    const popup = map && map._popup;
+    if(!popup) return;
+    popup.update();
+  });
 }
 
 // ==================== PHOTO VIEWER ====================
