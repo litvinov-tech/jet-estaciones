@@ -948,7 +948,7 @@ body{background:var(--bg-deep)!important}
     <button onclick="exportExcel()" style="width:100%;padding:14px;background:#1d6f42;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
       <span data-i18n="exp_btn_excel">📊 Excel (.xlsx) — tabla con coordenadas</span>
     </button>
-    <button onclick="exportCroquiMulti(getExportStations());closeOverlay('export-overlay')" style="width:100%;padding:14px;background:#e65100;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
+    <button onclick="exportCroquiFromModal()" style="width:100%;padding:14px;background:#e65100;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
       <span data-i18n="exp_btn_croqui">📄 Croqui PDF — todas (2 por página)</span>
     </button>
     <button onclick="exportPDF()" style="width:100%;padding:14px;background:#dc3545;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
@@ -1474,6 +1474,116 @@ let currentState   = localStorage.getItem('jet_state')   || null;
 let currentCity    = localStorage.getItem('jet_city')     || null;
 let selCityTemp    = null;
 const ADMIN_EMAIL = 'litvinov@jetshr.com.br';
+const STATIONS_COLLECTION = 'stations';
+const STATIONS_INDEX_COLLECTION = 'stations_index';
+const stationFullCache = new Map();
+
+function stationLiteFromFull(s, docId){
+  const lite = {
+    name: s.name || '',
+    type: s.type || '',
+    ownership: s.ownership || 'propia',
+    placement: s.placement || 'sidewalk',
+    dimensions: s.dimensions || '',
+    faixaLivre: s.faixaLivre || '',
+    address: s.address || '',
+    notes: s.notes || '',
+    capacity: s.capacity || '',
+    radius: s.radius || 20,
+    lat: Number(s.lat) || 0,
+    lng: Number(s.lng) || 0,
+    userId: s.userId || '',
+    userName: s.userName || '',
+    date: s.date || '',
+    country: s.country || null,
+    state: s.state || null,
+    city: s.city || null,
+    batchId: s.batchId || null,
+    batchName: s.batchName || null,
+    source: s.source || 'manual',
+    importFile: s.importFile || '',
+    drivePhotoUrl: s.drivePhotoUrl || '',
+    hasPhoto: !!(s.hasPhoto || s.photo || s.drivePhotoUrl),
+    createdAt: s.createdAt || null,
+    updatedAt: s.updatedAt || null,
+    _docId: docId || s._docId || '',
+    _lite: true
+  };
+  return lite;
+}
+
+function stationIndexPayload(s, docId){
+  const lite = stationLiteFromFull(s, docId);
+  delete lite._docId;
+  delete lite._lite;
+  return lite;
+}
+
+async function upsertStationIndex(docId, data){
+  if(!docId || !data) return;
+  try{
+    await db.collection(STATIONS_INDEX_COLLECTION).doc(docId).set(stationIndexPayload(data, docId), {merge:true});
+  }catch(e){
+    console.warn('stations_index write skipped:', e);
+  }
+}
+
+function mergeStationInMemory(full){
+  if(!full || !full._docId) return full;
+  stationFullCache.set(full._docId, full);
+  const idx = stations.findIndex(s => s._docId === full._docId);
+  if(idx >= 0) stations[idx] = {...stations[idx], ...full, _lite:false};
+  return full;
+}
+
+async function loadFullStation(docId){
+  if(!docId) return null;
+  if(stationFullCache.has(docId)) return stationFullCache.get(docId);
+  const snap = await db.collection(STATIONS_COLLECTION).doc(docId).get();
+  if(!snap.exists) return null;
+  return mergeStationInMemory({...snap.data(), _docId: snap.id, _lite:false});
+}
+
+async function loadFullStations(list, statusEl){
+  const out = [];
+  for(let i=0; i<list.length; i++){
+    const s = list[i];
+    if(s && s._lite){
+      if(statusEl) statusEl.innerHTML = `<span class="spinner"></span> Cargando datos completos ${i+1}/${list.length}...`;
+      out.push(await loadFullStation(s._docId) || s);
+    } else {
+      out.push(s);
+      if(s && s._docId) stationFullCache.set(s._docId, s);
+    }
+  }
+  return out;
+}
+
+async function deleteStationDoc(docId){
+  await db.collection(STATIONS_COLLECTION).doc(docId).delete();
+  try{ await db.collection(STATIONS_INDEX_COLLECTION).doc(docId).delete(); }catch(e){}
+  stationFullCache.delete(docId);
+}
+
+async function backfillStationIndexFromDocs(docs){
+  if(!docs || !docs.length) return;
+  try{
+    let batch = db.batch();
+    let n = 0;
+    for(const d of docs){
+      batch.set(db.collection(STATIONS_INDEX_COLLECTION).doc(d.id), stationIndexPayload(d.data(), d.id), {merge:true});
+      n++;
+      if(n >= 450){
+        await batch.commit();
+        batch = db.batch();
+        n = 0;
+      }
+    }
+    if(n) await batch.commit();
+  }catch(e){
+    console.warn('stations_index backfill skipped:', e);
+  }
+}
 
 function normalizeBatchId(value){
   const raw = (value || '').trim();
@@ -1513,6 +1623,11 @@ function getExportStations(){
   if(exportScope === 'all') return [...stations];
   if(exportScope === 'selected') return getSelectedStations();
   return getFilteredStations();
+}
+
+async function getExportStationsFull(statusEl){
+  const list = getExportStations();
+  return loadFullStations(list, statusEl);
 }
 
 function exportNameSuffix(list){
@@ -2224,26 +2339,39 @@ async function loadUserRole(){
 function resubscribeStations(){
   if(unsubStations){ unsubStations(); unsubStations = null; }
   stations = [];
+  stationFullCache.clear();
   renderAll();
   document.getElementById('cnt').textContent = '0';
 
   const q = currentCity
-    ? db.collection('stations').where('city','==', currentCity)
-    : db.collection('stations').orderBy('createdAt','desc');
+    ? db.collection(STATIONS_INDEX_COLLECTION).where('city','==', currentCity)
+    : db.collection(STATIONS_INDEX_COLLECTION).orderBy('createdAt','desc');
+
+  const loadFullFallback = () => {
+    const fullQ = currentCity
+      ? db.collection(STATIONS_COLLECTION).where('city','==', currentCity)
+      : db.collection(STATIONS_COLLECTION).orderBy('createdAt','desc');
+    return fullQ.get().then(snap2 => {
+      stations = snap2.docs.map(d => {
+        const full = {...d.data(), _docId: d.id, _lite:false};
+        stationFullCache.set(d.id, full);
+        return full;
+      });
+      renderAll();
+      document.getElementById('cnt').textContent = stations.length;
+      backfillStationIndexFromDocs(snap2.docs);
+      return stations.length;
+    });
+  };
 
   const onSnap = snap => {
     const wasEmpty = stations.length === 0;
-    stations = snap.docs.map(d => ({...d.data(), _docId: d.id}));
-    // If city filter returned 0, fall back to all stations (handles legacy data without city field)
-    if (stations.length === 0 && currentCity) {
-      db.collection('stations').orderBy('createdAt','desc').get().then(snap2 => {
-        if (snap2.docs.length > 0) {
-          stations = snap2.docs.map(d => ({...d.data(), _docId: d.id}));
-          renderAll();
-          document.getElementById('cnt').textContent = stations.length;
-          // Do NOT pan map here — city navigation already handled by Nominatim
-        }
-      }).catch(()=>{});
+    stations = snap.docs.map(d => stationLiteFromFull(d.data(), d.id));
+    // First deployment/legacy data: if the light index is empty, build it from full docs once.
+    if (stations.length === 0) {
+      loadFullFallback().then(count => {
+        if(!count && currentCity) toast('No hay estaciones para esta ciudad.');
+      }).catch(()=>toast('⚠️ Error de conexión — revisa reglas de Firestore'));
       return;
     }
     renderAll();
@@ -2257,14 +2385,7 @@ function resubscribeStations(){
 
   unsubStations = q.onSnapshot(onSnap, err => {
     console.error('Stations error:', err);
-    const fallback = currentCity
-      ? db.collection('stations').where('city','==', currentCity)
-      : db.collection('stations');
-    fallback.get().then(snap2 => {
-      stations = snap2.docs.map(d => ({...d.data(), _docId: d.id}));
-      renderAll();
-      document.getElementById('cnt').textContent = stations.length;
-    }).catch(()=>toast('⚠️ Error de conexión — revisa reglas de Firestore'));
+    loadFullFallback().catch(()=>toast('⚠️ Error de conexión — revisa reglas de Firestore'));
   });
 }
 
@@ -2990,11 +3111,13 @@ async function saveStation(){
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     };
     if(editingId){
-      await db.collection('stations').doc(editingId).update(data);
+      await db.collection(STATIONS_COLLECTION).doc(editingId).update(data);
+      await upsertStationIndex(editingId, {...oldStation, ...data, _docId: editingId});
       toast(t('updated'));
     } else {
       data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
-      await db.collection('stations').add(data);
+      const ref = await db.collection(STATIONS_COLLECTION).add(data);
+      await upsertStationIndex(ref.id, {...data, _docId: ref.id});
       toast(t('saved'));
     }
     closeAdd();
@@ -3005,10 +3128,14 @@ async function saveStation(){
   }
 }
 
-function openEdit(docId){
-  const s = stations.find(st=>st._docId===docId);
+async function openEdit(docId){
+  let s = stations.find(st=>st._docId===docId);
   if(!s) return;
   if(currentRole !== 'admin' && s.userId !== currentUser.uid){ toast('❌ ' + t('conn_err')); return; }
+  if(s._lite){
+    toast('Cargando datos completos...');
+    s = await loadFullStation(docId) || s;
+  }
   map.closePopup();
   editingId = docId;
   addMode = false;
@@ -3077,7 +3204,7 @@ function renderAll(){
     // Lazy popup — built only when opened
     m.bindPopup(()=>{
       const isComp2 = s.ownership === 'competencia';
-      const _sp = safePhoto(s); const photoHtml = _sp ? `<div style="position:relative"><img id="popup-photo-${s._docId}" src="${_sp}" style="width:100%;border-radius:6px;margin:6px 0;max-height:180px;object-fit:contain;cursor:pointer;image-orientation:from-image" onclick="openPhotoViewer(this.src)"><button onclick="rotateStationPhoto('${s._docId}')" style="position:absolute;top:10px;right:4px;background:rgba(0,0,0,.55);border:none;border-radius:6px;color:#fff;font-size:14px;cursor:pointer;padding:2px 6px" title="Повернуть фото">↻</button></div>` : '';
+      const photoHtml = popupPhotoBlock(s);
       const capHtml   = s.capacity ? `<br><span style="font-size:11px;color:#28a745">🛴 ${s.capacity} scooters</span>` : '';
       const ownBadge  = isComp2 ? `<span style="padding:1px 6px;border-radius:10px;font-size:11px;background:#fde8e8;color:#dc3545;margin-left:4px">Competencia</span>` : '';
       return `
@@ -3104,6 +3231,7 @@ function renderAll(){
         </div>
       </div>
     `; },{maxWidth:280});
+    m.on('popupopen', () => hydratePopupPhoto(s._docId));
     }
     if(end < visible.length) setTimeout(()=>addChunk(end), 0);
   };
@@ -3114,7 +3242,7 @@ async function delStation(docId){
   if(currentRole !== 'admin'){ toast('❌ ' + t('conn_err')); return; }
   if(!confirm(t('del_confirm'))) return;
   try{
-    await db.collection('stations').doc(docId).delete();
+    await deleteStationDoc(docId);
     map.closePopup();
     toast(t('deleted'));
   }catch(e){ toast('❌ '+e.message); }
@@ -3136,7 +3264,7 @@ async function delSelected(){
   if(btn) btn.disabled = true;
   for(const docId of ids){
     try{
-      await db.collection('stations').doc(docId).delete();
+      await deleteStationDoc(docId);
       selectedDocIds.delete(docId);
       done++;
       if(btn) btn.textContent = `🗑 ${done}/${ids.length}...`;
@@ -3278,7 +3406,7 @@ function renderListItems(){
     return `
     <li class="spot-item${isSel?' selected':''}">
       <input type="checkbox" class="spot-check" ${isSel?'checked':''} onchange="listToggleOne('${s._docId}',this.checked)" onclick="event.stopPropagation()">
-      ${safePhoto(s)?`<img class="spot-thumb" src="${safePhoto(s)}" onclick="event.stopPropagation();openPhotoViewer(this.src)" style="cursor:pointer;image-orientation:from-image">`:''}
+      ${s.hasPhoto?`<div class="spot-thumb" style="display:flex;align-items:center;justify-content:center;background:#eef2ff;color:#2563eb;font-size:16px">📷</div>`:''}
       <div class="spot-body" onclick="flyTo(${s.lat},${s.lng})">
         <div class="spot-name">${i+1}. ${s.name}
           <span class="spot-badge">${s.type}</span>
@@ -3500,7 +3628,8 @@ async function migrateCityAssign(){
   toast((lang==='ru'?'Обновляю':'Actualizando') + ' ' + noCityStations.length + '…');
   const batch = db.batch();
   noCityStations.forEach(s=>{
-    batch.update(db.collection('stations').doc(s._docId), {city, country: country||null, state: state||null});
+    batch.update(db.collection(STATIONS_COLLECTION).doc(s._docId), {city, country: country||null, state: state||null});
+    batch.set(db.collection(STATIONS_INDEX_COLLECTION).doc(s._docId), {city, country: country||null, state: state||null}, {merge:true});
   });
   await batch.commit();
   toast('✅ ' + noCityStations.length + ' ' + (lang==='ru'?'парковок → '+city:'estaciones → '+city));
@@ -3650,7 +3779,7 @@ async function apApproveDelete(reqId, stationId, btn){
   if(!confirm(t('del_confirm'))) return;
   btn.disabled=true; btn.textContent='...';
   try {
-    await db.collection('stations').doc(stationId).delete();
+    await deleteStationDoc(stationId);
     await db.collection('deleteRequests').doc(reqId).update({status:'approved'});
     toast(t('deleted'));
     renderApRequests();
@@ -3805,7 +3934,7 @@ async function approveDelete(reqId, stationId){
   if(currentRole !== 'admin'){ toast('❌ ' + t('conn_err')); return; }
   if(!confirm(t('del_confirm'))) return;
   try{
-    await db.collection('stations').doc(stationId).delete();
+    await deleteStationDoc(stationId);
     await db.collection('deleteRequests').doc(reqId).update({status:'approved'});
     toast(t('deleted'));
     renderRequestsTab();
@@ -3936,9 +4065,34 @@ function safePhoto(s) {
   return null;
 }
 
+function popupPhotoMarkup(s){
+  const src = safePhoto(s);
+  if(!src) return '';
+  return `<div style="position:relative"><img id="popup-photo-${s._docId}" src="${src}" style="width:100%;border-radius:6px;margin:6px 0;max-height:180px;object-fit:contain;cursor:pointer;image-orientation:from-image" onclick="openPhotoViewer(this.src)"><button onclick="rotateStationPhoto('${s._docId}')" style="position:absolute;top:10px;right:4px;background:rgba(0,0,0,.55);border:none;border-radius:6px;color:#fff;font-size:14px;cursor:pointer;padding:2px 6px" title="Повернуть фото">↻</button></div>`;
+}
+
+function popupPhotoBlock(s){
+  const markup = popupPhotoMarkup(s);
+  if(markup) return markup;
+  if(!s.hasPhoto && !s._lite) return '';
+  return `<div id="popup-photo-wrap-${s._docId}" style="margin:6px 0;padding:9px;border-radius:6px;background:#f3f6fb;color:#6b7280;font-size:11px;text-align:center">📷 Foto se carga al abrir...</div>`;
+}
+
+async function hydratePopupPhoto(docId){
+  const wrap = document.getElementById(`popup-photo-wrap-${docId}`);
+  if(!wrap) return;
+  try{
+    const full = await loadFullStation(docId);
+    const markup = popupPhotoMarkup(full);
+    wrap.outerHTML = markup || '';
+  }catch(e){
+    wrap.textContent = 'No se pudo cargar la foto';
+  }
+}
+
 // ==================== PHOTO VIEWER ====================
 async function rotateStationPhoto(docId) {
-  const s = stations.find(x => x._docId === docId);
+  const s = await loadFullStation(docId) || stations.find(x => x._docId === docId);
   if (!s || !s.photo || !s.photo.startsWith('data:image/')) return;
   const img = new Image();
   img.onload = async () => {
@@ -3949,7 +4103,8 @@ async function rotateStationPhoto(docId) {
     ctx.rotate(Math.PI/2);
     ctx.drawImage(img, -img.width/2, -img.height/2);
     const data = canvas.toDataURL('image/jpeg', 0.85);
-    await db.collection('stations').doc(docId).update({ photo: data });
+    await db.collection(STATIONS_COLLECTION).doc(docId).update({ photo: data });
+    await db.collection(STATIONS_INDEX_COLLECTION).doc(docId).set({hasPhoto:true, updatedAt: firebase.firestore.FieldValue.serverTimestamp()}, {merge:true}).catch(()=>{});
     s.photo = data;
     const el = document.getElementById(`popup-photo-${docId}`);
     if (el) el.src = data;
@@ -4153,7 +4308,8 @@ async function preRotateSelected() {
         ctx.rotate(Math.PI/2);
         ctx.drawImage(img, -img.width/2, -img.height/2);
         const data = canvas.toDataURL('image/jpeg', 0.85);
-        await db.collection('stations').doc(docId).update({photo: data});
+        await db.collection(STATIONS_COLLECTION).doc(docId).update({photo: data});
+        await db.collection(STATIONS_INDEX_COLLECTION).doc(docId).set({hasPhoto:true, updatedAt: firebase.firestore.FieldValue.serverTimestamp()}, {merge:true}).catch(()=>{});
         s.photo = data;
         div.querySelector('img').src = data;
         div.classList.remove('pre-sel');
@@ -4186,7 +4342,8 @@ async function batchRotatePhotos() {
         ctx.rotate(Math.PI/2);
         ctx.drawImage(img, -img.width/2, -img.height/2);
         const data = canvas.toDataURL('image/jpeg', 0.85);
-        await db.collection('stations').doc(s._docId).update({photo: data});
+        await db.collection(STATIONS_COLLECTION).doc(s._docId).update({photo: data});
+        await db.collection(STATIONS_INDEX_COLLECTION).doc(s._docId).set({hasPhoto:true, updatedAt: firebase.firestore.FieldValue.serverTimestamp()}, {merge:true}).catch(()=>{});
         s.photo = data;
         done++;
         resolve();
@@ -4200,7 +4357,7 @@ async function batchRotatePhotos() {
 
 function showMissingPhotos() {
   const el = document.getElementById('missing-photos-list');
-  const missing = stations.filter(s => !safePhoto(s));
+  const missing = stations.filter(s => !s.hasPhoto && !safePhoto(s));
   if (!missing.length) { el.innerHTML='<div style="color:#4ade80">✅ Все станции имеют фото</div>'; return; }
   el.innerHTML = `<div style="color:#f97316;margin-bottom:4px">❌ Без фото: ${missing.length} станций</div>` +
     missing.map((s,i) => `<div style="padding:3px 0;border-bottom:1px solid #333;color:#ccc">${i+1}. ${s.name||s._docId}${s.drivePhotoUrl?` <span style="color:#f97316;font-size:10px">[Drive недоступен]</span>`:''}</div>`).join('');
@@ -4222,7 +4379,8 @@ async function convertAllBrokenPhotos() {
       });
       const d = await resp.json();
       if (d.data && d.data.startsWith('data:image/')) {
-        await db.collection('stations').doc(s._docId).update({photo: d.data});
+        await db.collection(STATIONS_COLLECTION).doc(s._docId).update({photo: d.data});
+        await db.collection(STATIONS_INDEX_COLLECTION).doc(s._docId).set({hasPhoto:true, updatedAt: firebase.firestore.FieldValue.serverTimestamp()}, {merge:true}).catch(()=>{});
         s.photo = d.data;
         done++;
       } else { failed++; }
@@ -4255,7 +4413,8 @@ async function fetchAllDrivePhotos() {
       if(!url){ failed++; continue; }
       const b64 = await fetchDrivePhoto(url);
       if(b64 && b64.startsWith('data:image/')){
-        await db.collection('stations').doc(s._docId).update({ photo: b64 });
+        await db.collection(STATIONS_COLLECTION).doc(s._docId).update({ photo: b64 });
+        await db.collection(STATIONS_INDEX_COLLECTION).doc(s._docId).set({hasPhoto:true, updatedAt: firebase.firestore.FieldValue.serverTimestamp()}, {merge:true}).catch(()=>{});
         s.photo = b64; // update in-memory so popup shows immediately
         done++;
       } else { failed++; }
@@ -4460,7 +4619,7 @@ async function processImportText(rawText, fileName, res){
         const itemBatchName = data.batchName || importBatchName;
         const itemBatchId = normalizeBatchId(itemBatchName) || importBatchId;
         try{
-          const ref = await db.collection('stations').add({
+          const stationData = {
             ...data,
             drivePhotoUrl: _photoIsDrive ? _photoUrl : '',
             ownership: data.ownership || 'propia',
@@ -4475,7 +4634,9 @@ async function processImportText(rawText, fileName, res){
             userName:  data.userName || currentUser.displayName||currentUser.email.split('@')[0],
             date:      data.date || new Date().toLocaleDateString('es-MX'),
             createdAt: firebase.firestore.FieldValue.serverTimestamp()
-          });
+          };
+          const ref = await db.collection(STATIONS_COLLECTION).add(stationData);
+          await upsertStationIndex(ref.id, {...stationData, _docId: ref.id});
           docIds.push({ ref, imp });
           added++;
         }catch(addErr){
@@ -4492,6 +4653,11 @@ async function processImportText(rawText, fileName, res){
           try {
             const b64 = await fetchDrivePhoto(imp._photoUrl);
             await ref.update({ photo: b64 });
+            await db.collection(STATIONS_INDEX_COLLECTION).doc(ref.id).set({
+              hasPhoto:true,
+              drivePhotoUrl: imp._photoUrl,
+              updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+            }, {merge:true}).catch(()=>{});
             photosFetched++;
           } catch {
             photosFailed++;
@@ -4530,8 +4696,9 @@ function exportData(){
 }
 
 // --- JSON ---
-function exportJSON(){
-  const list = getExportStations();
+async function exportJSON(){
+  const status = document.getElementById('export-status');
+  const list = await getExportStationsFull(status);
   if(!list.length){ toast(t('no_export')); return; }
   download(new Blob([JSON.stringify(list,null,2)],{type:'application/json'}),`jet_${exportNameSuffix(list)}.json`);
   toast('📋 JSON exportado');
@@ -4539,10 +4706,10 @@ function exportJSON(){
 }
 
 // --- FORMATO OFICIAL (57 columns, competitor-compatible) ---
-function exportOficial(){
-  const exportList = getExportStations();
-  if(!exportList.length){ toast(t('no_export')); return; }
+async function exportOficial(){
   const status = document.getElementById('export-status');
+  const exportList = await getExportStationsFull(status);
+  if(!exportList.length){ toast(t('no_export')); return; }
   status.innerHTML = '<span class="spinner"></span> Generando CSV oficial...';
 
   // Helper: normalize street name → code key
@@ -4897,10 +5064,18 @@ function makeCroqui(s){
 }
 
 // --- CROQUI MULTI (selected stations, 2 per page) ---
-function exportSelectedCroqui(){
+async function exportCroquiFromModal(){
+  const status = document.getElementById('export-status');
+  const list = await getExportStationsFull(status);
+  if(!list.length){ toast(t('no_export')); return; }
+  closeOverlay('export-overlay');
+  exportCroquiMulti(list);
+}
+
+async function exportSelectedCroqui(){
   if(selectedDocIds.size === 0){ toast('⚠️ Выберите парковки'); return; }
   const list = [...selectedDocIds].map(id=>stations.find(s=>s._docId===id)).filter(Boolean);
-  exportCroquiMulti(list);
+  exportCroquiMulti(await loadFullStations(list));
 }
 
 function exportCroquiMulti(list){
@@ -5107,8 +5282,8 @@ ${LEAFLET_MAP_INIT}
 }
 
 // --- CROQUI (single station, one-page PDF) ---
-function exportCroqui(docId){
-  const s = stations.find(st=>st._docId===docId);
+async function exportCroqui(docId){
+  const s = await loadFullStation(docId) || stations.find(st=>st._docId===docId);
   if(!s){ toast('❌ Estación no encontrada'); return; }
   map.closePopup();
 
@@ -5284,8 +5459,9 @@ ${LEAFLET_MAP_INIT}
 }
 
 // --- PDF (HTML Report, opens in new tab → Ctrl+P → Save as PDF) ---
-function exportPDF(){
-  const exportList = getExportStations();
+async function exportPDF(){
+  const status = document.getElementById('export-status');
+  const exportList = await getExportStationsFull(status);
   if(!exportList.length){ toast(t('no_export')); return; }
   const own = {
     es:{propia:'JET Propia',competencia:'Competencia'},
@@ -5388,8 +5564,9 @@ ${stationsHtml}
   closeOverlay('export-overlay');
 }
 
-function exportHTMLReport(){
-  const exportList = getExportStations();
+async function exportHTMLReport(){
+  const status = document.getElementById('export-status');
+  const exportList = await getExportStationsFull(status);
   if(!exportList.length){ toast(t('no_export')); return; }
   const cityName = currentCity || (lang==='ru'?'Все города':lang==='pt'?'Todas as cidades':'Todas las ciudades');
   const dateStr = new Date().toLocaleDateString(lang==='ru'?'ru-RU':lang==='pt'?'pt-BR':'es-MX',{year:'numeric',month:'long',day:'numeric'});
