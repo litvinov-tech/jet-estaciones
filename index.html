@@ -8,6 +8,7 @@
 <title>JET Estaciones</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-rotate@0.2.8/dist/leaflet-rotate-src.js"></script>
 <script src="https://unpkg.com/leaflet.heat@0.2.0/dist/leaflet-heat.js"></script>
 <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
@@ -54,6 +55,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #fab-gps{width:54px;height:54px;background:#005bff;color:white;border:none;border-radius:50%;font-size:22px;cursor:pointer;box-shadow:0 4px 14px rgba(0,91,255,0.5);display:flex;align-items:center;justify-content:center}
 #fab-map{width:42px;height:42px;background:white;color:#0d0d1a;border:none;border-radius:50%;font-size:19px;cursor:pointer;box-shadow:0 2px 8px rgba(0,0,0,0.2);display:flex;align-items:center;justify-content:center}
 .fab-lbl{font-size:11px;color:white;background:rgba(0,0,0,0.55);padding:3px 8px;border-radius:10px;white-space:nowrap}
+.map-rotate-control{display:flex;align-items:center;gap:6px;margin-top:4px;background:rgba(8,11,20,0.84);border:1px solid rgba(255,255,255,0.12);border-radius:14px;padding:5px;backdrop-filter:blur(10px);box-shadow:0 2px 10px rgba(0,0,0,0.25)}
+.map-rotate-btn{width:34px;height:34px;border:none;border-radius:10px;background:rgba(255,255,255,0.12);color:#fff;font-size:16px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.map-rotate-btn:active{transform:scale(.94)}
+.map-rotate-readout{min-width:50px;height:34px;border:none;border-radius:10px;background:#fff;color:#0d0d1a;font-size:12px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:4px}
+.map-rotate-arrow{display:inline-block;font-size:13px;line-height:1;transform-origin:center}
+.map-rotate-control.disabled{opacity:.55}
+.map-rotate-control.disabled .map-rotate-btn,.map-rotate-control.disabled .map-rotate-readout{cursor:not-allowed}
 
 /* TOOLBAR */
 #toolbar{background:#1a1a2e;padding:8px 10px;display:flex;gap:6px;flex-shrink:0;border-top:1px solid rgba(255,255,255,0.05);overflow-x:auto;overflow-y:hidden;-webkit-overflow-scrolling:touch;scrollbar-width:none}
@@ -402,6 +410,19 @@ body{background:var(--bg-deep)!important}
   width:44px!important;height:44px!important;
   border-radius:14px!important;
 }
+.map-rotate-control{
+  background:rgba(8,11,20,0.88)!important;
+  border-color:var(--border)!important;
+}
+.map-rotate-btn{
+  background:var(--bg-surface)!important;
+  color:var(--text-primary)!important;
+  border:1px solid var(--border)!important;
+}
+.map-rotate-readout{
+  background:linear-gradient(135deg,#3b82f6,#2563eb)!important;
+  color:white!important;
+}
 .fab-lbl{
   background:rgba(8,11,20,0.8)!important;
   backdrop-filter:blur(8px)!important;
@@ -659,6 +680,14 @@ body{background:var(--bg-deep)!important}
       <div style="display:flex;align-items:center;gap:8px;margin-top:4px">
         <div class="fab-lbl">Mostrar todas</div>
         <button id="fab-map" onclick="fitAllMarkers()" title="Mostrar todas las estaciones">🗺</button>
+      </div>
+      <div class="map-rotate-control" id="map-rotate-control" title="Rotar mapa">
+        <button class="map-rotate-btn" onclick="rotateMap(-15)" title="Rotar izquierda">↶</button>
+        <button class="map-rotate-readout" onclick="resetMapBearing()" title="Norte arriba">
+          <span class="map-rotate-arrow" id="map-rotate-arrow">▲</span>
+          <span id="map-bearing-label">0°</span>
+        </button>
+        <button class="map-rotate-btn" onclick="rotateMap(15)" title="Rotar derecha">↷</button>
       </div>
       <div style="font-size:11px;color:rgba(255,255,255,0.55);text-align:right;margin-top:2px;padding-right:4px" id="fab-hint">o toca el mapa</div>
     </div>
@@ -1811,12 +1840,59 @@ const GEO_DATA = {
 
 // ==================== MAP ====================
 const renderer = L.canvas({ padding: 0.5 });
-const map = L.map('map',{zoomControl:false, preferCanvas:true}).setView(CENTER,15);
+const map = L.map('map',{
+  zoomControl:false,
+  preferCanvas:true,
+  rotate:true,
+  rotateControl:false,
+  touchRotate:true,
+  bearing:0
+}).setView(CENTER,15);
 const _layerOSM = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxZoom:19,keepBuffer:2});
 const _layerSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:19,keepBuffer:2});
 let _currentLayer = 'osm';
 _layerOSM.addTo(map);
 L.control.zoom({position:'bottomleft'}).addTo(map);
+
+let currentMapBearing = 0;
+function normalizeBearing(deg){
+  const n = Number.isFinite(+deg) ? +deg : 0;
+  return ((n % 360) + 360) % 360;
+}
+function mapCanRotate(){
+  return typeof map.setBearing === 'function' && typeof map.getBearing === 'function';
+}
+function updateRotationUi(){
+  const bearing = Math.round(normalizeBearing(currentMapBearing));
+  const label = document.getElementById('map-bearing-label');
+  const arrow = document.getElementById('map-rotate-arrow');
+  const ctrl = document.getElementById('map-rotate-control');
+  if(label) label.textContent = `${bearing}°`;
+  if(arrow) arrow.style.transform = `rotate(${bearing}deg)`;
+  if(ctrl) ctrl.classList.toggle('disabled', !mapCanRotate());
+}
+function setMapBearing(deg){
+  if(!mapCanRotate()){
+    updateRotationUi();
+    toast('Rotación no disponible: recarga la página');
+    return;
+  }
+  currentMapBearing = normalizeBearing(deg);
+  map.setBearing(currentMapBearing);
+  updateRotationUi();
+}
+function rotateMap(delta){
+  const base = mapCanRotate() ? map.getBearing() : currentMapBearing;
+  setMapBearing(base + delta);
+}
+function resetMapBearing(){
+  setMapBearing(0);
+}
+map.on('rotate', () => {
+  if(mapCanRotate()) currentMapBearing = map.getBearing();
+  updateRotationUi();
+});
+setTimeout(updateRotationUi, 800);
 
 function toggleMapLayer() {
   const btn = document.getElementById('fab-layer');
