@@ -187,6 +187,11 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .leaflet-popup,.leaflet-popup-content-wrapper,.leaflet-popup-content,.station-popup,.station-popup *{pointer-events:auto}
 .station-popup button,.popup-photo-shell,.popup-photo-img{touch-action:manipulation}
 .station-popup{min-width:190px;max-width:256px;font-family:system-ui}
+.station-marker{width:30px;height:30px;border-radius:50%;border:2px solid white;background:#28a745;color:white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;line-height:1;will-change:transform;contain:layout paint style}
+.station-marker.comp{border-radius:0;transform:rotate(45deg)}
+.station-marker.comp span{transform:rotate(-45deg);display:block}
+.station-marker.mobile{width:24px;height:24px;border-width:1.5px;font-size:9px;box-shadow:0 1px 4px rgba(0,0,0,0.25)}
+.station-marker.mobile.comp{transform:rotate(45deg)}
 .popup-photo-shell{position:relative;width:100%;height:112px;margin:7px 0;border-radius:8px;background:#f0f3fa;overflow:hidden;display:flex;align-items:center;justify-content:center}
 .popup-photo-img{width:100%;height:100%;object-fit:contain;display:block;cursor:pointer;image-orientation:from-image}
 .popup-photo-rotate{position:absolute;top:6px;right:6px;background:rgba(0,0,0,.55);border:none;border-radius:6px;color:#fff;font-size:14px;line-height:1;cursor:pointer;padding:3px 7px}
@@ -194,6 +199,24 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 #station-card-panel.on{display:block}
 #station-card-panel .station-card-close{position:absolute;top:8px;right:10px;border:none;background:transparent;color:#777;font-size:22px;line-height:1;cursor:pointer;padding:2px 6px;z-index:2}
 #station-card-panel .station-popup{max-width:none;min-width:0;padding-right:16px}
+
+@media(max-width:700px){
+  #header{padding:7px 10px!important}
+  #logo{font-size:20px!important}
+  #badge{padding:7px 10px!important}
+  #user-name{max-width:92px!important}
+  #counter{top:92px!important;left:10px!important;padding:6px 11px!important}
+  #gps-status{top:92px!important;right:10px!important;max-width:155px!important}
+  #colleague-legend{top:142px!important;right:10px!important;max-width:178px!important;padding:7px 9px!important}
+  #fab-area{bottom:92px!important;right:10px!important;gap:7px!important}
+  .fab-lbl{font-size:10px!important;max-width:180px;overflow:hidden;text-overflow:ellipsis}
+  #fab-gps{width:54px!important;height:54px!important}
+  .map-rotate-control{padding:4px!important;gap:4px!important}
+  .map-rotate-btn{width:32px!important;height:32px!important}
+  .map-rotate-readout{min-width:48px!important;height:32px!important}
+  #station-card-panel{top:48px!important;width:min(380px,calc(100vw - 16px))!important;max-height:calc(100dvh - 104px)!important}
+  .leaflet-control-zoom{margin-bottom:12px!important}
+}
 
 /* TOOLBAR ACTIVE */
 .tbtn.active{background:#005bff;color:white}
@@ -1847,17 +1870,26 @@ const GEO_DATA = {
 };
 
 // ==================== MAP ====================
+const IS_MOBILE_MAP = window.matchMedia('(max-width: 760px), (pointer: coarse)').matches;
+const MOBILE_RENDER_LIMITS = { far: 90, mid: 140, near: 220 };
 const renderer = L.canvas({ padding: 0.5 });
 const map = L.map('map',{
   zoomControl:false,
   preferCanvas:true,
   rotate:true,
   rotateControl:false,
-  touchRotate:true,
-  bearing:0
+  touchRotate:!IS_MOBILE_MAP,
+  bearing:0,
+  zoomSnap:IS_MOBILE_MAP ? 0.5 : 1,
+  zoomDelta:IS_MOBILE_MAP ? 0.5 : 1,
+  touchZoom:IS_MOBILE_MAP ? 'center' : true,
+  bounceAtZoomLimits:false,
+  wheelDebounceTime:80,
+  inertia:true
 }).setView(CENTER,15);
-const _layerOSM = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxZoom:19,keepBuffer:2});
-const _layerSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:19,keepBuffer:2});
+const tilePerf = {keepBuffer:IS_MOBILE_MAP ? 1 : 2, updateWhenIdle:IS_MOBILE_MAP, updateWhenZooming:!IS_MOBILE_MAP};
+const _layerOSM = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OSM',maxZoom:19,...tilePerf});
+const _layerSat = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',{attribution:'© Esri',maxZoom:19,...tilePerf});
 let _currentLayer = 'osm';
 _layerOSM.addTo(map);
 L.control.zoom({position:'bottomleft'}).addTo(map);
@@ -1953,6 +1985,17 @@ function toggleMapLayer() {
   }
 }
 const spotsGroup = L.layerGroup().addTo(map);
+let renderAllToken = 0;
+let renderAllTimer = null;
+
+function scheduleRenderAll(delay = 90){
+  clearTimeout(renderAllTimer);
+  renderAllTimer = setTimeout(renderAll, delay);
+}
+
+map.on('moveend zoomend', () => {
+  if(IS_MOBILE_MAP) scheduleRenderAll(80);
+});
 
 // ==================== RESTRICTED STREETS (KML) ====================
 function parseKmlCoords(ls){
@@ -1986,19 +2029,24 @@ async function loadRestrictedStreets(){
         const coords = parseKmlCoords(ls);
         if(coords.length < 2) return;
 
-        // Glow halo (canvas-rendered, no interaction)
-        L.polyline(coords, {
-          renderer, color:'#dc3545', weight:14, opacity:0.18, interactive:false
-        }).addTo(group);
+        // Glow halo (canvas-rendered, no interaction). Skip on mobile: it is visually nice,
+        // but expensive when pinch-zooming through hundreds of segments.
+        if(!IS_MOBILE_MAP){
+          L.polyline(coords, {
+            renderer, color:'#dc3545', weight:14, opacity:0.18, interactive:false
+          }).addTo(group);
+        }
 
         // Main thick dashed line
-        L.polyline(coords, {
-          renderer, color:'#dc3545', weight:5, opacity:0.85,
-          dashArray:'10 6', lineCap:'round', lineJoin:'round'
-        }).addTo(group)
-          .bindTooltip(`⛔ ${streetName}`, {
+        const line = L.polyline(coords, {
+          renderer, color:'#dc3545', weight:IS_MOBILE_MAP ? 3.5 : 5, opacity:IS_MOBILE_MAP ? 0.62 : 0.85,
+          dashArray:'10 6', lineCap:'round', lineJoin:'round', interactive:!IS_MOBILE_MAP
+        }).addTo(group);
+        if(!IS_MOBILE_MAP){
+          line.bindTooltip(`⛔ ${streetName}`, {
             sticky:true, className:'restricted-tip', direction:'top'
           });
+        }
       });
     });
     console.log('Restricted streets loaded ✓');
@@ -2007,7 +2055,7 @@ async function loadRestrictedStreets(){
   }
 }
 // Defer KML load slightly so the map tiles render first
-setTimeout(loadRestrictedStreets, 800);
+setTimeout(loadRestrictedStreets, IS_MOBILE_MAP ? 1800 : 800);
 
 map.on('click', e => {
   if(addMode){ placePin(e.latlng); return; }
@@ -2685,11 +2733,12 @@ function updateColleagueLegend(){
   const entries = Object.entries(userMarkers);
   if(!entries.length){ el.style.display='none'; return; }
   el.style.display = 'block';
-  el.innerHTML = entries.map(([uid, m]) => {
+  const shown = IS_MOBILE_MAP ? entries.slice(0, 4) : entries;
+  el.innerHTML = shown.map(([uid, m]) => {
     const color = userColorMap[uid]||'#888';
     const name = m.getPopup()?.getContent().match(/<b>👤 (.+?)<\/b>/)?.[1] || '?';
     return `<div class="cleg-row"><div class="cleg-dot" style="background:${color}"></div><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${name}</span></div>`;
-  }).join('');
+  }).join('') + (IS_MOBILE_MAP && entries.length > shown.length ? `<div style="font-size:10px;color:#94a3b8;margin-top:3px">+${entries.length-shown.length}</div>` : '');
 }
 
 function setGPSStatus(txt,color){
@@ -3425,28 +3474,56 @@ async function openStationCard(docId){
   }
 }
 
+function stationRenderEntries(){
+  const base = getFilteredStations()
+    .map((s, idx) => ({s, displayNo: idx + 1}))
+    .filter(x => Number.isFinite(+x.s.lat) && Number.isFinite(+x.s.lng) && +x.s.lat && +x.s.lng);
+
+  if(!IS_MOBILE_MAP || !map || !map.getBounds) return base;
+
+  const zoom = map.getZoom();
+  const bounds = map.getBounds().pad(zoom < 14 ? 0.75 : zoom < 15 ? 0.45 : 0.25);
+  let visible = base.filter(x => bounds.contains([+x.s.lat, +x.s.lng]));
+  const limit = zoom < 14 ? MOBILE_RENDER_LIMITS.far : zoom < 15 ? MOBILE_RENDER_LIMITS.mid : MOBILE_RENDER_LIMITS.near;
+
+  if(visible.length > limit){
+    const c = map.getCenter();
+    visible = visible
+      .map(x => ({...x, d:(+x.s.lat-c.lat)*(+x.s.lat-c.lat)+(+x.s.lng-c.lng)*(+x.s.lng-c.lng)}))
+      .sort((a,b) => a.d - b.d)
+      .slice(0, limit);
+  }
+  return visible;
+}
+
+function stationMarkerHtml(color, isComp, label){
+  const cls = `station-marker${isComp ? ' comp' : ''}${IS_MOBILE_MAP ? ' mobile' : ''}`;
+  return `<div class="${cls}" style="background:${color}"><span>${label}</span></div>`;
+}
+
 function renderAll(){
+  const token = ++renderAllToken;
   spotsGroup.clearLayers();
-  const visible = getFilteredStations();
-  const CHUNK = 40;
+  const visible = stationRenderEntries();
+  const CHUNK = IS_MOBILE_MAP ? 70 : 40;
   const addChunk = (start) => {
+    if(token !== renderAllToken) return;
     const end = Math.min(start + CHUNK, visible.length);
     for(let i = start; i < end; i++){
-      const s = visible[i];
-    const isComp = s.ownership === 'competencia';
-    const color = isComp ? '#dc3545' : (s.userId===currentUser?.uid ? '#28a745' : (userColorMap[s.userId]||'#28a745'));
-    const shape = isComp
-      ? `<div style="background:${color};color:white;width:28px;height:28px;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;transform:rotate(45deg)"><span style="transform:rotate(-45deg)">${i+1}</span></div>`
-      : `<div style="background:${color};color:white;width:30px;height:30px;border-radius:50%;border:2px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700">${i+1}</div>`;
-    const m = L.marker([s.lat,s.lng],{
-      icon:L.divIcon({className:'',html:shape,iconSize:[30,30],iconAnchor:[15,15]})
-    }).addTo(spotsGroup);
-    m.on('click', (ev) => {
-      if(ev?.originalEvent) L.DomEvent.stop(ev.originalEvent);
-      openStationCard(s._docId);
-    });
+      const {s, displayNo} = visible[i];
+      const isComp = s.ownership === 'competencia';
+      const color = isComp ? '#dc3545' : (s.userId===currentUser?.uid ? '#28a745' : (userColorMap[s.userId]||'#28a745'));
+      const size = IS_MOBILE_MAP ? 24 : 30;
+      const m = L.marker([s.lat,s.lng],{
+        keyboard:false,
+        icon:L.divIcon({className:'',html:stationMarkerHtml(color, isComp, displayNo),iconSize:[size,size],iconAnchor:[size/2,size/2]})
+      }).addTo(spotsGroup);
+      m.on('click', (ev) => {
+        if(ev?.originalEvent) L.DomEvent.stop(ev.originalEvent);
+        openStationCard(s._docId);
+      });
     }
-    if(end < visible.length) setTimeout(()=>addChunk(end), 0);
+    if(end < visible.length) setTimeout(()=>addChunk(end), IS_MOBILE_MAP ? 16 : 0);
   };
   addChunk(0);
 }
