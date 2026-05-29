@@ -2333,6 +2333,7 @@ async function loadRestrictedStreets(){
 setTimeout(loadRestrictedStreets, IS_MOBILE_MAP ? 1800 : 800);
 
 map.on('click', e => {
+  closeStationCard();
   if(addMode){ placePin(e.latlng); return; }
   if(document.querySelector('.overlay.on') || document.getElementById('admin-panel-overlay').classList.contains('on')) return;
   placePinOnly(e.latlng);
@@ -3895,14 +3896,25 @@ function renderAll(){
         keyboard:false,
         icon:L.divIcon({className:'',html:stationMarkerHtml(color, isComp, displayNo),iconSize:[size,size],iconAnchor:[size/2,size/2]})
       }).addTo(spotsGroup);
-      m.bindPopup(stationPopupContent(s), {
-        maxWidth: 300,
-        autoPan: true,
-        keepInView: true,
-        closeButton: true
-      });
+      // Desktop: open station details in the fixed side-panel (rendered OUTSIDE
+      // the rotated Leaflet map). The in-map popup's action buttons are not
+      // clickable with a mouse on desktop; the fixed panel avoids the whole
+      // Leaflet/leaflet-rotate event path. Mobile keeps the in-map popup, which
+      // works fine with touch.
+      if(IS_MOBILE_MAP){
+        m.bindPopup(stationPopupContent(s), {
+          maxWidth: 300,
+          autoPan: true,
+          keepInView: true,
+          closeButton: true
+        });
+      }
       m.on('click', async (ev) => {
         if(ev?.originalEvent) L.DomEvent.stop(ev.originalEvent);
+        if(!IS_MOBILE_MAP){
+          openStationCard(s._docId);
+          return;
+        }
         closeStationCard();
         m.openPopup();
         if(s._lite){
