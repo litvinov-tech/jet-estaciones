@@ -3606,9 +3606,27 @@ function renderAll(){
         keyboard:false,
         icon:L.divIcon({className:'',html:stationMarkerHtml(color, isComp, displayNo),iconSize:[size,size],iconAnchor:[size/2,size/2]})
       }).addTo(spotsGroup);
-      m.on('click', (ev) => {
+      m.bindPopup(stationPopupContent(s), {
+        maxWidth: 300,
+        autoPan: true,
+        keepInView: true,
+        closeButton: true
+      });
+      m.on('click', async (ev) => {
         if(ev?.originalEvent) L.DomEvent.stop(ev.originalEvent);
-        openStationCard(s._docId);
+        closeStationCard();
+        m.openPopup();
+        if(s._lite){
+          try{
+            const full = await loadFullStation(s._docId);
+            if(full){
+              m.setPopupContent(stationPopupContent(full));
+              setTimeout(() => hydratePopupPhoto(s._docId), 30);
+            }
+          }catch(e){
+            console.warn('station popup full load failed', e);
+          }
+        }
       });
     }
     if(end < visible.length) setTimeout(()=>addChunk(end), IS_MOBILE_MAP ? 16 : 0);
