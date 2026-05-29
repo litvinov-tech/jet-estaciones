@@ -1124,8 +1124,53 @@ const auth = firebase.auth();
 const db   = firebase.firestore();
 
 // ==================== AI CONFIG ====================
-const ANTHROPIC_KEY = atob('c2stYW50LWFwaTAzLURmN3Z6RGhibjBQRWxEbTV6ZXRhUUdGQ2dINmhsdmhTUTQxc3FvZkhMRWVPUy16WFpiNVAySUZ3a0k0bmxzNVNtc3ZPNk5mbUFDV3gzenZ6Zk5NUlRnLUtlMUNRUUFB');
-const GROQ_KEY      = atob('Z3NrX2dWTXk5S1lBVFc2RGFyUExaM3FNV0dkeWIzRllJd2lkQk5BUTYxUE5JYVNRUzNaTTV4Mzg=');
+const GEMINI_MODEL = 'gemini-2.5-flash';
+const GROQ_MODEL   = 'llama-3.1-8b-instant';
+
+function getAIKey(provider, options={}){
+  const storageKey = `jet_${provider.toLowerCase()}_api_key`;
+  const existing = (localStorage.getItem(storageKey)||'').trim();
+  if(existing) return existing;
+  if(options.prompt === false) return '';
+  const label = provider === 'gemini' ? 'Gemini' : 'Groq';
+  const msg = lang === 'ru'
+    ? `Введите ${label} API key. Ключ сохранится только в этом браузере.`
+    : lang === 'pt'
+      ? `Informe a chave API ${label}. Ela sera salva apenas neste navegador.`
+      : `Ingresa la API key de ${label}. Se guardara solo en este navegador.`;
+  const key = (prompt(msg)||'').trim();
+  if(key) localStorage.setItem(storageKey, key);
+  return key;
+}
+
+function parseAIJson(raw){
+  const text = (raw||'').trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
+  try { return JSON.parse(text); } catch(e) {}
+  const match = text.match(/\{[\s\S]*\}/);
+  if(!match) throw new Error('No JSON');
+  return JSON.parse(match[0]);
+}
+
+async function callGemini(parts, maxOutputTokens){
+  const key = getAIKey('gemini');
+  if(!key) throw new Error('Gemini API key no configurada');
+  const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(key)}`, {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({
+      system_instruction:{parts:[{text:get_AI_SYSTEM()}]},
+      contents:[{role:'user', parts}],
+      generationConfig:{
+        temperature:0.2,
+        maxOutputTokens:maxOutputTokens||512,
+        responseMimeType:'application/json'
+      }
+    })
+  });
+  const json = await resp.json();
+  if(json.error) throw new Error(json.error.message);
+  return (json.candidates?.[0]?.content?.parts||[]).map(p=>p.text||'').join('\n').trim();
+}
 
 const AI_REGULATIONS = `РЕГЛАМЕНТ РАЗМЕЩЕНИЯ СТАНЦИЙ ПРОКАТА САМОКАТОВ
 
@@ -3000,34 +3045,11 @@ async function analyzePhotoWithAI(){
     const mime    = imgSrc.split(';')[0].split(':')[1]||'image/jpeg';
     const address = document.getElementById('f-addr').value||'';
 
-    const resp = await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key': ANTHROPIC_KEY,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
-      },
-      body: JSON.stringify({
-        model:'claude-opus-4-6',
-        max_tokens:512,
-        system: get_AI_SYSTEM(),
-        messages:[{
-          role:'user',
-          content:[
-            {type:'image', source:{type:'base64', media_type:mime, data:base64}},
-            {type:'text',  text:`Analiza este lugar para estación JET. Dirección: ${address||'desconocida'}. Idioma de respuesta: ${lang==='ru'?'ruso':lang==='pt'?'portugués':'español'}.`}
-          ]
-        }]
-      })
-    });
-
-    const json = await resp.json();
-    if(json.error) throw new Error(json.error.message);
-    const raw = json.content?.[0]?.text||'';
-    const match = raw.match(/\{[\s\S]*\}/);
-    if(!match) throw new Error('No JSON');
-    const r = JSON.parse(match[0]);
+    const raw = await callGemini([
+      {inline_data:{mime_type:mime, data:base64}},
+      {text:`Analiza este lugar para estación JET. Dirección: ${address||'desconocida'}. Idioma de respuesta: ${lang==='ru'?'ruso':lang==='pt'?'portugués':'español'}. Responde solo JSON válido.`}
+    ], 512);
+    const r = parseAIJson(raw);
 
     // Auto-fill name (only if empty)
     if(r.name){
@@ -3066,30 +3088,10 @@ async function analyzeLocationWithAI(){
   const resultEl = document.getElementById('ai-result');
   resultEl.style.display='none';
   try {
-    const resp = await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',
-      headers:{
-        'Content-Type':'application/json',
-        'x-api-key': ANTHROPIC_KEY,
-        'anthropic-version':'2023-06-01',
-        'anthropic-dangerous-direct-browser-access':'true'
-      },
-      body: JSON.stringify({
-        model:'claude-haiku-4-5-20251001',
-        max_tokens:400,
-        system: get_AI_SYSTEM(),
-        messages:[{
-          role:'user',
-          content:`Analiza esta dirección para instalar una estación JET: "${address}". No hay foto disponible, analiza solo por la dirección y contexto urbano. Idioma: ${lang==='ru'?'ruso':lang==='pt'?'portugués':'español'}.`
-        }]
-      })
-    });
-    const json = await resp.json();
-    if(json.error) throw new Error(json.error.message);
-    const raw = json.content?.[0]?.text||'';
-    const match = raw.match(/\{[\s\S]*\}/);
-    if(!match) throw new Error('No JSON');
-    const r = JSON.parse(match[0]);
+    const raw = await callGemini([
+      {text:`Analiza esta dirección para instalar una estación JET: "${address}". No hay foto disponible, analiza solo por la dirección y contexto urbano. Idioma: ${lang==='ru'?'ruso':lang==='pt'?'portugués':'español'}. Responde solo JSON válido.`}
+    ], 400);
+    const r = parseAIJson(raw);
     if(r.name && !document.getElementById('f-name').value.trim()){
       document.getElementById('f-name').value = r.name;
     }
@@ -3114,11 +3116,13 @@ async function suggestNameWithGroq(address, type){
   const nameEl = document.getElementById('f-name');
   if(nameEl.value.trim()) return; // don't overwrite user input
   try {
+    const groqKey = getAIKey('groq', {prompt:false});
+    if(!groqKey) return;
     const resp = await fetch('https://api.groq.com/openai/v1/chat/completions',{
       method:'POST',
-      headers:{'Content-Type':'application/json','Authorization':`Bearer ${GROQ_KEY}`},
+      headers:{'Content-Type':'application/json','Authorization':`Bearer ${groqKey}`},
       body: JSON.stringify({
-        model:'llama-3.1-8b-instant',
+        model:GROQ_MODEL,
         max_tokens:40,
         temperature:0.4,
         messages:[
