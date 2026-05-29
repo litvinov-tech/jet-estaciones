@@ -1,4 +1,4 @@
-const CACHE = 'jet-v24';
+const CACHE = 'jet-v25';
 
 // External CDN hosts — safe to cache forever (versioned URLs)
 const CDN_HOSTS = ['unpkg.com', 'gstatic.com', 'tile.openstreetmap.org', 'waymarkedtrails.org', 'sheetjs.com', 'cdn.sheetjs.com', 'cdnjs.cloudflare.com'];

@@ -2951,6 +2951,7 @@ function openFormFromPin(){
   checkNearby(selCoords);
   reverseGeo(selCoords);
   fetchNearbySuggestions(selCoords.lat, selCoords.lng);
+  scheduleLocationAI(1200);
 }
 
 function openAdd(){
@@ -2963,6 +2964,7 @@ function openAdd(){
     document.getElementById('f-coords').value = `${selCoords.lat.toFixed(6)}, ${selCoords.lng.toFixed(6)}`;
     checkNearby(selCoords);
     fetchNearbySuggestions(selCoords.lat, selCoords.lng);
+    scheduleLocationAI(1200);
   }
 }
 
@@ -3007,6 +3009,8 @@ function placePin(ll){
   tempPin.on('dragend', e => placePin(e.target.getLatLng()));
   checkNearby(ll);
   reverseGeo(ll);
+  fetchNearbySuggestions(ll.lat, ll.lng);
+  scheduleLocationAI(1200);
 }
 
 function checkNearby(ll){
@@ -3035,6 +3039,9 @@ function dist(a,b,c,d){
 // Type index (language-independent) + emoji mapping
 // Index 10 = transport (bus stop, tram, metro)
 const TYPE_EMOJIS = ['🏬','🍽️','🏢','🏘️','🏨','🏋️','🏫','🌳','🏥','📦','🚌'];
+let lastNearbySuggestionContext = [];
+let locationAITimer = null;
+let locationAILastKey = '';
 
 function guessTypeIndex(a){
   const am=(a.amenity||'').toLowerCase(), sh=(a.shop||'').toLowerCase();
@@ -3058,6 +3065,7 @@ function guessTypeIndex(a){
 async function fetchNearbySuggestions(lat, lng){
   const wrap  = document.getElementById('type-suggestions');
   const chips = document.getElementById('type-chips');
+  lastNearbySuggestionContext = [];
   wrap.style.display = 'block';
   chips.innerHTML = `<span id="sug-spinner"><span class="spinner"></span>${t('suggest_loading')}</span>`;
 
@@ -3095,7 +3103,14 @@ async function fetchNearbySuggestions(lat, lng){
       return;
     }
 
-    sugs.sort((a,b)=>a.dist-b.dist).slice(0,6).forEach(s => {
+    sugs.sort((a,b)=>a.dist-b.dist);
+    lastNearbySuggestionContext = sugs.slice(0,8).map(s => ({
+      type: t('types')[s.idx],
+      name: s.name || '',
+      distance_m: s.dist
+    }));
+
+    sugs.slice(0,6).forEach(s => {
       const typeName = t('types')[s.idx];
       const btn = document.createElement('button');
       btn.className = 'type-chip';
@@ -3115,6 +3130,7 @@ async function fetchNearbySuggestions(lat, lng){
       };
       chips.appendChild(btn);
     });
+    scheduleLocationAI(700);
   } catch(e){
     wrap.style.display = 'none';
   }
@@ -3135,6 +3151,142 @@ function setTypeFromAI(aiType){
   }
   // 3. Fallback: set to Otro
   sel.value = 'Otro';
+}
+
+function getFormCoords(){
+  const raw = (document.getElementById('f-coords')?.value || '').trim();
+  const m = raw.match(/(-?\d+(?:\.\d+)?)\s*,\s*(-?\d+(?:\.\d+)?)/);
+  if(m) return {lat:Number(m[1]), lng:Number(m[2])};
+  if(selCoords) return {lat:Number(selCoords.lat), lng:Number(selCoords.lng)};
+  return null;
+}
+
+function setAIFieldValue(el, value, force=false){
+  if(!el || !value) return false;
+  const canWrite = force || !el.value.trim() || el.dataset.aiAutofilled === '1';
+  if(!canWrite) return false;
+  el.value = String(value).trim();
+  el.dataset.aiAutofilled = '1';
+  el.style.boxShadow = '0 0 0 2px #6366f1';
+  setTimeout(()=>{ el.style.boxShadow=''; },1800);
+  return true;
+}
+
+function applyAIStationResult(r, options={}){
+  if(!r || typeof r !== 'object') return;
+  const nameEl = document.getElementById('f-name');
+  const typeEl = document.getElementById('f-type');
+  const notesEl = document.getElementById('f-notes');
+
+  setAIFieldValue(nameEl, r.name, !!options.forceName);
+
+  if(r.type && typeEl){
+    const canWriteType = !!options.forceType || !typeEl.value || typeEl.dataset.aiAutofilled === '1';
+    if(canWriteType){
+      setTypeFromAI(r.type);
+      typeEl.dataset.aiAutofilled = '1';
+      typeEl.style.boxShadow = '0 0 0 2px #6366f1';
+      setTimeout(()=>{ typeEl.style.boxShadow=''; },1800);
+    }
+  }
+
+  if(options.fillNotes !== false && r.notes){
+    setAIFieldValue(notesEl, r.notes, !!options.forceNotes);
+  }
+}
+
+function buildLocationPrompt(address, coords){
+  const nearby = (lastNearbySuggestionContext || [])
+    .filter(x => x && (x.name || x.type))
+    .slice(0,8)
+    .map(x => `${x.name || 'sin nombre'} | ${x.type || 'Otro'} | ${x.distance_m}m`)
+    .join('\n');
+  const cityLine = [currentCity, currentState, currentCountry].filter(Boolean).join(', ') || 'ciudad no seleccionada';
+  const coordLine = coords ? `${coords.lat.toFixed(6)}, ${coords.lng.toFixed(6)}` : 'sin coordenadas';
+  return `Analiza una ubicacion para crear una estacion JET.
+
+Datos:
+- Coordenadas: ${coordLine}
+- Direccion detectada: ${address || 'desconocida'}
+- Ciudad seleccionada: ${cityLine}
+- Lugares cercanos detectados por OSM:
+${nearby || 'sin lugares cercanos detectados'}
+
+Tarea:
+1. Deduce el Tipo de ubicacion usando solo uno de estos valores: Centro Comercial, Restaurante, Oficina, Residencial, Hotel, Gimnasio, Escuela, Parque, Salud, Transporte, Otro.
+2. Genera Nombre / Referencia corto y util para operaciones, maximo 6 palabras. Usa el punto cercano, calle principal, esquina, colonia o referencia visible por la zona. No uses nombres genericos como "Estacion JET".
+3. Si la zona parece parada de bus/metro/transporte, usa Tipo Transporte.
+4. Si parece zona habitacional sin POI fuerte, usa Tipo Residencial y nombre basado en calle/colonia.
+5. Responde en ${lang==='ru'?'ruso':lang==='pt'?'portugues':'espanol'}.
+
+Responde solo JSON valido compacto con claves: name, type, notes, valid, reason. Sin markdown y sin texto fuera del JSON.`;
+}
+
+async function runLocationAI(options={}){
+  const auto = !!options.auto;
+  const address = (document.getElementById('f-addr')?.value || '').trim();
+  const coords = getFormCoords();
+  const usableAddress = address && address !== 'Detectando...' ? address : '';
+
+  if(!usableAddress && !coords){
+    if(!auto) toast('⚠️ ' + (lang==='ru'?'Сначала выберите точку на карте':lang==='pt'?'Primeiro selecione um ponto no mapa':'Primero selecciona un punto en el mapa'));
+    return;
+  }
+
+  const key = [
+    coords ? `${coords.lat.toFixed(5)},${coords.lng.toFixed(5)}` : '',
+    usableAddress,
+    currentCity || '',
+    (lastNearbySuggestionContext || []).map(x=>`${x.name}:${x.type}:${x.distance_m}`).join('|')
+  ].join('||');
+  if(auto && locationAILastKey === key) return;
+  if(auto) locationAILastKey = key;
+
+  const btn = document.getElementById('ai-location-btn');
+  const resultEl = document.getElementById('ai-result');
+  const oldText = btn ? btn.textContent : '';
+  if(btn){ btn.disabled=true; btn.textContent=t('ai_location_analyzing'); }
+  if(resultEl){
+    resultEl.style.display = auto ? 'block' : 'none';
+    if(auto){
+      resultEl.style.borderColor = '#6366f1';
+      resultEl.style.background = '#eef2ff';
+      resultEl.innerHTML = `<strong>AI</strong><br>${lang==='ru'?'Анализирую координаты и район...':lang==='pt'?'Analisando coordenadas e entorno...':'Analizando coordenadas y zona...'}`;
+    }
+  }
+
+  try {
+    const raw = await callGemini([{text:buildLocationPrompt(usableAddress, coords)}], 900);
+    const r = parseAIJson(raw);
+    applyAIStationResult(r, {fillNotes:false});
+    setRadius2(20);
+
+    if(resultEl){
+      const icon = r.valid ? '✅' : '⚠️';
+      resultEl.innerHTML = `<strong>${icon} ${aiResultTitle(!!r.valid)}</strong><br>${aiResultReason(r.reason)}`;
+      resultEl.style.borderColor = r.valid ? '#22c55e' : '#f59e0b';
+      resultEl.style.background  = r.valid ? '#f0fdf4' : '#fffbeb';
+      resultEl.style.display='block';
+    }
+    if(!auto) toast(t('ai_done'));
+  } catch(e){
+    if(!auto) toast(`${t('ai_err')} ${e.message}`);
+    else {
+      console.warn('[AI] Auto location analysis failed:', e.message);
+      if(resultEl) resultEl.style.display='none';
+    }
+  } finally {
+    if(btn){ btn.disabled=false; btn.textContent=oldText || t('ai_location_btn'); }
+  }
+}
+
+function scheduleLocationAI(delay=900){
+  clearTimeout(locationAITimer);
+  locationAITimer = setTimeout(()=>{
+    const overlay = document.getElementById('add-overlay');
+    if(editingId || !overlay || !overlay.classList.contains('on')) return;
+    runLocationAI({auto:true});
+  }, delay);
 }
 
 // ==================== AI FUNCTIONS ====================
@@ -3161,15 +3313,7 @@ async function analyzePhotoWithAI(){
     ], 1024);
     const r = parseAIJson(raw);
 
-    // Auto-fill name (only if empty)
-    if(r.name){
-      const nameEl = document.getElementById('f-name');
-      if(!nameEl.value.trim()){ nameEl.value=r.name; nameEl.style.boxShadow='0 0 0 2px #6366f1'; setTimeout(()=>nameEl.style.boxShadow='',2000); }
-    }
-    // Auto-fill type
-    if(r.type){ setTypeFromAI(r.type); }
-    // Auto-fill notes (only if empty)
-    if(r.notes && !document.getElementById('f-notes').value.trim()) document.getElementById('f-notes').value=r.notes;
+    applyAIStationResult(r, {fillNotes:true});
 
     // Show result card
     const icon = r.valid ? '✅' : '⚠️';
@@ -3191,34 +3335,7 @@ async function analyzePhotoWithAI(){
 
 // Analyze location by address alone (no photo needed)
 async function analyzeLocationWithAI(){
-  const address = document.getElementById('f-addr').value.trim();
-  if(!address || address === 'Detectando...'){ toast('⚠️ ' + (lang==='ru'?'Сначала выберите точку на карте':lang==='pt'?'Primeiro selecione um ponto no mapa':'Primero selecciona un punto en el mapa')); return; }
-  const btn = document.getElementById('ai-location-btn');
-  btn.disabled=true; btn.textContent=t('ai_location_analyzing');
-  const resultEl = document.getElementById('ai-result');
-  resultEl.style.display='none';
-  try {
-    const raw = await callGemini([
-      {text:`Analiza esta dirección para instalar una estación JET: "${address}". No hay foto disponible, analiza solo por la dirección y contexto urbano. Idioma: ${lang==='ru'?'ruso':lang==='pt'?'portugués':'español'}. Responde solo JSON válido, compacto, sin markdown y sin texto fuera del JSON.`}
-    ], 768);
-    const r = parseAIJson(raw);
-    if(r.name && !document.getElementById('f-name').value.trim()){
-      document.getElementById('f-name').value = r.name;
-    }
-    if(r.type){ setTypeFromAI(r.type); }
-    if(r.notes && !document.getElementById('f-notes').value.trim()) document.getElementById('f-notes').value=r.notes;
-    setRadius2(20);
-    const icon = r.valid?'✅':'⚠️';
-    resultEl.innerHTML=`<strong>${icon} ${aiResultTitle(!!r.valid)}</strong><br>${aiResultReason(r.reason)}`;
-    resultEl.style.borderColor=r.valid?'#22c55e':'#f59e0b';
-    resultEl.style.background=r.valid?'#f0fdf4':'#fffbeb';
-    resultEl.style.display='block';
-    toast(t('ai_done'));
-  } catch(e){
-    toast(`${t('ai_err')} ${e.message}`);
-  } finally {
-    btn.disabled=false; btn.textContent=t('ai_location_btn');
-  }
+  return runLocationAI({auto:false});
 }
 
 async function suggestNameWithGroq(address, type){
@@ -3245,6 +3362,7 @@ async function suggestNameWithGroq(address, type){
     const name = d.choices?.[0]?.message?.content?.trim();
     if(name && !nameEl.value.trim()){
       nameEl.value = name;
+      nameEl.dataset.aiAutofilled = '1';
       nameEl.title = t('ai_name_hint');
       nameEl.style.boxShadow='0 0 0 2px #6366f155';
       setTimeout(()=>{ nameEl.style.boxShadow=''; nameEl.title=''; },3000);
@@ -3293,6 +3411,7 @@ async function reverseGeo(ll){
       const placeName = d.name || a.amenity || a.shop || a.tourism || a.leisure || a.building || a.office || '';
       if(placeName && placeName.length > 2){
         nameEl.value = placeName;
+        nameEl.dataset.aiAutofilled = '1';
       } else {
         // Ask Groq for a smart suggestion (async, non-blocking)
         const curType = document.getElementById('f-type').value;
@@ -3307,7 +3426,10 @@ async function reverseGeo(ll){
       // find matching option regardless of language
       if(guessed){
         Array.from(typeEl.options).forEach(o => {
-          if(o.text === guessed) typeEl.value = o.value || o.text;
+          if(o.text === guessed){
+            typeEl.value = o.value || o.text;
+            typeEl.dataset.aiAutofilled = '1';
+          }
         });
       }
     }
@@ -3319,10 +3441,12 @@ async function reverseGeo(ll){
       ? `${t('restricted')} (${road})`
       : t('valid')
     );
+    scheduleLocationAI(700);
   }catch{
     el.value=''; el.removeAttribute('readonly');
     el.placeholder = t('offline_addr');
     setMsg('info', t('offline_addr'));
+    scheduleLocationAI(700);
   }
 }
 
@@ -3336,9 +3460,16 @@ function closeAdd(){
 }
 
 function resetForm(){
+  clearTimeout(locationAITimer);
+  locationAILastKey = '';
+  lastNearbySuggestionContext = [];
   document.getElementById('type-suggestions').style.display = 'none';
   document.getElementById('type-chips').innerHTML = '';
   ['f-coords','f-addr','f-name','f-notes','f-faixa'].forEach(id=>document.getElementById(id).value='');
+  ['f-name','f-type','f-notes'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) delete el.dataset.aiAutofilled;
+  });
   const fb=document.getElementById('f-batch');
   if(fb) fb.value = localStorage.getItem('jet_last_batch_name') || '';
   const fl=document.getElementById('f-dims-l'); if(fl) fl.value='4.5';
@@ -6841,6 +6972,19 @@ if('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js');
 
 // Apply language on initial load
 applyLang();
+
+['f-name','f-type','f-notes'].forEach(id=>{
+  const el = document.getElementById(id);
+  if(el){
+    el.addEventListener('input', ()=>{ delete el.dataset.aiAutofilled; });
+    el.addEventListener('change', ()=>{ delete el.dataset.aiAutofilled; });
+  }
+});
+const addrElForAI = document.getElementById('f-addr');
+if(addrElForAI){
+  addrElForAI.addEventListener('input', ()=>scheduleLocationAI(900));
+  addrElForAI.addEventListener('change', ()=>scheduleLocationAI(400));
+}
 
 // ==================== PWA INSTALL BANNER ====================
 // Called after successful login so the banner never overlaps the auth form
