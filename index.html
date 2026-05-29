@@ -1157,7 +1157,7 @@ function canPromptForAIKey(){
 }
 
 async function callGeminiProxy(parts, maxOutputTokens){
-  const proxyBase = ((typeof AI_PROXY !== 'undefined' && AI_PROXY) || (typeof AN_PROXY !== 'undefined' && AN_PROXY) || '').replace(/\/$/, '');
+  const proxyBase = ((typeof AI_PROXY !== 'undefined' && AI_PROXY) || '').replace(/\/$/, '');
   if(!proxyBase) throw new Error('AI proxy no configurado');
   if(!currentUser) throw new Error('Usuario no autenticado');
   const idToken = await currentUser.getIdToken();
@@ -1177,14 +1177,21 @@ async function callGeminiProxy(parts, maxOutputTokens){
 }
 
 async function callGemini(parts, maxOutputTokens){
+  let proxyError = null;
   try {
     return await callGeminiProxy(parts, maxOutputTokens);
-  } catch(proxyErr) {
-    console.warn('[AI] Gemini proxy unavailable:', proxyErr.message);
+  } catch(err) {
+    proxyError = err;
+    console.warn('[AI] Gemini proxy unavailable:', err.message);
   }
 
-  const key = getAIKey('gemini', {prompt: canPromptForAIKey()});
-  if(!key) throw new Error('Gemini API key no configurada');
+  // Employees must use the server-side proxy. Local API keys are only for admin/debug.
+  if(!canPromptForAIKey()){
+    throw new Error(`AI proxy: ${proxyError?.message || 'no disponible'}`);
+  }
+
+  const key = getAIKey('gemini', {prompt:true});
+  if(!key) throw new Error(`AI proxy: ${proxyError?.message || 'no disponible'}`);
   const resp = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(key)}`, {
     method:'POST',
     headers:{'Content-Type':'application/json'},
@@ -2532,9 +2539,12 @@ auth.onAuthStateChanged(async (user) => {
       }
     }).catch(()=>{});
     db.collection('config').doc('aiProxy').get().then(snap => {
-      if (snap.exists && snap.data().url) {
-        AI_PROXY = snap.data().url;
+      const configured = snap.exists ? String(snap.data().url || '').trim().replace(/\/$/, '') : '';
+      if (configured && configured.includes('run.app')) {
+        AI_PROXY = configured;
         console.log('[Config] AI Proxy URL:', AI_PROXY);
+      } else if (configured) {
+        console.warn('[Config] Ignoring non-Cloud-Run AI Proxy URL:', configured);
       }
     }).catch(()=>{});
   } else {
@@ -6392,7 +6402,8 @@ window.addEventListener('online', ()=>{badge.style.background='#28a745';badge.te
 window.addEventListener('offline',()=>{badge.style.background='#dc3545';badge.textContent='● Offline';});
 
 // ==================== ANALYTICS HEATMAP ====================
-let AI_PROXY = 'https://jet-ai-proxy-pdzlchzkva-uc.a.run.app'; // Gemini proxy, key stays server-side
+const DEFAULT_AI_PROXY = 'https://jet-ai-proxy-pdzlchzkva-uc.a.run.app';
+let AI_PROXY = DEFAULT_AI_PROXY; // Gemini proxy, key stays server-side
 let AN_PROXY = 'https://consist-enter-physiology-winston.trycloudflare.com'; // updated from Firestore on login
 const AN_GAS   = atob('aHR0cHM6Ly9zY3JpcHQuZ29vZ2xlLmNvbS9tYWNyb3Mvcy9BS2Z5Y2J5YkFiLXZXcWRnZ3VEMHA5Q2xIajM1YTMyamZFOGw3SE0wVzNZZmR0QVE2R3RnRVNZTHYweXJPM2dNVGJFVlliUzkvZXhlYw==');
 let _anHeatLayer = null;
