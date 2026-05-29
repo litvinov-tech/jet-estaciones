@@ -1145,11 +1145,30 @@ function getAIKey(provider, options={}){
 }
 
 function parseAIJson(raw){
-  const text = (raw||'').trim().replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
-  try { return JSON.parse(text); } catch(e) {}
-  const match = text.match(/\{[\s\S]*\}/);
-  if(!match) throw new Error('No JSON');
-  return JSON.parse(match[0]);
+  const original = (raw||'').trim();
+  const text = original.replace(/^```(?:json)?/i,'').replace(/```$/,'').trim();
+  const candidates = [text];
+  const fenced = text.match(/```(?:json)?\s*([\s\S]*?)```/i);
+  if(fenced) candidates.push(fenced[1].trim());
+  const firstBrace = text.indexOf('{');
+  const lastBrace = text.lastIndexOf('}');
+  if(firstBrace >= 0 && lastBrace > firstBrace) candidates.push(text.slice(firstBrace, lastBrace + 1));
+  const objectMatches = text.match(/\{[\s\S]*?\}/g) || [];
+  candidates.push(...objectMatches);
+  for(const candidate of candidates){
+    try {
+      const parsed = JSON.parse(candidate);
+      if(parsed && typeof parsed === 'object') return parsed;
+    } catch(e) {}
+  }
+  const fallback = text.slice(0, 700).trim();
+  return {
+    name: '',
+    type: '',
+    notes: fallback,
+    valid: false,
+    reason: fallback || 'La IA no devolvió JSON estructurado.'
+  };
 }
 
 function canPromptForAIKey(){
