@@ -1153,7 +1153,7 @@ function parseAIJson(raw){
 }
 
 function canPromptForAIKey(){
-  return currentRole === 'admin' || (currentUser && currentUser.email === ADMIN_EMAIL);
+  return localStorage.getItem('jet_allow_ai_key_prompt') === '1';
 }
 
 async function callGeminiProxy(parts, maxOutputTokens){
