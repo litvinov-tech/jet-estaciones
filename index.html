@@ -1164,6 +1164,10 @@ function parseAIJson(raw){
   const firstBrace = text.indexOf('{');
   const lastBrace = text.lastIndexOf('}');
   if(firstBrace >= 0 && lastBrace > firstBrace) candidates.push(text.slice(firstBrace, lastBrace + 1));
+  if(firstBrace >= 0 && lastBrace < firstBrace){
+    const partial = text.slice(firstBrace).trim().replace(/,\s*$/,'');
+    candidates.push(partial + '}');
+  }
   const objectMatches = text.match(/\{[\s\S]*?\}/g) || [];
   candidates.push(...objectMatches);
   for(const candidate of candidates){
@@ -1172,7 +1176,8 @@ function parseAIJson(raw){
       if(parsed && typeof parsed === 'object') return parsed;
     } catch(e) {}
   }
-  const fallback = text.slice(0, 700).replace(/^[{\[\s`]+$/,'').trim();
+  const looksLikeBrokenJson = /^[\s`]*[\{\[]/.test(text) || /"?(name|type|notes|valid|reason)"?\s*:/.test(text);
+  const fallback = looksLikeBrokenJson ? '' : text.slice(0, 700).replace(/^[{\[\s`]+$/,'').trim();
   return {
     name: '',
     type: '',
@@ -1180,6 +1185,32 @@ function parseAIJson(raw){
     valid: false,
     reason: fallback || 'La IA no pudo estructurar la respuesta. Intenta otra foto o repite el analisis.'
   };
+}
+
+function escapeHtml(value){
+  return String(value ?? '')
+    .replace(/&/g,'&amp;')
+    .replace(/</g,'&lt;')
+    .replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;')
+    .replace(/'/g,'&#039;');
+}
+
+function aiResultTitle(valid){
+  if(valid) return lang === 'ru' ? 'Подходит' : lang === 'pt' ? 'Apto' : 'Apto';
+  return lang === 'ru' ? 'Не подходит' : lang === 'pt' ? 'Não apto' : 'No apto';
+}
+
+function aiResultReason(reason){
+  const text = String(reason || '').trim();
+  const brokenJson = /^[\s`]*[\{\[]/.test(text) || /"?(name|type|notes|valid|reason)"?\s*:/.test(text);
+  if(text && !brokenJson) return escapeHtml(text);
+  const fallback = lang === 'ru'
+    ? 'IA не смогла разобрать ответ. Повтори анализ или сделай фото ближе к месту парковки.'
+    : lang === 'pt'
+      ? 'A IA nao conseguiu estruturar a resposta. Repita a analise ou tire uma foto mais clara do local.'
+      : 'La IA no pudo estructurar la respuesta. Repite el analisis o toma una foto mas clara del lugar.';
+  return escapeHtml(fallback);
 }
 
 function canPromptForAIKey(){
@@ -3126,8 +3157,8 @@ async function analyzePhotoWithAI(){
 
     const raw = await callGemini([
       {inline_data:{mime_type:mime, data:base64}},
-      {text:`Analiza este lugar para estación JET. Dirección: ${address||'desconocida'}. Idioma de respuesta: ${lang==='ru'?'ruso':lang==='pt'?'portugués':'español'}. Responde solo JSON válido.`}
-    ], 512);
+      {text:`Analiza este lugar para estación JET. Dirección: ${address||'desconocida'}. Idioma de respuesta: ${lang==='ru'?'ruso':lang==='pt'?'portugués':'español'}. Responde solo JSON válido, compacto, sin markdown y sin texto fuera del JSON.`}
+    ], 1024);
     const r = parseAIJson(raw);
 
     // Auto-fill name (only if empty)
@@ -3142,7 +3173,7 @@ async function analyzePhotoWithAI(){
 
     // Show result card
     const icon = r.valid ? '✅' : '⚠️';
-    resultEl.innerHTML = `<strong>${icon} ${r.valid?(lang==='ru'?'Подходит':lang==='pt'?'Apto':'Apto'):(lang==='ru'?'Не подходит':lang==='pt'?'Não apto':'No apto')}</strong><br>${r.reason||''}`;
+    resultEl.innerHTML = `<strong>${icon} ${aiResultTitle(!!r.valid)}</strong><br>${aiResultReason(r.reason)}`;
     resultEl.style.borderColor = r.valid ? '#22c55e' : '#f59e0b';
     resultEl.style.background  = r.valid ? '#f0fdf4' : '#fffbeb';
     resultEl.style.display='block';
@@ -3168,8 +3199,8 @@ async function analyzeLocationWithAI(){
   resultEl.style.display='none';
   try {
     const raw = await callGemini([
-      {text:`Analiza esta dirección para instalar una estación JET: "${address}". No hay foto disponible, analiza solo por la dirección y contexto urbano. Idioma: ${lang==='ru'?'ruso':lang==='pt'?'portugués':'español'}. Responde solo JSON válido.`}
-    ], 400);
+      {text:`Analiza esta dirección para instalar una estación JET: "${address}". No hay foto disponible, analiza solo por la dirección y contexto urbano. Idioma: ${lang==='ru'?'ruso':lang==='pt'?'portugués':'español'}. Responde solo JSON válido, compacto, sin markdown y sin texto fuera del JSON.`}
+    ], 768);
     const r = parseAIJson(raw);
     if(r.name && !document.getElementById('f-name').value.trim()){
       document.getElementById('f-name').value = r.name;
@@ -3178,7 +3209,7 @@ async function analyzeLocationWithAI(){
     if(r.notes && !document.getElementById('f-notes').value.trim()) document.getElementById('f-notes').value=r.notes;
     setRadius2(20);
     const icon = r.valid?'✅':'⚠️';
-    resultEl.innerHTML=`<strong>${icon} ${r.valid?(lang==='ru'?'Подходит':lang==='pt'?'Apto':'Apto'):(lang==='ru'?'Не подходит':lang==='pt'?'Não apto':'No apto')}</strong><br>${r.reason||''}`;
+    resultEl.innerHTML=`<strong>${icon} ${aiResultTitle(!!r.valid)}</strong><br>${aiResultReason(r.reason)}`;
     resultEl.style.borderColor=r.valid?'#22c55e':'#f59e0b';
     resultEl.style.background=r.valid?'#f0fdf4':'#fffbeb';
     resultEl.style.display='block';
