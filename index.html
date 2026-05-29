@@ -1713,6 +1713,7 @@ function stationLiteFromFull(s, docId){
     city: s.city || null,
     batchId: s.batchId || null,
     batchName: s.batchName || null,
+    publicNumber: Number(s.publicNumber || s.displayNumber || s.stationNumber) || null,
     source: s.source || 'manual',
     importFile: s.importFile || '',
     drivePhotoUrl: s.drivePhotoUrl || '',
@@ -1824,6 +1825,111 @@ function stationBatchName(s){
 function defaultBatchName(prefix='SPGG'){
   const city = (currentCity || prefix || 'JET').replace(/\s+/g,' ').trim();
   return `${city} ${today()}`;
+}
+
+let stationNumberByKey = new Map();
+
+function stationNumberKey(s){
+  const id = s?._docId || s?.id || '';
+  if(id) return String(id);
+  const lat = Number(s?.lat);
+  const lng = Number(s?.lng);
+  if(Number.isFinite(lat) && Number.isFinite(lng)) return `${lat.toFixed(6)},${lng.toFixed(6)}`;
+  return '';
+}
+
+function stationExplicitNumber(s){
+  const raw = s?.publicNumber ?? s?.displayNumber ?? s?.stationNumber ?? s?.number;
+  const n = Number(raw);
+  return Number.isFinite(n) && n > 0 ? Math.floor(n) : null;
+}
+
+function stationCreatedAtMs(s){
+  const ts = s?.createdAt;
+  if(ts?.toDate) return ts.toDate().getTime();
+  if(Number.isFinite(ts?.seconds)) return ts.seconds * 1000;
+  const parsed = Date.parse(s?.date || '');
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function rebuildStationNumberIndex(){
+  stationNumberByKey = new Map();
+  const used = new Set();
+  const withoutExplicit = [];
+  [...stations]
+    .filter(s => Number.isFinite(+s.lat) && Number.isFinite(+s.lng) && +s.lat && +s.lng)
+    .forEach(s => {
+      const key = stationNumberKey(s);
+      if(!key) return;
+      const explicit = stationExplicitNumber(s);
+      if(explicit){
+        stationNumberByKey.set(key, explicit);
+        used.add(explicit);
+      }else{
+        withoutExplicit.push(s);
+      }
+    });
+
+  withoutExplicit
+    .sort((a,b) =>
+      stationCreatedAtMs(a) - stationCreatedAtMs(b) ||
+      stationNumberKey(a).localeCompare(stationNumberKey(b)) ||
+      String(a.name||'').localeCompare(String(b.name||''))
+    )
+    .forEach(s => {
+      let n = 1;
+      while(used.has(n)) n++;
+      used.add(n);
+      stationNumberByKey.set(stationNumberKey(s), n);
+    });
+}
+
+function getStationDisplayNumber(s){
+  const explicit = stationExplicitNumber(s);
+  if(explicit) return explicit;
+  const key = stationNumberKey(s);
+  if(!key) return '';
+  if(!stationNumberByKey.size && stations.length) rebuildStationNumberIndex();
+  return stationNumberByKey.get(key) || '';
+}
+
+function stationNumberSeedMax(){
+  rebuildStationNumberIndex();
+  let max = 0;
+  stationNumberByKey.forEach(n => { if(Number.isFinite(n) && n > max) max = n; });
+  return max;
+}
+
+function stationNumberCounterId(){
+  const raw = [currentCountry || 'XX', currentState || '', currentCity || 'global'].join('_');
+  return normalizeBatchId(raw) || 'global';
+}
+
+async function reserveStationPublicNumbers(count=1){
+  const qty = Math.max(1, Math.floor(Number(count) || 1));
+  const fallbackStart = stationNumberSeedMax() + 1;
+  if(!db || !db.runTransaction) return Array.from({length:qty}, (_,i)=>fallbackStart+i);
+  try{
+    const ref = db.collection('station_number_counters').doc(stationNumberCounterId());
+    const start = await db.runTransaction(async tx => {
+      const snap = await tx.get(ref);
+      let next = snap.exists ? Number(snap.data().nextNumber || 1) : 1;
+      if(!Number.isFinite(next) || next < 1) next = 1;
+      next = Math.max(next, fallbackStart);
+      tx.set(ref, {
+        nextNumber: next + qty,
+        country: currentCountry || null,
+        state: currentState || null,
+        city: currentCity || null,
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      }, {merge:true});
+      return next;
+    });
+    return Array.from({length:qty}, (_,i)=>start+i);
+  }catch(e){
+    console.warn('station number reservation fallback:', e);
+    return Array.from({length:qty}, (_,i)=>fallbackStart+i);
+  }
 }
 
 function getFilteredStations(){
@@ -3579,6 +3685,7 @@ async function saveStation(){
       city:     currentCity    || null,
       batchId:   batchId || null,
       batchName: batchName || null,
+      publicNumber: oldStation ? getStationDisplayNumber(oldStation) : null,
       source:    oldStation?.source || 'manual',
       updatedAt: firebase.firestore.FieldValue.serverTimestamp(),
     };
@@ -3587,6 +3694,7 @@ async function saveStation(){
       await upsertStationIndex(editingId, {...oldStation, ...data, _docId: editingId});
       toast(t('updated'));
     } else {
+      data.publicNumber = (await reserveStationPublicNumbers(1))[0];
       data.createdAt = firebase.firestore.FieldValue.serverTimestamp();
       const ref = await db.collection(STATIONS_COLLECTION).add(data);
       await upsertStationIndex(ref.id, {...data, _docId: ref.id});
@@ -3721,7 +3829,7 @@ async function openStationCard(docId){
 
 function stationRenderEntries(){
   const base = getFilteredStations()
-    .map((s, idx) => ({s, displayNo: idx + 1}))
+    .map(s => ({s, displayNo: getStationDisplayNumber(s)}))
     .filter(x => Number.isFinite(+x.s.lat) && Number.isFinite(+x.s.lng) && +x.s.lat && +x.s.lng);
 
   if(!IS_MOBILE_MAP || !map || !map.getBounds) return base;
@@ -3748,6 +3856,7 @@ function stationMarkerHtml(color, isComp, label){
 
 function renderAll(){
   const token = ++renderAllToken;
+  rebuildStationNumberIndex();
   spotsGroup.clearLayers();
   const visible = stationRenderEntries();
   const CHUNK = IS_MOBILE_MAP ? 70 : 40;
@@ -3945,6 +4054,7 @@ function updateListSelBar(){
 
 function renderListItems(){
   const ul = document.getElementById('spot-list');
+  rebuildStationNumberIndex();
   const list = listGetSorted();
   if(!list.length){
     ul.innerHTML='<li style="text-align:center;padding:40px 20px;color:#aaa;font-size:14px">No hay estaciones.<br>Toca ＋ para agregar la primera.</li>';
@@ -3961,7 +4071,7 @@ function renderListItems(){
       <input type="checkbox" class="spot-check" ${isSel?'checked':''} onchange="listToggleOne('${s._docId}',this.checked)" onclick="event.stopPropagation()">
       ${s.hasPhoto?`<div class="spot-thumb" style="display:flex;align-items:center;justify-content:center;background:#eef2ff;color:#2563eb;font-size:16px">📷</div>`:''}
       <div class="spot-body" onclick="flyTo(${s.lat},${s.lng})">
-        <div class="spot-name">${i+1}. ${s.name}
+        <div class="spot-name">${getStationDisplayNumber(s)}. ${s.name}
           <span class="spot-badge">${s.type}</span>
           ${s.capacity?`<span class="spot-cap">🛴 ${s.capacity}</span>`:''}
         </div>
@@ -5654,11 +5764,12 @@ async function exportExcel(){
     const hdr = headers[lang]||headers.es;
     const ownLabel = (v) => ({propia:{es:'JET',ru:'JET',pt:'JET'},competencia:{es:'Competencia',ru:'Конкурент',pt:'Concorrente'}}[v]||{});
 
+    rebuildStationNumberIndex();
     const rows = exportList.map((s,i) => {
       const addrParts = (s.address||'').split(',').map(p=>p.trim());
       const city = s.city || addrParts[addrParts.length-1]||'';
       return [
-        i+1, s.name||'', s.type||'',
+        getStationDisplayNumber(s), s.name||'', s.type||'',
         (ownLabel(s.ownership)||{})[lang]||s.ownership||'',
         stationBatchName(s)||'', s.source||'',
         s.address||'', city,
@@ -6236,6 +6347,7 @@ async function exportPDF(){
   const citySet   = new Set(exportList.map(s=>(s.address||'').split(',').pop().trim()).filter(Boolean));
   const dateStr   = new Date().toLocaleDateString(lang==='ru'?'ru-RU':lang==='pt'?'pt-BR':'es-MX',{year:'numeric',month:'long',day:'numeric'});
 
+  rebuildStationNumberIndex();
   const stationsHtml = exportList.map((s,i)=>`
 <div class="sc">
   <div class="sc-left">
@@ -6246,7 +6358,7 @@ async function exportPDF(){
     </div>
   </div>
   <div class="si">
-    <div class="sn">${i+1}. ${s.name}
+    <div class="sn">${getStationDisplayNumber(s)}. ${s.name}
       <span class="st ${s.ownership==='competencia'?'stc':''}">${s.type}</span>
       <span class="st ${s.ownership==='competencia'?'stc':''}" style="font-size:10px">${own[s.ownership]||s.ownership||''}</span>
     </div>
@@ -6333,6 +6445,7 @@ async function exportHTMLReport(){
   const ownCount = exportList.filter(s=>s.ownership!=='competencia').length;
   const compCount = exportList.filter(s=>s.ownership==='competencia').length;
 
+  rebuildStationNumberIndex();
   const cards = exportList.map((s,i)=>{
     const isComp = s.ownership==='competencia';
     const _sp2 = safePhoto(s);
@@ -6345,7 +6458,7 @@ async function exportHTMLReport(){
     return `<div class="card ${isComp?'card--comp':''}">
   ${photoHtml}
   <div class="card-body">
-    <div class="card-num">${i+1}</div>
+    <div class="card-num">${getStationDisplayNumber(s)}</div>
     <div class="card-name">${s.name||'—'} ${badge}</div>
     <div class="card-type">${s.type||''}</div>
     <div class="card-meta">
