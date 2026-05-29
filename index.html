@@ -108,6 +108,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .spot-ts{font-size:11px;color:#aaa;margin-top:1px}
 .spot-who{font-size:11px;color:#005bff;margin-top:2px;font-weight:600}
 .spot-thumb{width:110px;height:110px;border-radius:8px;object-fit:cover;flex-shrink:0}
+.spot-thumb img{width:100%;height:100%;object-fit:cover;display:block;border-radius:8px}
 .del-btn{background:#fde8e8;color:#dc3545;border:none;border-radius:6px;padding:4px 9px;font-size:12px;cursor:pointer;flex-shrink:0}
 /* Selection toolbar */
 #list-sel-bar{display:flex;align-items:center;gap:8px;padding:8px 0 10px;border-bottom:1px solid #f0f0f0;margin-bottom:6px}
@@ -312,6 +313,20 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .poi-cat-dot{width:11px;height:11px;border-radius:50%;flex-shrink:0}
 .poi-cat-count{margin-left:auto;font-weight:700;font-size:11px}
 .poi-loading{text-align:center;color:#888;font-size:12px;padding:8px 0}
+
+/* CDMX TRANSIT PANEL */
+#tb-transit.active{background:#005bff!important;color:white!important}
+#transit-panel{position:fixed;bottom:90px;right:12px;background:white;border-radius:12px;padding:12px;box-shadow:0 3px 14px rgba(0,0,0,0.22);z-index:1500;min-width:210px;max-width:250px;font-size:13px;display:none}
+#transit-panel.on{display:block}
+.transit-title{font-weight:700;font-size:11px;margin-bottom:10px;color:#0d0d1a;text-transform:uppercase;letter-spacing:0.3px;display:flex;align-items:center;justify-content:space-between}
+.transit-row{display:flex;align-items:center;gap:8px;padding:5px 6px;cursor:pointer;border-radius:6px;transition:background 0.15s;user-select:none}
+.transit-row:hover{background:#f5f5f5}
+.transit-row.active{background:#e8f0ff;color:#005bff;font-weight:600}
+.transit-swatch{width:14px;height:4px;border-radius:2px;flex-shrink:0}
+.transit-swatch.dot{width:11px;height:11px;border-radius:50%}
+.transit-spin{display:inline-block;width:11px;height:11px;border:2px solid #ccc;border-top-color:#005bff;border-radius:50%;animation:spin 0.8s linear infinite;margin-left:auto}
+@keyframes spin{to{transform:rotate(360deg)}}
+.transit-close{background:none;border:none;font-size:18px;color:#aaa;cursor:pointer;line-height:1;padding:0 4px}
 
 /* CITY SELECTOR */
 #city-overlay{position:fixed;inset:0;background:rgba(13,13,26,0.92);z-index:9500;display:none;align-items:center;justify-content:center;padding:20px}
@@ -729,6 +744,7 @@ body{background:var(--bg-deep)!important}
     <button class="tbtn" id="tb-list" onclick="openList()">📋 Lista</button>
     <button class="tbtn" id="tb-team" onclick="openTeam()">👥 Equipo</button>
     <button class="tbtn" id="bike-btn" onclick="toggleBikeLayer(this)">🚴 Ciclovías</button>
+    <button class="tbtn" id="tb-transit" onclick="toggleTransitPanel()">🚇 Transporte</button>
     <button class="tbtn" id="tb-city" onclick="openCitySelector(false)" style="background:#005bff20;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">🌎 Ciudad</button>
     <button class="tbtn" id="tb-suggest" onclick="toggleSuggestions()">🎯 Suger.</button>
     <button class="tbtn" id="tb-import" onclick="openImport()">📥 Import</button>
@@ -737,6 +753,8 @@ body{background:var(--bg-deep)!important}
     <button class="tbtn" id="tb-admin" onclick="openAdminPanel()" style="display:none;position:relative">🛡 Admin<span id="tb-admin-badge" style="position:absolute;top:2px;right:2px;background:#dc3545;color:white;border-radius:8px;font-size:9px;padding:1px 4px;font-weight:700;display:none">0</span></button>
     <button class="tbtn" onclick="openHelp()" style="background:#1e293b;color:#94a3b8;min-width:36px">❓</button>
   </div>
+
+  <div id="transit-panel"></div>
 </div>
 
 <!-- ====== ADD MODAL ====== -->
@@ -2208,15 +2226,20 @@ document.addEventListener('click', (ev) => {
   if(actionRoot.id === 'station-card-panel' && !['hydrate-photo','view-photo','rotate-photo'].includes(action)){
     closeStationCard();
   }
-  if(action === 'hydrate-photo' && docId) hydratePopupPhoto(docId, 99);
-  else if(action === 'view-photo' && el.src) openPhotoViewer(el.src);
-  else if(action === 'rotate-photo' && docId) rotateStationPhoto(docId);
-  else if(action === 'edit' && docId) openEdit(docId);
-  else if(action === 'radius' && docId) toggleRadius(docId, parseFloat(el.dataset.lat), parseFloat(el.dataset.lng));
-  else if(action === 'street') openStreetView(parseFloat(el.dataset.lat), parseFloat(el.dataset.lng));
-  else if(action === 'croqui' && docId) exportCroqui(docId);
-  else if(action === 'delete' && docId) delStation(docId);
-  else if(action === 'delete-request' && docId) openDeleteRequest(docId, el.dataset.name || '');
+  try {
+    if(action === 'hydrate-photo' && docId) hydratePopupPhoto(docId, 99);
+    else if(action === 'view-photo' && el.src) openPhotoViewer(el.src);
+    else if(action === 'rotate-photo' && docId) rotateStationPhoto(docId);
+    else if(action === 'edit' && docId) openEdit(docId);
+    else if(action === 'radius' && docId) toggleRadius(docId, parseFloat(el.dataset.lat), parseFloat(el.dataset.lng));
+    else if(action === 'street') openStreetView(parseFloat(el.dataset.lat), parseFloat(el.dataset.lng));
+    else if(action === 'croqui' && docId) exportCroqui(docId);
+    else if(action === 'delete' && docId) delStation(docId);
+    else if(action === 'delete-request' && docId) openDeleteRequest(docId, el.dataset.name || '');
+  } catch(err) {
+    console.error('popup action "' + action + '" failed:', err);
+    try { toast('⚠️ ' + action + ': ' + (err && err.message ? err.message : err)); } catch(_){}
+  }
 }, true);
 
 function toggleMapLayer() {
@@ -6689,6 +6712,313 @@ function toggleBikeLayer(btn){
     }).addTo(map);
     btn.classList.add('active');
     toast('🚴 Ciclovías activadas');
+  }
+}
+
+// ==================== CDMX TRANSIT LAYERS ====================
+// Líneas oficiales de Metro, Metrobús, Trolebús, Tren Ligero, Suburbano, Cablebús, Ciclovías
+// + estaciones / paradas / parqueos vía Overpass para entender dónde colocar parkings virtuales.
+const TRANSIT_CFG = {
+  metro:     {file:'metro-lineas',       color:'#ff7f00', weight:5,   icon:'🚇', label:{es:'Metro',           ru:'Метро',          pt:'Metrô'}},
+  metrobus:  {file:'mb-lineas',          color:'#d6204b', weight:4,   icon:'🚌', label:{es:'Metrobús',        ru:'Метробус',       pt:'Metrobús'}},
+  trolebus:  {file:'trolebus-lineas',    color:'#8e24aa', weight:3.5, icon:'🚎', label:{es:'Trolebús',        ru:'Троллейбус',     pt:'Trólebus'}},
+  tren_lig:  {file:'tren-ligero-lineas', color:'#ffc107', weight:4,   icon:'🚊', label:{es:'Tren Ligero',     ru:'Лёгкое метро',   pt:'Bonde'}},
+  suburbano: {file:'suburbano-linea',    color:'#0d47a1', weight:4,   icon:'🚆', label:{es:'Tren Suburbano',  ru:'Пригородный',    pt:'Suburbano'}},
+  cablebus:  {file:'cablebus-lineas',    color:'#00bcd4', weight:4,   icon:'🚠', label:{es:'Cablebús',        ru:'Канатная дорога',pt:'Teleférico'}},
+  ciclovias: {file:'ciclovias-dic23',    color:'#2e7d32', weight:2.5, icon:'🚴', label:{es:'Ciclovías CDMX',  ru:'Велодорожки CDMX',pt:'Ciclovias CDMX'}},
+};
+const transitLayers = {};   // key -> L.geoJSON
+const transitCache  = {};   // key -> parsed GeoJSON
+const transitLoading = {};  // key -> bool
+let transitStopsLayer = null;
+let transitStopsLoading = false;
+
+function transitProxyUrl(file){
+  // ecobici.cdmx.gob.mx no manda CORS — vamos vía corsproxy.io (mismo patrón que las fotos)
+  return 'https://corsproxy.io/?' + encodeURIComponent(`https://ecobici.cdmx.gob.mx/wp-content/geojson/${file}.geojson`);
+}
+
+function toggleTransitPanel(){
+  const p = document.getElementById('transit-panel');
+  if(!p) return;
+  if(p.classList.contains('on')){
+    p.classList.remove('on');
+    document.getElementById('tb-transit').classList.remove('active');
+  } else {
+    renderTransitPanel();
+    p.classList.add('on');
+    document.getElementById('tb-transit').classList.add('active');
+  }
+}
+
+function transitLabel(){
+  return {es:'Transporte CDMX', ru:'Транспорт CDMX', pt:'Transporte CDMX'}[lang] || 'Transporte CDMX';
+}
+
+function renderTransitPanel(){
+  const p = document.getElementById('transit-panel');
+  if(!p) return;
+  const stopsActive = !!transitStopsLayer;
+  const stopsLoading = transitStopsLoading;
+  const stopsLabel = {es:'Estaciones y parqueos', ru:'Станции и парковки', pt:'Estações e estacionamento'}[lang] || 'Estaciones y parqueos';
+  const rows = Object.entries(TRANSIT_CFG).map(([k, cfg]) => {
+    const active = !!transitLayers[k];
+    const loading = transitLoading[k];
+    return `<div class="transit-row${active?' active':''}" data-transit-key="${k}" role="button" tabindex="0">
+      <div class="transit-swatch" style="background:${cfg.color}"></div>
+      <span>${cfg.icon} ${cfg.label[lang] || cfg.label.es}</span>
+      ${loading ? '<span class="transit-spin"></span>' : ''}
+    </div>`;
+  }).join('');
+  const poiRows = Object.entries(POI_CFG).map(([k, cfg]) => {
+    const active = !!poiLayers[k];
+    const loading = poiLoading[k];
+    return `<div class="transit-row${active?' active':''}" data-poi-key="${k}" role="button" tabindex="0">
+      <div class="transit-swatch dot" style="background:${cfg.col}"></div>
+      <span>${cfg.icon} ${cfg.label[lang] || cfg.label.es}</span>
+      ${loading ? '<span class="transit-spin"></span>' : ''}
+    </div>`;
+  }).join('');
+  const poiTitle = {es:'Puntos de interés', ru:'Точки интереса', pt:'Pontos de interesse'}[lang] || 'Puntos de interés';
+  const poiHint = {es:'Para decidir dónde poner parkings virtuales', ru:'Чтобы решить где ставить виртуальные парковки', pt:'Para decidir onde colocar parkings virtuais'}[lang] || '';
+  p.innerHTML = `
+    <div class="transit-title">
+      <span>🚇 ${transitLabel()}</span>
+      <button class="transit-close" data-transit-close="1" title="Cerrar" type="button">✕</button>
+    </div>
+    ${rows}
+    <div style="height:1px;background:#eee;margin:8px 0"></div>
+    <div class="transit-row${stopsActive?' active':''}" data-transit-key="__stops" role="button" tabindex="0">
+      <div class="transit-swatch dot" style="background:#0d6efd"></div>
+      <span>🚏 ${stopsLabel}</span>
+      ${stopsLoading ? '<span class="transit-spin"></span>' : ''}
+    </div>
+    <div style="height:1px;background:#eee;margin:8px 0"></div>
+    <div style="font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:.3px;margin:0 0 4px 2px">${poiTitle}</div>
+    ${poiHint ? `<div style="font-size:10px;color:#aaa;margin:0 0 6px 2px">${poiHint}</div>` : ''}
+    ${poiRows}
+  `;
+}
+
+// Event-delegation — fiable incluso cuando innerHTML se reemplaza varias veces
+(function attachTransitDelegate(){
+  if(window.__transitDelegateAttached) return;
+  window.__transitDelegateAttached = true;
+  document.addEventListener('click', (ev) => {
+    const panel = ev.target?.closest?.('#transit-panel');
+    if(!panel) return;
+    const closeBtn = ev.target?.closest?.('[data-transit-close]');
+    if(closeBtn){
+      ev.preventDefault(); ev.stopPropagation();
+      toggleTransitPanel();
+      return;
+    }
+    const poiRow = ev.target?.closest?.('[data-poi-key]');
+    if(poiRow){
+      ev.preventDefault(); ev.stopPropagation();
+      const pk = poiRow.dataset.poiKey;
+      if(POI_CFG[pk]) togglePoiCategory(pk);
+      return;
+    }
+    const row = ev.target?.closest?.('[data-transit-key]');
+    if(!row) return;
+    ev.preventDefault(); ev.stopPropagation();
+    const key = row.dataset.transitKey;
+    if(key === '__stops') toggleTransitStops();
+    else if(TRANSIT_CFG[key]) toggleTransitLayer(key);
+  });
+})();
+
+async function toggleTransitLayer(key){
+  const cfg = TRANSIT_CFG[key];
+  if(!cfg) return;
+  if(transitLayers[key]){
+    map.removeLayer(transitLayers[key]);
+    delete transitLayers[key];
+    renderTransitPanel();
+    return;
+  }
+  if(transitLoading[key]) return;
+  transitLoading[key] = true;
+  renderTransitPanel();
+  try {
+    let data = transitCache[key];
+    if(!data){
+      const res = await fetch(transitProxyUrl(cfg.file));
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      data = await res.json();
+      transitCache[key] = data;
+    }
+    transitLayers[key] = L.geoJSON(data, {
+      style: { color: cfg.color, weight: cfg.weight, opacity: 0.85, lineCap:'round', lineJoin:'round' },
+      onEachFeature: (f, layer) => {
+        const name = (f.properties && (f.properties.name || f.properties.NOMBRE)) || cfg.label[lang] || cfg.label.es;
+        layer.bindTooltip(`${cfg.icon} ${name}`, {sticky:true, direction:'top'});
+      }
+    }).addTo(map);
+  } catch(e){
+    console.warn('Transit layer ' + key + ' failed:', e);
+    toast('❌ ' + (cfg.label[lang]||cfg.label.es) + ': ' + e.message);
+  } finally {
+    transitLoading[key] = false;
+    renderTransitPanel();
+  }
+}
+
+// ==================== STRATEGIC STOPS (Overpass) ====================
+// Metro/bus/tren stations + parqueos — útil para decidir dónde poner parkings virtuales.
+async function toggleTransitStops(){
+  if(transitStopsLayer){
+    map.removeLayer(transitStopsLayer);
+    transitStopsLayer = null;
+    map.off('moveend', transitStopsMoveHandler);
+    renderTransitPanel();
+    return;
+  }
+  if(transitStopsLoading) return;
+  if(map.getZoom() < 13){
+    toast({es:'🔍 Acércate más al mapa (zoom 13+)', ru:'🔍 Приблизь карту (zoom 13+)', pt:'🔍 Aproxime mais (zoom 13+)'}[lang] || 'Zoom in (13+)');
+    return;
+  }
+  transitStopsLoading = true;
+  renderTransitPanel();
+  try {
+    const b = map.getBounds();
+    const bbox = `${b.getSouth().toFixed(5)},${b.getWest().toFixed(5)},${b.getNorth().toFixed(5)},${b.getEast().toFixed(5)}`;
+    const q = `[out:json][timeout:18][bbox:${bbox}];(`+
+      `node["railway"~"^(station|subway_entrance|tram_stop|halt)$"];`+
+      `node["public_transport"="station"];`+
+      `node["amenity"="bus_station"];`+
+      `node["highway"="bus_stop"];`+
+      `node["amenity"="parking"];`+
+      `way["amenity"="parking"];`+
+      `);out center 600;`;
+    const resp = await fetch('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q));
+    if(!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    transitStopsLayer = L.layerGroup().addTo(map);
+    let count = 0;
+    (data.elements || []).forEach(el => {
+      const lat = el.lat || (el.center && el.center.lat);
+      const lon = el.lon || (el.center && el.center.lon);
+      if(!lat || !lon) return;
+      const tags = el.tags || {};
+      let icon = '🚏', col = '#0d6efd', kind = 'Parada';
+      if(tags.railway === 'station' || tags.public_transport === 'station'){ icon='🚇'; col='#ff7f00'; kind='Estación Metro'; }
+      else if(tags.railway === 'subway_entrance'){ icon='Ⓜ️'; col='#ff7f00'; kind='Entrada Metro'; }
+      else if(tags.railway === 'tram_stop'){ icon='🚊'; col='#ffc107'; kind='Tren Ligero'; }
+      else if(tags.amenity === 'bus_station'){ icon='🚌'; col='#d6204b'; kind='Terminal Bus'; }
+      else if(tags.highway === 'bus_stop'){ icon='🚏'; col='#0d6efd'; kind='Parada Bus'; }
+      else if(tags.amenity === 'parking'){ icon='🅿️'; col='#455a64'; kind='Estacionamiento'; }
+      const name = tags.name || tags['name:es'] || kind;
+      const divIcon = L.divIcon({
+        className: '',
+        html: `<div style="background:${col};border-radius:50%;width:24px;height:24px;border:2px solid white;box-shadow:0 1px 5px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:11px">${icon}</div>`,
+        iconSize:[24,24], iconAnchor:[12,12]
+      });
+      L.marker([lat, lon], {icon: divIcon})
+        .bindTooltip(`${icon} ${name}`, {direction:'top'})
+        .bindPopup(`<div style="font-size:13px;min-width:160px"><div style="font-weight:700;margin-bottom:4px">${name}</div><div style="color:#666;font-size:12px">${kind}</div></div>`)
+        .addTo(transitStopsLayer);
+      count++;
+    });
+    toast(`🚏 ${count} ${({es:'puntos',ru:'точек',pt:'pontos'}[lang]||'pts')}`);
+    // Auto-refrescar al mover el mapa (debounced) — evita listeners duplicados
+    map.off('moveend', transitStopsMoveHandler);
+    map.on('moveend', transitStopsMoveHandler);
+  } catch(e){
+    console.warn('Transit stops failed:', e);
+    toast('❌ ' + e.message);
+  } finally {
+    transitStopsLoading = false;
+    renderTransitPanel();
+  }
+}
+let transitStopsDebounce = null;
+function transitStopsMoveHandler(){
+  if(!transitStopsLayer) { map.off('moveend', transitStopsMoveHandler); return; }
+  clearTimeout(transitStopsDebounce);
+  transitStopsDebounce = setTimeout(() => {
+    if(transitStopsLayer){
+      map.removeLayer(transitStopsLayer);
+      transitStopsLayer = null;
+      toggleTransitStops();
+    }
+  }, 900);
+}
+
+// ==================== PUNTOS DE INTERÉS (Overpass) ====================
+// Lugares que generan demanda de micromovilidad — para decidir dónde poner parkings virtuales.
+const POI_CFG = {
+  food:    {icon:'🍽️', col:'#e64a19', label:{es:'Restaurantes / cafés', ru:'Рестораны / кафе', pt:'Restaurantes / cafés'},
+            q:'node["amenity"~"^(restaurant|cafe|fast_food|bar|pub|food_court)$"];'},
+  hotel:   {icon:'🏨', col:'#6a1b9a', label:{es:'Hoteles', ru:'Отели', pt:'Hotéis'},
+            q:'node["tourism"~"^(hotel|hostel|guest_house|motel|apartment)$"];'},
+  gym:     {icon:'🏋️', col:'#2e7d32', label:{es:'Gimnasios', ru:'Спортзалы', pt:'Academias'},
+            q:'node["leisure"="fitness_centre"];node["amenity"="gym"];node["leisure"="sports_centre"];'},
+  museum:  {icon:'🏛️', col:'#00838f', label:{es:'Museos', ru:'Музеи', pt:'Museus'},
+            q:'node["tourism"="museum"];node["tourism"="gallery"];'},
+  tourism: {icon:'📸', col:'#f9a825', label:{es:'Turismo / atracciones', ru:'Туризм / достопримеч.', pt:'Turismo / atrações'},
+            q:'node["tourism"~"^(attraction|viewpoint|artwork|theme_park|zoo)$"];node["historic"];'},
+  mall:    {icon:'🛍️', col:'#ad1457', label:{es:'Plazas / mercados', ru:'ТЦ / рынки', pt:'Shoppings / mercados'},
+            q:'node["shop"="mall"];way["shop"="mall"];node["amenity"="marketplace"];'},
+  metro:   {icon:'🚇', col:'#ff7f00', label:{es:'Estaciones Metro', ru:'Станции метро', pt:'Estações de Metrô'},
+            q:'node["railway"="station"]["station"="subway"];node["station"="subway"];node["railway"="subway_entrance"];'},
+};
+const poiLayers = {};    // key -> L.layerGroup
+const poiLoading = {};   // key -> bool
+
+async function togglePoiCategory(key){
+  const cfg = POI_CFG[key];
+  if(!cfg) return;
+  if(poiLayers[key]){
+    map.removeLayer(poiLayers[key]);
+    delete poiLayers[key];
+    renderTransitPanel();
+    return;
+  }
+  if(poiLoading[key]) return;
+  if(map.getZoom() < 13){
+    toast({es:'🔍 Acércate más al mapa (zoom 13+)', ru:'🔍 Приблизь карту (zoom 13+)', pt:'🔍 Aproxime mais (zoom 13+)'}[lang] || 'Zoom in (13+)');
+    return;
+  }
+  poiLoading[key] = true;
+  renderTransitPanel();
+  try {
+    const b = map.getBounds();
+    const bbox = `${b.getSouth().toFixed(5)},${b.getWest().toFixed(5)},${b.getNorth().toFixed(5)},${b.getEast().toFixed(5)}`;
+    const q = `[out:json][timeout:20][bbox:${bbox}];(${cfg.q});out center 700;`;
+    const resp = await fetch('https://overpass-api.de/api/interpreter?data=' + encodeURIComponent(q));
+    if(!resp.ok) throw new Error('HTTP ' + resp.status);
+    const data = await resp.json();
+    const layer = L.layerGroup();
+    let count = 0;
+    (data.elements || []).forEach(el => {
+      const lat = el.lat || (el.center && el.center.lat);
+      const lon = el.lon || (el.center && el.center.lon);
+      if(!lat || !lon) return;
+      const tags = el.tags || {};
+      const name = tags.name || tags['name:es'] || (cfg.label.es);
+      const divIcon = L.divIcon({
+        className: '',
+        html: `<div style="background:${cfg.col};border-radius:50%;width:22px;height:22px;border:2px solid white;box-shadow:0 1px 5px rgba(0,0,0,0.35);display:flex;align-items:center;justify-content:center;font-size:11px">${cfg.icon}</div>`,
+        iconSize:[22,22], iconAnchor:[11,11]
+      });
+      L.marker([lat, lon], {icon: divIcon})
+        .bindTooltip(`${cfg.icon} ${name}`, {direction:'top'})
+        .bindPopup(`<div style="font-size:13px;min-width:150px"><div style="font-weight:700;margin-bottom:3px">${cfg.icon} ${name}</div><div style="color:#666;font-size:12px">${cfg.label[lang]||cfg.label.es}</div></div>`)
+        .addTo(layer);
+      count++;
+    });
+    layer.addTo(map);
+    poiLayers[key] = layer;
+    toast(`${cfg.icon} ${count} ${({es:'lugares',ru:'мест',pt:'lugares'}[lang]||'pts')}`);
+  } catch(e){
+    console.warn('POI ' + key + ' failed:', e);
+    toast('❌ ' + (cfg.label[lang]||cfg.label.es) + ': ' + e.message);
+  } finally {
+    poiLoading[key] = false;
+    renderTransitPanel();
   }
 }
 
