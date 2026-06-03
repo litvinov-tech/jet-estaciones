@@ -111,14 +111,19 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;backgrou
 .spot-thumb img{width:100%;height:100%;object-fit:cover;display:block;border-radius:8px}
 .del-btn{background:#fde8e8;color:#dc3545;border:none;border-radius:6px;padding:4px 9px;font-size:12px;cursor:pointer;flex-shrink:0}
 /* Selection toolbar */
-#list-sel-bar{display:flex;align-items:center;gap:8px;padding:8px 0 10px;border-bottom:1px solid #f0f0f0;margin-bottom:6px}
+#list-sel-bar{display:flex;align-items:center;gap:8px;padding:8px 0 10px;border-bottom:1px solid #f0f0f0;margin-bottom:6px;flex-wrap:wrap}
 #list-sel-bar label{display:flex;align-items:center;gap:6px;font-size:13px;font-weight:600;cursor:pointer;color:#444}
 #list-sel-all{width:16px;height:16px;accent-color:#005bff;cursor:pointer}
 #list-sel-count{font-size:12px;color:#888;flex:1}
-#list-export-btn,#list-data-export-btn{background:#e65100;color:white;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
+#list-export-btn,#list-data-export-btn,#list-date-export-btn{background:#e65100;color:white;border:none;border-radius:8px;padding:7px 14px;font-size:12px;font-weight:700;cursor:pointer;white-space:nowrap}
 #list-data-export-btn{background:#005bff}
-#list-export-btn:disabled,#list-data-export-btn:disabled{background:#ccc;cursor:default}
+#list-date-export-btn{background:#0f766e}
+#list-export-btn:disabled,#list-data-export-btn:disabled,#list-date-export-btn:disabled{background:#ccc;cursor:default}
 .sort-select{border:1.5px solid #e0e0e0;border-radius:8px;padding:5px 8px;font-size:12px;background:white;color:#444;cursor:pointer}
+#list-date-export-bar{display:flex;align-items:end;gap:8px;flex-wrap:wrap;padding:8px 0 10px;border-bottom:1px solid #f0f0f0;margin-bottom:6px}
+#list-date-export-bar label{display:flex;flex-direction:column;gap:3px;font-size:10px;font-weight:700;color:#666;text-transform:uppercase;letter-spacing:.3px}
+#list-date-export-bar input{border:1.5px solid #e0e0e0;border-radius:8px;padding:5px 8px;font-size:12px;background:white;color:#333;min-width:132px}
+#list-date-export-count{font-size:12px;color:#888;flex:1;min-width:110px;padding-bottom:7px}
 .empty{text-align:center;padding:40px 20px;color:#aaa;font-size:14px}
 
 /* TEAM / STATS */
@@ -977,6 +982,16 @@ body{background:var(--bg-deep)!important}
       <button id="list-data-export-btn" disabled onclick="exportData()">📤 Exportar datos (0)</button>
       <button id="list-del-btn" disabled onclick="delSelected()" style="background:#dc3545;color:#fff;border:none;border-radius:8px;padding:6px 12px;font-size:13px;font-weight:600;cursor:pointer;display:none">🗑 Удалить (0)</button>
     </div>
+    <div id="list-date-export-bar">
+      <label>Desde
+        <input type="date" id="list-date-from" oninput="updateListDateExportBar()" onchange="updateListDateExportBar()">
+      </label>
+      <label>Hasta
+        <input type="date" id="list-date-to" oninput="updateListDateExportBar()" onchange="updateListDateExportBar()">
+      </label>
+      <span id="list-date-export-count">Elige fechas</span>
+      <button id="list-date-export-btn" disabled onclick="exportDateRangeCroqui()">📄 Croqui por fechas</button>
+    </div>
     <ul id="spot-list"></ul>
   </div>
 </div>
@@ -1031,6 +1046,9 @@ body{background:var(--bg-deep)!important}
     </div>
     <button onclick="exportExcel()" style="width:100%;padding:14px;background:#1d6f42;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
       <span data-i18n="exp_btn_excel">📊 Excel (.xlsx) — tabla con coordenadas</span>
+    </button>
+    <button onclick="exportParkingPhotosZip()" style="width:100%;padding:14px;background:linear-gradient(135deg,#0284c7,#005bff);color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
+      <span>🖼 ZIP — parkings + fotos originales</span>
     </button>
     <button onclick="exportCroquiFromModal()" style="width:100%;padding:14px;background:#e65100;color:white;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px">
       <span data-i18n="exp_btn_croqui">📄 Croqui PDF — todas (2 por página)</span>
@@ -1866,7 +1884,24 @@ function stationCreatedAtMs(s){
   const ts = s?.createdAt;
   if(ts?.toDate) return ts.toDate().getTime();
   if(Number.isFinite(ts?.seconds)) return ts.seconds * 1000;
-  const parsed = Date.parse(s?.date || '');
+  return parseStationDateStringMs(s?.date || '');
+}
+
+function parseStationDateStringMs(value){
+  const raw = String(value || '').trim();
+  if(!raw) return 0;
+  const iso = raw.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(iso){
+    const d = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+    return Number.isFinite(d.getTime()) ? d.getTime() : 0;
+  }
+  const slash = raw.match(/^(\d{1,2})[\/.](\d{1,2})[\/.](\d{2,4})/);
+  if(slash){
+    const year = Number(slash[3].length === 2 ? `20${slash[3]}` : slash[3]);
+    const d = new Date(year, Number(slash[2]) - 1, Number(slash[1]));
+    return Number.isFinite(d.getTime()) ? d.getTime() : 0;
+  }
+  const parsed = Date.parse(raw);
   return Number.isFinite(parsed) ? parsed : 0;
 }
 
@@ -4047,10 +4082,70 @@ function listSetSort(mode){
 
 function listGetSorted(){
   let list = getFilteredStations();
-  if(listSortMode === 'date_asc')  list.sort((a,b)=>(a.createdAt?.seconds||0)-(b.createdAt?.seconds||0));
+  if(listSortMode === 'date_asc')  list.sort((a,b)=>stationCreatedAtMs(a)-stationCreatedAtMs(b));
   else if(listSortMode === 'name_asc') list.sort((a,b)=>(a.name||'').localeCompare(b.name||''));
-  else list.sort((a,b)=>(b.createdAt?.seconds||0)-(a.createdAt?.seconds||0)); // date_desc default
+  else list.sort((a,b)=>stationCreatedAtMs(b)-stationCreatedAtMs(a)); // date_desc default
   return list;
+}
+
+function listDateInputMs(id, endOfDay = false){
+  const raw = document.getElementById(id)?.value || '';
+  if(!raw) return null;
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if(!m) return NaN;
+  const d = new Date(
+    Number(m[1]),
+    Number(m[2]) - 1,
+    Number(m[3]),
+    endOfDay ? 23 : 0,
+    endOfDay ? 59 : 0,
+    endOfDay ? 59 : 0,
+    endOfDay ? 999 : 0
+  );
+  return d.getTime();
+}
+
+function listGetDateRangeBounds(){
+  const from = listDateInputMs('list-date-from');
+  const to = listDateInputMs('list-date-to', true);
+  return {
+    from,
+    to,
+    ready: from !== null && to !== null,
+    valid: Number.isFinite(from) && Number.isFinite(to) && from <= to
+  };
+}
+
+function listGetDateRangeStations(){
+  const bounds = listGetDateRangeBounds();
+  if(!bounds.ready || !bounds.valid) return [];
+  return listGetSorted().filter(s => {
+    const ms = stationCreatedAtMs(s);
+    return ms > 0 && ms >= bounds.from && ms <= bounds.to;
+  });
+}
+
+function updateListDateExportBar(){
+  const countEl = document.getElementById('list-date-export-count');
+  const btn = document.getElementById('list-date-export-btn');
+  if(!countEl || !btn) return;
+  const bounds = listGetDateRangeBounds();
+  if(!bounds.ready){
+    countEl.textContent = 'Elige fechas';
+    btn.textContent = '📄 Croqui por fechas';
+    btn.disabled = true;
+    return;
+  }
+  if(!bounds.valid){
+    countEl.textContent = 'Rango inválido';
+    btn.textContent = '📄 Croqui por fechas';
+    btn.disabled = true;
+    return;
+  }
+  const n = listGetDateRangeStations().length;
+  countEl.textContent = `${n} estaciones`;
+  btn.textContent = `📄 Croqui por fechas (${n})`;
+  btn.disabled = n === 0;
 }
 
 function listToggleAll(checked){
@@ -4085,6 +4180,7 @@ function updateListSelBar(){
   }
   const list = listGetSorted();
   document.getElementById('list-sel-all').checked = n > 0 && n === list.length;
+  updateListDateExportBar();
 }
 
 function renderListItems(){
@@ -5833,6 +5929,182 @@ async function exportExcel(){
   }
 }
 
+function csvValue(v){
+  return `"${String(v ?? '').replace(/"/g,'""')}"`;
+}
+
+function photoExportBaseName(s){
+  const no = String(getStationDisplayNumber(s) || 'sin_numero').padStart(3,'0');
+  const name = normalizeBatchId(s.name || s._docId || 'parking') || 'parking';
+  return `${no}_${name}`.slice(0,110);
+}
+
+function dataUrlToBlobInfo(dataUrl){
+  const m = String(dataUrl || '').match(/^data:([^;,]+)?(;base64)?,(.*)$/);
+  if(!m) return null;
+  const mime = m[1] || 'application/octet-stream';
+  const isBase64 = !!m[2];
+  const body = m[3] || '';
+  let bytes;
+  if(isBase64){
+    const bin = atob(body);
+    bytes = new Uint8Array(bin.length);
+    for(let i=0;i<bin.length;i++) bytes[i] = bin.charCodeAt(i);
+  }else{
+    const text = decodeURIComponent(body);
+    bytes = new TextEncoder().encode(text);
+  }
+  return {blob:new Blob([bytes], {type:mime}), mime};
+}
+
+function photoExtFromMime(mime){
+  const m = String(mime || '').toLowerCase();
+  if(m.includes('png')) return 'png';
+  if(m.includes('webp')) return 'webp';
+  if(m.includes('heic')) return 'heic';
+  if(m.includes('heif')) return 'heif';
+  return 'jpg';
+}
+
+function getBlobImageSize(blob){
+  return new Promise(resolve => {
+    if(!blob || !String(blob.type || '').startsWith('image/')){
+      resolve({width:'',height:''});
+      return;
+    }
+    const url = URL.createObjectURL(blob);
+    const img = new Image();
+    img.onload = () => {
+      const size = {width:img.naturalWidth || img.width || '', height:img.naturalHeight || img.height || ''};
+      URL.revokeObjectURL(url);
+      resolve(size);
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      resolve({width:'',height:''});
+    };
+    img.src = url;
+  });
+}
+
+async function fetchPhotoBlobFromUrl(url){
+  const resp = await fetch(url, {mode:'cors', credentials:'omit'});
+  if(!resp.ok) throw new Error(`HTTP ${resp.status}`);
+  const blob = await resp.blob();
+  if(!blob || !blob.size) throw new Error('empty photo');
+  const type = String(blob.type || '').toLowerCase();
+  if(type && !type.startsWith('image/') && !type.includes('octet-stream')){
+    throw new Error(`not an image: ${blob.type}`);
+  }
+  return {blob, mime:blob.type || 'image/jpeg'};
+}
+
+function stationPhotoExportSources(s){
+  const raw = String(firstPhotoValue(s) || '').trim();
+  const safe = safePhoto(s);
+  const out = [];
+  if(raw) out.push(raw);
+  if(safe && safe !== raw) out.push(safe);
+  const driveId = driveFileId(raw);
+  if(driveId) out.push(`https://drive.google.com/uc?export=download&id=${encodeURIComponent(driveId)}`);
+  return [...new Set(out.filter(Boolean))];
+}
+
+async function resolveStationPhotoForExport(s){
+  const sources = stationPhotoExportSources(s);
+  for(const src of sources){
+    try{
+      if(String(src).startsWith('data:image/')){
+        const info = dataUrlToBlobInfo(src);
+        if(info) return {...info, source:'data-url'};
+      }
+      if(String(src).startsWith('http')){
+        const info = await fetchPhotoBlobFromUrl(src);
+        return {...info, source:src};
+      }
+    }catch(e){
+      console.warn('photo export source skipped:', e);
+    }
+  }
+  return {blob:null, mime:'', source:sources[0] || ''};
+}
+
+async function exportParkingPhotosZip(){
+  const status = document.getElementById('export-status');
+  const exportList = await getExportStationsFull(status);
+  if(!exportList.length){ toast(t('no_export')); return; }
+  try{
+    if(!window.JSZip){
+      await new Promise((res,rej)=>{
+        const s=document.createElement('script');
+        s.src='https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js';
+        s.onload=res; s.onerror=rej;
+        document.head.appendChild(s);
+      });
+    }
+
+    rebuildStationNumberIndex();
+    const zip = new JSZip();
+    const rows = [];
+    const headers = [
+      'parking_number','name','type','ownership','batch','source','address','city',
+      'latitude','longitude','capacity','radius_m','registered_by','date','notes',
+      'photo_file','photo_width_px','photo_height_px','photo_bytes','photo_source'
+    ];
+
+    let photosOk = 0;
+    let photosMissing = 0;
+    for(let i=0;i<exportList.length;i++){
+      const s = exportList[i];
+      status.innerHTML = `<span class="spinner"></span> Preparando ZIP ${i+1}/${exportList.length}...`;
+      const photo = await resolveStationPhotoForExport(s);
+      let photoFile = '';
+      let w = '', h = '', bytes = '';
+      if(photo.blob){
+        const size = await getBlobImageSize(photo.blob);
+        w = size.width; h = size.height; bytes = photo.blob.size;
+        const ext = photoExtFromMime(photo.mime);
+        photoFile = `photos/${photoExportBaseName(s)}.${ext}`;
+        zip.file(photoFile, photo.blob);
+        photosOk++;
+      }else{
+        photosMissing++;
+      }
+      const addrParts = (s.address||'').split(',').map(p=>p.trim());
+      const city = s.city || addrParts[addrParts.length-1] || '';
+      rows.push([
+        getStationDisplayNumber(s), s.name||'', s.type||'', s.ownership||'', stationBatchName(s)||'', s.source||'',
+        s.address||'', city, s.lat||'', s.lng||'', s.capacity||'', s.radius||'',
+        s.userName||'', s.date||'', s.notes||'', photoFile, w, h, bytes, photo.source || ''
+      ]);
+    }
+
+    const csv = [headers, ...rows].map(r => r.map(csvValue).join(',')).join('\r\n');
+    zip.file('parkings.csv', '\uFEFF' + csv);
+    zip.file('README.txt',
+`JET parkings export
+
+Files:
+- parkings.csv: parking data with parking_number and photo metadata.
+- photos/: photo files exported at the size stored/available in the app, without resizing during export.
+
+Photos exported: ${photosOk}
+Photos missing/unavailable: ${photosMissing}
+Generated: ${new Date().toISOString()}
+`);
+
+    status.innerHTML = `<span class="spinner"></span> Comprimiendo ZIP...`;
+    const blob = await zip.generateAsync({type:'blob', compression:'DEFLATE'});
+    download(blob, `JET_parkings_fotos_originales_${exportNameSuffix(exportList)}.zip`);
+    status.innerHTML = '';
+    closeOverlay('export-overlay');
+    toast(`🖼 ZIP descargado: ${photosOk} fotos`);
+  }catch(e){
+    console.error(e);
+    if(status) status.innerHTML = `<span style="color:#dc3545">${t('exp_err')} ${e.message}</span>`;
+  }
+}
+
 // --- Map image + radius overlay for PDF ---
 const LEAFLET_HEAD = `<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"><\/script>`;
@@ -5970,6 +6242,18 @@ async function exportSelectedCroqui(){
   if(selectedDocIds.size === 0){ toast('⚠️ Выберите парковки'); return; }
   const win = openReportWindow();
   const list = [...selectedDocIds].map(id=>stations.find(s=>s._docId===id)).filter(Boolean);
+  const fullList = await loadFullStations(list);
+  if(!fullList.length){ if(win) win.close(); toast(t('no_export')); return; }
+  exportCroquiMulti(fullList, win);
+}
+
+async function exportDateRangeCroqui(){
+  const bounds = listGetDateRangeBounds();
+  if(!bounds.ready){ toast('⚠️ Selecciona fecha inicial y final'); return; }
+  if(!bounds.valid){ toast('⚠️ Rango de fechas inválido'); return; }
+  const list = listGetDateRangeStations();
+  if(!list.length){ toast('⚠️ No hay estaciones en ese rango'); return; }
+  const win = openReportWindow();
   const fullList = await loadFullStations(list);
   if(!fullList.length){ if(win) win.close(); toast(t('no_export')); return; }
   exportCroquiMulti(fullList, win);
